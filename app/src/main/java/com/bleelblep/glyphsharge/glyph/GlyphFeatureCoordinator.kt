@@ -64,4 +64,5 @@ enum class GlyphFeature {
     BATTERY_STORY,
     MANUAL_DEMO,
     LOW_BATTERY,
+    SCREEN_OFF,
 } 

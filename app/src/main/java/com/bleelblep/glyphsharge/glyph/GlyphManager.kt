@@ -6,7 +6,6 @@ import android.util.Log
 import com.nothing.ketchum.Common
 import com.nothing.ketchum.Glyph
 import com.nothing.ketchum.GlyphException
-import com.nothing.ketchum.GlyphFrame
 import com.bleelblep.glyphsharge.utils.LoggingManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -140,9 +139,8 @@ class GlyphManager @Inject constructor(
      */
     fun initialize() {
         if (isInitialized) return
-
-            try {
-                mGM = com.nothing.ketchum.GlyphManager.getInstance(context)
+        try {
+            mGM = com.nothing.ketchum.GlyphManager.getInstance(context)
 
             // Bind to the system Glyph service immediately. This triggers
             // onServiceConnected -> register(deviceType) -> openSession(),

@@ -1,8 +1,5 @@
 package com.bleelblep.glyphsharge.ui.screens
 
-import android.content.Context
-import android.os.Vibrator
-import android.os.VibratorManager
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -17,13 +14,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.bleelblep.glyphsharge.ui.components.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import com.bleelblep.glyphsharge.ui.utils.HapticType
 import com.bleelblep.glyphsharge.ui.theme.SettingsRepository
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
+
 
 /**
  * Vibration Settings Screen with comprehensive haptic feedback customization
@@ -39,7 +34,7 @@ fun VibrationSettingsScreen(
     val haptic = LocalHapticFeedback.current
     
     // Use reactive state from SettingsRepository
-    val vibrationIntensity by settingsRepository.vibrationIntensityFlow
+    val vibrationIntensity by settingsRepository.vibrationIntensityFlow.collectAsState()
     val scrollState = rememberLazyListState()
 
     // Simple and precise scroll detection - transparent ONLY when exactly at original position

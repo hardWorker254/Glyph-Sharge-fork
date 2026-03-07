@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
-import android.os.Build
 import android.util.Log
 import com.bleelblep.glyphsharge.data.repository.ChargingSessionRepository
 import com.bleelblep.glyphsharge.services.*
@@ -83,6 +82,9 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 Log.d(TAG, "Tier 2 – PulseLock")
                 context.startForegroundServiceCompat(PulseLockService::class.java)
             }
+            if (settingsRepository.isScreenOffFeatureEnabled()) {
+                context.startForegroundServiceCompat(ScreenOffGlyphService::class.java)
+            }
         }
 
         // Quiet Hours has no Glyph dependency
@@ -138,6 +140,5 @@ private fun Context.startForegroundServiceCompat(
     configure: Intent.() -> Unit = {}
 ) {
     val intent = Intent(this, clazz).apply(configure)
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent)
-    else startService(intent)
+    startForegroundService(intent)
 }

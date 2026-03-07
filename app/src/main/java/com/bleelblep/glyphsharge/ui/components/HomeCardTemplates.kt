@@ -4769,9 +4769,9 @@ private fun LowBatteryConfirmationDialog(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
-                        onClick = { 
+                        onClick = {
                             HapticUtils.triggerLightFeedback(haptic, context)
-                            showSettingsDialogInternal = true 
+                            showSettingsDialogInternal = true
                         },
                         modifier = Modifier.weight(1f).height(48.dp),
                         colors = ButtonDefaults.buttonColors(
@@ -4792,9 +4792,9 @@ private fun LowBatteryConfirmationDialog(
                     }
 
                     OutlinedButton(
-                        onClick = { 
+                        onClick = {
                             HapticUtils.triggerLightFeedback(haptic, context)
-                            onDismiss() 
+                            onDismiss()
                         },
                         modifier = Modifier.weight(1f).height(48.dp),
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
@@ -4819,6 +4819,508 @@ private fun LowBatteryConfirmationDialog(
             settingsRepository = settingsRepository
         )
     }
+}
+
+
+
+@Composable
+fun ScreenOffCard(
+    onTestScreenOff: () -> Unit,
+    title: String = "Screen Off Animation",
+    description: String = "Play a beautiful glyph sequence when turning off the screen.",
+    icon: Painter = rememberVectorPainter(Icons.Default.PowerSettingsNew),
+    modifier: Modifier = Modifier,
+    iconSize: Int = 32,
+    isServiceActive: Boolean = true,
+    settingsRepository: SettingsRepository
+) {
+    val context = LocalContext.current
+    var showDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    var enabled by remember { mutableStateOf(settingsRepository.isScreenOffFeatureEnabled()) }
+
+    val alpha by animateFloatAsState(
+        targetValue = if (isServiceActive) 1f else 0.3f,
+        animationSpec = tween(300),
+        label = "screenOffAlpha"
+    )
+
+    val resolvedTint = when {
+        !isServiceActive -> Color(0xFF674FA3) // Purple when master service OFF
+        enabled -> Color(0xFF4CAF50)          // Green when feature ON
+        else -> Color(0xFFE53935)             // Red when feature OFF
+    }
+
+    Box(modifier = modifier.alpha(alpha)) {
+        FeatureCard(
+            title = title,
+            description = description,
+            icon = icon,
+            onClick = {
+                if (isServiceActive) showDialog = true
+                else Toast.makeText(context, "Please enable the Glyph service first", Toast.LENGTH_SHORT).show()
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(140.dp),
+            iconSize = iconSize,
+            contentPadding = PaddingValues(16.dp),
+            iconTint = resolvedTint
+        )
+    }
+
+    // Toggle in corner
+    Box(modifier = modifier.fillMaxWidth().height(0.dp)) {
+        MorphingToggleButton(
+            checked = enabled,
+            onCheckedChange = { e ->
+                enabled = e
+                settingsRepository.saveScreenOffFeatureEnabled(e)
+            },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = (-12).dp, y = 12.dp)
+        )
+    }
+
+    // Confirmation (Info) Dialog
+    if (showDialog && isServiceActive) {
+        ScreenOffConfirmationDialog(
+            onTest = {
+                onTestScreenOff()
+                showDialog = false
+            },
+            onSettings = {
+                showDialog = false
+                showSettingsDialog = true
+            },
+            onDismiss = { showDialog = false },
+            settingsRepository = settingsRepository
+        )
+    }
+
+    // Configuration Dialog
+    if (showSettingsDialog && isServiceActive) {
+        ScreenOffConfigDialog(
+            onDismiss = {
+                showSettingsDialog = false
+                // Refresh state in case it was toggled inside settings
+                enabled = settingsRepository.isScreenOffFeatureEnabled()
+            },
+            settingsRepository = settingsRepository
+        )
+    }
+}
+
+@Composable
+private fun ScreenOffConfirmationDialog(
+    onTest: () -> Unit,
+    onSettings: () -> Unit,
+    onDismiss: () -> Unit,
+    settingsRepository: SettingsRepository,
+    modifier: Modifier = Modifier
+) {
+    val themeState = LocalThemeState.current
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true
+        ),
+        title = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "✨ Screen Off Anim",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Light up when locking",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = when (themeState.themeStyle) {
+                            AppThemeStyle.AMOLED -> Color(0xFF1A1A1A)
+                            AppThemeStyle.CLASSIC -> if (themeState.isDarkTheme) MaterialTheme.colorScheme.surfaceContainer else Color(0xFFF8F5FF)
+                            else -> MaterialTheme.colorScheme.surfaceContainer
+                        }
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "✨ How it works:",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "• Triggers every time the screen turns off.\n" +
+                                    "• Plays your selected animation.\n" +
+                                    "• Automatically suppressed during Quiet Hours.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 20.sp
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                ElevatedButton(
+                    onClick = {
+                        HapticUtils.triggerMediumFeedback(haptic, context)
+                        onTest()
+                    },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    colors = ButtonDefaults.elevatedButtonColors(
+                        containerColor = when (themeState.themeStyle) {
+                            AppThemeStyle.AMOLED -> Color(0xFF4CAF50)
+                            AppThemeStyle.CLASSIC -> Color(0xFF674FA3)
+                            else -> MaterialTheme.colorScheme.primary
+                        },
+                        contentColor = Color.White
+                    ),
+                    elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 6.dp, pressedElevation = 12.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text("🧪 Test Animation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            HapticUtils.triggerLightFeedback(haptic, context)
+                            onSettings()
+                        },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = when (themeState.themeStyle) {
+                                AppThemeStyle.AMOLED -> Color(0xFF2D4A3E)
+                                AppThemeStyle.CLASSIC -> Color(0xFF8D7BA5)
+                                else -> MaterialTheme.colorScheme.secondaryContainer
+                            },
+                            contentColor = when (themeState.themeStyle) {
+                                AppThemeStyle.AMOLED -> Color.White
+                                AppThemeStyle.CLASSIC -> Color.White
+                                else -> MaterialTheme.colorScheme.onSecondaryContainer
+                            }
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("⚙️ Settings", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            HapticUtils.triggerLightFeedback(haptic, context)
+                            onDismiss()
+                        },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("✕ Cancel", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+        },
+        dismissButton = {},
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(24.dp),
+        modifier = modifier
+    )
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ScreenOffConfigDialog(
+    onDismiss: () -> Unit,
+    settingsRepository: SettingsRepository,
+    modifier: Modifier = Modifier
+) {
+    val themeState = LocalThemeState.current
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val accentColor = when (themeState.themeStyle) {
+        AppThemeStyle.AMOLED -> Color(0xFF4CAF50)
+        else -> Color(0xFF674FA3)
+    }
+
+    // Settings State
+    var durationMs by remember { mutableStateOf(settingsRepository.getScreenOffDuration().toFloat()) }
+    var selectedAnim by remember { mutableStateOf(PulseLockAnimations.getById(settingsRepository.getScreenOffAnimationId())) }
+    val currentlyEnabled = remember { settingsRepository.isScreenOffFeatureEnabled() }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Configure",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Customize Screen Off behavior",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // Animation Picker Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = when (themeState.themeStyle) {
+                            AppThemeStyle.AMOLED -> Color(0xFF1A1A1A)
+                            AppThemeStyle.CLASSIC -> if (themeState.isDarkTheme) MaterialTheme.colorScheme.surfaceContainer else Color(0xFFF8F5FF)
+                            else -> MaterialTheme.colorScheme.surfaceContainer
+                        }
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        // DI injection as in the example
+                        val glyphAnimationManager = remember {
+                            EntryPointAccessors.fromApplication(
+                                context.applicationContext,
+                                GlyphComponent::class.java
+                            ).glyphAnimationManager()
+                        }
+                        val coroutineScope = rememberCoroutineScope()
+
+                        Text("🎞️ Select Animation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            PulseLockAnimations.list.forEach { anim ->
+                                FilterChip(
+                                    selected = anim == selectedAnim,
+                                    onClick = {
+                                        HapticUtils.triggerLightFeedback(haptic, context)
+                                        selectedAnim = anim
+                                        settingsRepository.saveScreenOffAnimationId(anim.id)
+                                    },
+                                    label = { Text(anim.displayName) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                )
+                            }
+                        }
+
+                        // Test Button
+                        Button(
+                            onClick = {
+                                HapticUtils.triggerMediumFeedback(haptic, context)
+                                coroutineScope.launch {
+                                    try {
+                                        glyphAnimationManager.playScreenOffAnimation(selectedAnim.id)
+                                    } catch (e: Exception) {
+                                        Log.e("ScreenOffConfig", "Error testing animation: ${e.message}")
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = when (themeState.themeStyle) {
+                                    AppThemeStyle.AMOLED -> Color(0xFF2D2D2D)
+                                    AppThemeStyle.CLASSIC -> Color(0xFFE8E1F5)
+                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                },
+                                contentColor = when (themeState.themeStyle) {
+                                    AppThemeStyle.AMOLED -> Color.White
+                                    AppThemeStyle.CLASSIC -> Color(0xFF674FA3)
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = "🧪 Preview \"${selectedAnim.displayName}\"",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+
+                // Duration Card
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = when (themeState.themeStyle) {
+                            AppThemeStyle.AMOLED -> Color(0xFF1A1A1A)
+                            AppThemeStyle.CLASSIC -> if (themeState.isDarkTheme) MaterialTheme.colorScheme.surfaceContainer else Color(0xFFF8F5FF)
+                            else -> MaterialTheme.colorScheme.surfaceContainer
+                        }
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "⏱️ Play Duration",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Surface(
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    // Форматируем красиво: 1.0s, 5.0s, 10.0s
+                                    text = "${String.format("%.1f", durationMs / 1000f)}s",
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+
+                        Slider(
+                            value = durationMs,
+                            onValueChange = { newValue ->
+                                HapticUtils.triggerLightFeedback(haptic, context)
+                                durationMs = newValue
+                                settingsRepository.saveScreenOffDuration(newValue.toLong())
+                            },
+                            valueRange = 1000f..10000f,
+                            steps = 8,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = SliderDefaults.colors(thumbColor = accentColor)
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("1s", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("10s", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                ElevatedButton(
+                    onClick = {
+                        // Save config
+                        settingsRepository.saveScreenOffAnimationId(selectedAnim.id)
+                        settingsRepository.saveScreenOffDuration(durationMs.toLong())
+
+                        // Ensure it's enabled if they clicked save
+                        if (!currentlyEnabled) {
+                            settingsRepository.saveScreenOffFeatureEnabled(true)
+                        }
+                        onDismiss()
+                    },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    colors = ButtonDefaults.elevatedButtonColors(containerColor = accentColor, contentColor = Color.White),
+                    elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 6.dp, pressedElevation = 12.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(
+                        text = if (currentlyEnabled) "💾 Save Settings" else "⚡ Enable Feature",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            settingsRepository.saveScreenOffFeatureEnabled(false)
+                            onDismiss()
+                        },
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE53935), // Red
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("✖️ Disable", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("✕ Cancel", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+        },
+        dismissButton = {},
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(24.dp),
+        modifier = modifier
+    )
 }
 
 /**

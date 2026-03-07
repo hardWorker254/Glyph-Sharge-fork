@@ -126,6 +126,17 @@
                 android:value="This service plays a glyph animation on device unlock (Pulse Lock)." />
         </service>
 
+
+        <!-- Screen Glyph Lock foreground service -->
+        <service
+            android:name=".services.ScreenOffGlyphService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse" >
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="This service plays a glyph animation on device lock." />
+        </service>
+
         <!-- Persistent foreground service for glyph features -->
         <service
             android:name=".services.GlyphForegroundService"

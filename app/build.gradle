@@ -15,7 +15,7 @@ android {
         minSdk 34  // Android 14+ only
         targetSdk 34
         versionCode 1024
-        versionName "1.0.24-GlowGate "
+        versionName "1.0.25-ScreenOff"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
