@@ -6,7 +6,7 @@
 
 **Power. Protect. Personalize. All through light.**
 
-[![GitHub Releases](https://img.shields.io/github/v/release/bleelblep/Glyph-Sharge?label=Download\&style=flat-square)](https://github.com/hardWorker254/Glyph-Sharge-fork/releases/tag/Main)
+https://github.com/hardWorker254/Glyph-Sharge-fork/releases/tag/Main
 
 ---
 
