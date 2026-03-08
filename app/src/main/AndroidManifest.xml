@@ -18,6 +18,8 @@
     <uses-permission android:name="android.permission.TURN_SCREEN_ON" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
 
     <!-- Support for high refresh rate displays -->
     <uses-feature
@@ -39,7 +41,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.GlyphSharge"
         android:largeHeap="true"
-        tools:targetApi="34">
+        >
 
         <!-- Nothing Glyph API Key (use "test" for debugging) -->
         <meta-data
@@ -60,7 +62,6 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
             android:theme="@style/Theme.GlyphSharge"
             android:windowSoftInputMode="adjustResize"
             android:hardwareAccelerated="true"
@@ -147,6 +148,17 @@
         <!-- Low Battery Alert foreground service -->
         <service
             android:name=".services.LowBatteryAlertService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse" >
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="This service monitors battery level and provides low battery alerts using glyph interface." />
+        </service>
+
+
+        <!-- Low Battery Alert foreground service -->
+        <service
+            android:name=".services.NfcGlyphService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="specialUse" >

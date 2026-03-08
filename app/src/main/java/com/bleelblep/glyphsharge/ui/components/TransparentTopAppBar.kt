@@ -1,5 +1,6 @@
 package com.bleelblep.glyphsharge.ui.components
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material.icons.Icons
@@ -20,7 +21,7 @@ fun TransparentTopAppBar(
     onBackClick: () -> Unit,
     scrollState: androidx.compose.foundation.lazy.LazyListState,
     actions: (@Composable RowScope.() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current

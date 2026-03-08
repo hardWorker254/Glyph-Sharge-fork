@@ -65,4 +65,5 @@ enum class GlyphFeature {
     MANUAL_DEMO,
     LOW_BATTERY,
     SCREEN_OFF,
+    NFC,
 } 

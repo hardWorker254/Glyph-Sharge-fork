@@ -37,6 +37,7 @@ import com.bleelblep.glyphsharge.di.GlyphComponent
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.core.net.toUri
 
 /**
  * Low Battery Alert Configuration Data Class
@@ -283,23 +284,23 @@ fun LowBatteryAlertEnableDialog(
     var isSaving by remember { mutableStateOf(false) }
 
     // Initial preferences
-    var threshold by remember { mutableStateOf(settingsRepository.getLowBatteryThreshold().toFloat()) }
+    var threshold by remember { mutableFloatStateOf(settingsRepository.getLowBatteryThreshold().toFloat()) }
     var selectedAnim by remember { mutableStateOf(PulseLockAnimations.getById(settingsRepository.getLowBatteryAnimationId())) }
     var soundEnabled by remember { mutableStateOf(settingsRepository.isLowBatteryAudioEnabled()) }
     var soundUri by remember { mutableStateOf(settingsRepository.getLowBatteryAudioUri()) }
-    var soundOffset by remember { 
-        mutableStateOf(
+    var soundOffset by remember {
+        mutableFloatStateOf(
             // Ensure offset is not negative - reset to 0 if it was previously negative
             maxOf(0f, settingsRepository.getLowBatteryAudioOffset().toFloat())
         ) 
     }
-    var animationDuration by remember { mutableStateOf(settingsRepository.getLowBatteryDuration().coerceIn(1000L, 10000L)) }
+    var animationDuration by remember { mutableLongStateOf(settingsRepository.getLowBatteryDuration().coerceIn(1000L, 10000L)) }
     
     // Get sound name for display
     val soundName = remember(soundUri) {
         soundUri?.let { uriString ->
             try {
-                val uri = Uri.parse(uriString)
+                val uri = uriString.toUri()
                 
                 // Try to get ringtone title first (works for system sounds)
                 val ringtone = RingtoneManager.getRingtone(context, uri)

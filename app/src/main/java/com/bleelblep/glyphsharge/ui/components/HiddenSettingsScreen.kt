@@ -1,22 +1,19 @@
 package com.bleelblep.glyphsharge.ui.components
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.BorderStroke
 import com.bleelblep.glyphsharge.ui.theme.GlyphZenRed
 import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.delay
@@ -32,21 +29,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import android.net.Uri
 import com.bleelblep.glyphsharge.utils.LoggingManager
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.hilt.navigation.compose.hiltViewModel
 import android.content.Context
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.bleelblep.glyphsharge.ui.theme.SettingsRepository
-import com.bleelblep.glyphsharge.ui.theme.NothingRed
 import androidx.compose.ui.platform.LocalHapticFeedback
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 
@@ -80,14 +69,14 @@ fun HiddenSettingsScreen(
     onCardExamplesClick: () -> Unit = {},
     onHardwareDiagnosticsClick: () -> Unit = {},
     settingsRepository: SettingsRepository,
-    modifier: Modifier = Modifier
+    @SuppressLint("ModifierParameter") modifier: Modifier = Modifier
 ) {
     // State management
     var showConfirmationDialog by remember { mutableStateOf(false) }
     var showCountdownDialog by remember { mutableStateOf(false) }
     var showRunningDialog by remember { mutableStateOf(false) }
     var dialogState by remember { mutableStateOf<DialogState?>(null) }
-    var cycleSpeedMultiplier by remember { mutableStateOf(1f) }
+    var cycleSpeedMultiplier by remember { mutableFloatStateOf(1f) }
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     
@@ -242,13 +231,13 @@ fun HiddenSettingsScreen(
     if (showConfirmationDialog) {
         FeatureConfirmationDialog(
             title = "Confirmation Test",
-            description = "This is a test of the confirmation dialog state. It shows the initial confirmation screen with custom text.",
+            description = "",
             onConfirm = { progressCallback ->
                 progressCallback(0f)
                 delay(5000)
                 progressCallback(1f)
             },
-            onDismiss = { 
+            onDismiss = {
                 showConfirmationDialog = false
                 dialogState = null
             },
@@ -256,7 +245,7 @@ fun HiddenSettingsScreen(
             isTestMode = true,
             customButtons = {
                 DialogTestButtons(
-                    onExit = { 
+                    onExit = {
                         showConfirmationDialog = false
                         dialogState = null
                     }
@@ -268,7 +257,7 @@ fun HiddenSettingsScreen(
     if (showCountdownDialog) {
         FeatureConfirmationDialog(
             title = "Countdown Test",
-            description = "This is a test of the countdown dialog state. It will show a 5-second countdown before proceeding.",
+            description = "",
             onConfirm = { /* Do nothing - we don't want to trigger the running dialog */ },
             onDismiss = { 
                 showCountdownDialog = false
@@ -290,7 +279,7 @@ fun HiddenSettingsScreen(
     if (showRunningDialog) {
         FeatureConfirmationDialog(
             title = "Running Dialog Test",
-            description = "This is a test of the running dialog.",
+            description = "",
             onConfirm = { progressCallback ->
                 for (i in 0..100) {
                     progressCallback(i / 100f)

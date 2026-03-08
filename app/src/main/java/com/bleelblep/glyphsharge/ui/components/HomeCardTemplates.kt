@@ -19,7 +19,6 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.selection.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -42,7 +41,6 @@ import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.glyph.*
-import com.bleelblep.glyphsharge.glyph.GlyphAnimationManager
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import kotlinx.coroutines.launch
@@ -1567,14 +1565,14 @@ private data class ChargingInfo(
  */
 @Composable
 fun PowerPeekCard(
-    title: String,
-    description: String,
+    title: String = "Power Peek",
+    description: String = "Peek at your battery life with a quick shake.",
     icon: Painter,
     onTestPowerPeek: () -> Unit,
     onEnablePowerPeek: () -> Unit,
     onDisablePowerPeek: () -> Unit,
     modifier: Modifier = Modifier,
-    iconSize: Int = 40,
+    iconSize: Int = 32,
     isServiceActive: Boolean = true,
     settingsRepository: SettingsRepository,
     autoDemo: Boolean = false
@@ -1584,127 +1582,89 @@ fun PowerPeekCard(
     val coroutineScope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
-    // Track current state for immediate UI update
     var powerPeekEnabled by remember { mutableStateOf(settingsRepository.isPowerPeekEnabled()) }
 
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.95f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessHigh
-        ),
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessHigh),
         label = "scale",
         finishedListener = { finalValue ->
-            // When scale animation completes and we're pressed down (scale = 0.95f)
             if (finalValue == 0.95f && isPressed && isServiceActive) {
-                // Animation finished, add small pause to let user see the press state
                 coroutineScope.launch {
-                    kotlinx.coroutines.delay(150) // Brief pause after animation completes
+                    kotlinx.coroutines.delay(150)
                     showDialog = true
                     isPressed = false
                 }
             }
         }
     )
-
     val alpha by animateFloatAsState(
         targetValue = if (isServiceActive) 1f else 0.3f,
         animationSpec = tween(300),
         label = "alpha"
     )
-
-    // Handle press animation and dialog timing
-    LaunchedEffect(isPressed) {
-        if (isPressed && !isServiceActive) {
-            // Brief animation then trigger onClick for toast
-            delay(150)
-            isPressed = false
-            // Show service disabled toast
-            // This will be handled by the parent component
-        }
+    val resolvedTint = when {
+        !isServiceActive -> Color(0xFF674FA3)
+        powerPeekEnabled -> ACTIVE_GREEN
+        else -> INACTIVE_RED
     }
 
-    // Auto demo handling
-    LaunchedEffect(autoDemo) {
-        if (autoDemo && isServiceActive) {
-            delay(600)
-            showDialog = true
-            delay(1500)
-            showDialog = false
-        }
-    }
-
-    // Card with status indicator overlay
-    Box(
-        modifier = modifier
-            .aspectRatio(1f)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .alpha(alpha)
-    ) {
+    Box(modifier = modifier.fillMaxWidth().height(140.dp).alpha(alpha)) {
         FeatureCard(
             title = title,
             description = description,
             icon = icon,
             onClick = {
                 HapticUtils.triggerLightFeedback(haptic, context)
-                if (!isPressed) { // Prevent multiple rapid clicks
-                    isPressed = true
-                }
+                if (!isPressed) isPressed = true
             },
             modifier = Modifier.fillMaxSize(),
             iconSize = iconSize,
             contentPadding = PaddingValues(16.dp),
-            // Use theme-aware colors so the icon adapts automatically on theme changes
-            iconTint = when {
-                !isServiceActive -> Color(0xFF674FA3) // Purple when master service OFF
-                powerPeekEnabled -> ACTIVE_GREEN      // Green when feature ON
-                else -> INACTIVE_RED                  // Red when feature OFF
-            }
+            iconTint = resolvedTint
         )
     }
-
-    // PowerPeek confirmation dialog
+    Box(modifier = modifier.fillMaxWidth().height(0.dp)) {
+        MorphingToggleButton(
+            checked = powerPeekEnabled,
+            onCheckedChange = { enabled ->
+                powerPeekEnabled = enabled
+                settingsRepository.savePowerPeekEnabled(enabled)
+                if (enabled) onEnablePowerPeek() else onDisablePowerPeek()
+            },
+            modifier = Modifier.align(Alignment.TopEnd).offset(x = (-12).dp, y = 12.dp)
+        )
+    }
     if (showDialog && isServiceActive) {
         PowerPeekConfirmationDialog(
-            onTestPowerPeek = {
-                onTestPowerPeek()
-                showDialog = false
-            },
-            onEnablePowerPeek = {
-                onEnablePowerPeek()
-                // Update local status immediately
-                powerPeekEnabled = true
-                showDialog = false
-            },
-            onDisablePowerPeek = {
-                onDisablePowerPeek()
-                powerPeekEnabled = false
-                showDialog = false
-            },
-            onDismiss = { 
-                showDialog = false 
-            },
+            onTestPowerPeek = { onTestPowerPeek(); showDialog = false },
+            onEnablePowerPeek = { onEnablePowerPeek(); powerPeekEnabled = true; showDialog = false },
+            onDisablePowerPeek = { onDisablePowerPeek(); powerPeekEnabled = false; showDialog = false },
+            onDismiss = { showDialog = false },
             settingsRepository = settingsRepository
         )
     }
+    LaunchedEffect(autoDemo) {
+        if (autoDemo && isServiceActive) {
+            delay(600); showDialog = true; delay(1500); showDialog = false
+        }
+    }
 }
+
 
 /**
  * Glyph Guard-specific card with multiple action buttons
  */
 @Composable
 fun GlyphGuardCard(
-    title: String,
-    description: String,
+    title: String = "Glyph Guard",
+    description: String = "Stay secure with Glyph and Sound Alerts if Unplugged.",
     icon: Painter,
     onTest: () -> Unit,
     onStart: () -> Unit,
     onStop: () -> Unit,
     modifier: Modifier = Modifier,
-    iconSize: Int = 40,
+    iconSize: Int = 32,
     isServiceActive: Boolean = true,
     glyphGuardMode: GlyphGuardMode = GlyphGuardMode.Standard,
     settingsRepository: SettingsRepository,
@@ -1719,108 +1679,58 @@ fun GlyphGuardCard(
 
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.95f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessHigh
-        ),
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessHigh),
         label = "scale",
         finishedListener = { finalValue ->
-            // When scale animation completes and we're pressed down (scale = 0.95f)
             if (finalValue == 0.95f && isPressed && isServiceActive) {
-                // Animation finished, add small pause to let user see the press state
-                coroutineScope.launch {
-                    kotlinx.coroutines.delay(150) // Brief pause after animation completes
-                    showDialog = true
-                    isPressed = false
-                }
+                coroutineScope.launch { kotlinx.coroutines.delay(150); showDialog = true; isPressed = false }
             }
         }
     )
-
     val alpha by animateFloatAsState(
         targetValue = if (isServiceActive) 1f else 0.3f,
         animationSpec = tween(300),
         label = "alpha"
     )
-
-    // Handle press animation and dialog timing
-    LaunchedEffect(isPressed) {
-        if (isPressed && !isServiceActive) {
-            // Brief animation then trigger onClick for toast
-            delay(150)
-            isPressed = false
-            // Show service disabled toast
-            // This will be handled by the parent component
-        }
+    val resolvedTint = when {
+        !isServiceActive -> Color(0xFF674FA3)
+        glyphGuardEnabled -> ACTIVE_GREEN
+        else -> INACTIVE_RED
     }
 
-    // Card with status indicator overlay
-    Box(
-        modifier = modifier
-            .aspectRatio(1f)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .alpha(alpha)
-    ) {
+    Box(modifier = modifier.fillMaxWidth().height(140.dp).alpha(alpha)) {
         FeatureCard(
-            title = title,
-            description = description,
-            icon = icon,
-            onClick = {
-                HapticUtils.triggerLightFeedback(haptic, context)
-                if (!isPressed) { // Prevent multiple rapid clicks
-                    isPressed = true
-                }
-            },
-            modifier = Modifier.fillMaxSize(),
-            iconSize = iconSize,
-            contentPadding = PaddingValues(16.dp),
-            // Theme-aware tinting for Glyph Guard status
-            iconTint = when {
-                !isServiceActive -> Color(0xFF674FA3) // Purple when master service OFF
-                glyphGuardEnabled -> ACTIVE_GREEN      // Green when feature ON
-                else -> INACTIVE_RED                   // Red when feature OFF
-            }
+            title = title, description = description, icon = icon,
+            onClick = { HapticUtils.triggerLightFeedback(haptic, context); if (!isPressed) isPressed = true },
+            modifier = Modifier.fillMaxSize(), iconSize = iconSize, contentPadding = PaddingValues(16.dp),
+            iconTint = resolvedTint
         )
     }
-
-    // Glyph Guard confirmation dialog
+    Box(modifier = modifier.fillMaxWidth().height(0.dp)) {
+        MorphingToggleButton(
+            checked = glyphGuardEnabled,
+            onCheckedChange = { enabled ->
+                glyphGuardEnabled = enabled
+                settingsRepository.saveGlyphGuardEnabled(enabled)
+                if (enabled) onStart() else onStop()
+            },
+            modifier = Modifier.align(Alignment.TopEnd).offset(x = (-12).dp, y = 12.dp)
+        )
+    }
     if (showDialog && isServiceActive) {
         GlyphGuardConfirmationDialog(
-            onTest = {
-                onTest()
-                showDialog = false
-            },
-            onStart = {
-                onStart()
-                glyphGuardEnabled = true
-                showDialog = false
-            },
-            onStop = {
-                onStop()
-                glyphGuardEnabled = false
-                showDialog = false
-            },
-            onDismiss = { 
-                showDialog = false 
-            },
-            glyphGuardMode = glyphGuardMode,
-            settingsRepository = settingsRepository
+            onTest = { onTest(); showDialog = false },
+            onStart = { onStart(); glyphGuardEnabled = true; showDialog = false },
+            onStop = { onStop(); glyphGuardEnabled = false; showDialog = false },
+            onDismiss = { showDialog = false },
+            glyphGuardMode = glyphGuardMode, settingsRepository = settingsRepository
         )
     }
-
-    // trigger demo automatically
     LaunchedEffect(autoDemo) {
-        if (autoDemo && isServiceActive) {
-            delay(600)
-            showDialog = true
-            delay(1500)
-            showDialog = false
-        }
+        if (autoDemo && isServiceActive) { delay(600); showDialog = true; delay(1500); showDialog = false }
     }
 }
+
 
 /**
  * Glyph Guard confirmation dialog with test, start, and stop options - styled like PowerPeek
@@ -3873,11 +3783,11 @@ private fun QuietHoursInformationDialog(
     )
 }
 
-// New square card for Battery Story feature
+
 @Composable
 fun BatteryStoryCard(
     title: String = "Battery Story",
-    description: String = "View charging history",
+    description: String = "Track your device's charging patterns and battery health.",
     icon: Painter,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
@@ -3888,87 +3798,60 @@ fun BatteryStoryCard(
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     var isBatteryStoryEnabled by remember { mutableStateOf(settingsRepository.isBatteryStoryEnabled()) }
-
     var isPressed by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.95f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessHigh
-        ),
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessHigh),
         label = "scale",
         finishedListener = { finalValue ->
             if (finalValue == 0.95f && isPressed) {
-                // Wait briefly so user can perceive the press state
                 coroutineScope.launch {
                     kotlinx.coroutines.delay(150)
-                    if (isBatteryStoryEnabled) {
-                        onOpen()
-                    } else {
-                        Toast.makeText(context, "Please enable Battery Story first", Toast.LENGTH_SHORT).show()
-                    }
+                    if (isBatteryStoryEnabled) onOpen()
+                    else Toast.makeText(context, "Please enable Battery Story first", Toast.LENGTH_SHORT).show()
                     isPressed = false
                 }
             }
         }
     )
-
     val alpha by animateFloatAsState(
         targetValue = if (isServiceActive && isBatteryStoryEnabled) 1f else 0.3f,
         animationSpec = tween(300),
         label = "alpha"
     )
-
-    // Calculate the resolved tint - use purple when service inactive, green when enabled
     val resolvedTint = when {
-        !isServiceActive -> Color(0xFF674FA3) // Purple when master service OFF
-        isBatteryStoryEnabled -> ACTIVE_GREEN // Green when feature ON
-        else -> null // Use default tint when feature OFF
+        !isServiceActive -> Color(0xFF674FA3)
+        isBatteryStoryEnabled -> ACTIVE_GREEN
+        else -> null
     }
 
-    Box(
-        modifier = modifier
-            .aspectRatio(1f)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .alpha(alpha)
-    ) {
+    Box(modifier = modifier.fillMaxWidth().height(140.dp).graphicsLayer { scaleX = scale; scaleY = scale }.alpha(alpha)) {
         FeatureCard(
-            title = title,
-            description = description,
-            icon = icon,
-            onClick = {
-                if (!isPressed) isPressed = true
-            },
-            modifier = Modifier.fillMaxSize(),
-            iconSize = iconSize,
-            contentPadding = PaddingValues(16.dp),
+            title = title, description = description, icon = icon,
+            onClick = { if (!isPressed) isPressed = true },
+            modifier = Modifier.fillMaxSize(), iconSize = iconSize, contentPadding = PaddingValues(16.dp),
             iconTint = resolvedTint
         )
-
-        // Enable / Disable toggle in the corner
+    }
+    Box(modifier = modifier.fillMaxWidth().height(0.dp)) {
         MorphingToggleButton(
             checked = isBatteryStoryEnabled,
             onCheckedChange = { enabled ->
                 isBatteryStoryEnabled = enabled
                 settingsRepository.saveBatteryStoryEnabled(enabled)
             },
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .offset(x = (-12).dp, y = 12.dp)
+            modifier = Modifier.align(Alignment.TopEnd).offset(x = (-12).dp, y = 12.dp)
         )
     }
 }
 
-    // Placeholder square card for the upcoming Glow Gate feature
+
 @Composable
 fun PulseLockCard(
-    title: String,
-    description: String,
+    title: String = "Glow Gate",
+    description: String = "Light up your unlock with stunning glyph animations.",
     icon: Painter,
     onTestPulseLock: () -> Unit,
     onEnablePulseLock: () -> Unit,
@@ -3977,12 +3860,14 @@ fun PulseLockCard(
     iconSize: Int = 32,
     isServiceActive: Boolean = true,
     settingsRepository: SettingsRepository,
-    autoDemo: Boolean = false // automatically show dialog once when rendered
+    autoDemo: Boolean = false
 ) {
     var isPressed by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
     var pulseLockEnabled by remember { mutableStateOf(settingsRepository.isPulseLockEnabled()) }
     val coroutineScope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
 
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.95f else 1f,
@@ -3990,65 +3875,51 @@ fun PulseLockCard(
         label = "scale",
         finishedListener = { finalValue ->
             if (finalValue == 0.95f && isPressed && isServiceActive) {
-                coroutineScope.launch {
-                    kotlinx.coroutines.delay(150)
-                    showDialog = true
-                    isPressed = false
-                }
+                coroutineScope.launch { kotlinx.coroutines.delay(150); showDialog = true; isPressed = false }
             }
         }
     )
-
     val alpha by animateFloatAsState(
         targetValue = if (isServiceActive) 1f else 0.3f,
         animationSpec = tween(300),
         label = "alpha"
     )
-
-    // Calculate the resolved tint like the other cards do
     val resolvedTint = when {
-        !isServiceActive -> Color(0xFF674FA3) // Purple when master service OFF
-        pulseLockEnabled -> ACTIVE_GREEN      // Green when feature ON
-        else -> INACTIVE_RED                  // Red when feature OFF
+        !isServiceActive -> Color(0xFF674FA3)
+        pulseLockEnabled -> ACTIVE_GREEN
+        else -> INACTIVE_RED
     }
 
-    Box(
-        modifier = modifier
-            .aspectRatio(1f)
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .alpha(alpha)
-    ) {
+    Box(modifier = modifier.fillMaxWidth().height(140.dp).alpha(alpha)) {
         FeatureCard(
-            title = title,
-            description = description,
-            icon = icon,
+            title = title, description = description, icon = icon,
             onClick = { if (!isPressed) isPressed = true },
-            modifier = Modifier.fillMaxSize(),
-            iconSize = iconSize,
-            contentPadding = PaddingValues(16.dp),
+            modifier = Modifier.fillMaxSize(), iconSize = iconSize, contentPadding = PaddingValues(16.dp),
             iconTint = resolvedTint
         )
     }
-
+    Box(modifier = modifier.fillMaxWidth().height(0.dp)) {
+        MorphingToggleButton(
+            checked = pulseLockEnabled,
+            onCheckedChange = { enabled ->
+                pulseLockEnabled = enabled
+                settingsRepository.savePulseLockEnabled(enabled)
+                if (enabled) onEnablePulseLock() else onDisablePulseLock()
+            },
+            modifier = Modifier.align(Alignment.TopEnd).offset(x = (-12).dp, y = 12.dp)
+        )
+    }
     if (showDialog && isServiceActive) {
         com.bleelblep.glyphsharge.ui.components.PulseLockConfirmationDialog(
             onTestPulseLock = onTestPulseLock,
-            onEnablePulseLock = { onEnablePulseLock(); pulseLockEnabled = true },
-            onDisablePulseLock = { onDisablePulseLock(); pulseLockEnabled = false },
+            onEnablePulseLock = { onEnablePulseLock(); pulseLockEnabled = true; showDialog = false },
+            onDisablePulseLock = { onDisablePulseLock(); pulseLockEnabled = false; showDialog = false },
             onDismiss = { showDialog = false },
             settingsRepository = settingsRepository
         )
     }
-
-    // Automatically trigger dialog for onboarding demo
     LaunchedEffect(autoDemo) {
-        if (autoDemo && isServiceActive) {
-            delay(600)
-            showDialog = true
-            // Auto close after 1.5s
-            delay(1500)
-            showDialog = false
-        }
+        if (autoDemo && isServiceActive) { delay(600); showDialog = true; delay(1500); showDialog = false }
     }
 }
 
@@ -5322,6 +5193,717 @@ private fun ScreenOffConfigDialog(
         modifier = modifier
     )
 }
+
+
+
+// ────────────────────────────────────────────────────────────────────────────
+//  NFC Glyph Card (wide)
+// ────────────────────────────────────────────────────────────────────────────
+
+@Composable
+fun NfcGlyphCard(
+    title: String = "NFC Glyph",
+    description: String = "Play a Glyph animation on NFC tap or contactless payment.",
+    icon: Painter = rememberVectorPainter(Icons.Default.Nfc),
+    modifier: Modifier = Modifier,
+    iconSize: Int = 32,
+    isServiceActive: Boolean = true,
+    onTestNfc: () -> Unit,
+    onEnableNfc: () -> Unit,
+    onDisableNfc: () -> Unit,
+    settingsRepository: SettingsRepository
+) {
+    val context = LocalContext.current
+    var showDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    var enabled by remember { mutableStateOf(settingsRepository.isNfcFeatureEnabled()) }
+
+    val alpha by animateFloatAsState(
+        targetValue = if (isServiceActive) 1f else 0.3f,
+        animationSpec = tween(300),
+        label = "nfcAlpha"
+    )
+
+    val resolvedTint = when {
+        !isServiceActive -> Color(0xFF674FA3)   // Purple when master OFF
+        enabled          -> ACTIVE_GREEN         // Green when feature ON
+        else             -> INACTIVE_RED         // Red when feature OFF
+    }
+
+    // ── Card ────────────────────────────────────────────────────────────
+    Box(modifier = modifier.alpha(alpha)) {
+        FeatureCard(
+            title = title,
+            description = description,
+            icon = icon,
+            onClick = {
+                if (isServiceActive) showDialog = true
+                else Toast.makeText(
+                    context,
+                    "Please enable the Glyph service first",
+                    Toast.LENGTH_SHORT
+                ).show()
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(140.dp),
+            iconSize = iconSize,
+            contentPadding = PaddingValues(16.dp),
+            iconTint = resolvedTint
+        )
+    }
+
+    // ── Toggle overlay ──────────────────────────────────────────────────
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(0.dp)
+    ) {
+        MorphingToggleButton(
+            checked = enabled,
+            onCheckedChange = { e ->
+                enabled = e
+                settingsRepository.saveNfcFeatureEnabled(e)
+                if (e) onEnableNfc() else onDisableNfc()
+            },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = (-12).dp, y = 12.dp)
+        )
+    }
+
+    // ── Confirmation dialog ─────────────────────────────────────────────
+    if (showDialog && isServiceActive) {
+        NfcGlyphConfirmationDialog(
+            onTest = {
+                onTestNfc()
+                showDialog = false
+            },
+            onSettings = {
+                showDialog = false
+                showSettingsDialog = true
+            },
+            onDismiss = { showDialog = false },
+            settingsRepository = settingsRepository
+        )
+    }
+
+    // ── Settings (config) dialog ────────────────────────────────────────
+    if (showSettingsDialog) {
+        NfcGlyphConfigDialog(
+            onDismiss = {
+                showSettingsDialog = false
+                enabled = settingsRepository.isNfcFeatureEnabled()
+            },
+            onEnable = {
+                enabled = true
+                settingsRepository.saveNfcFeatureEnabled(true)
+                onEnableNfc()
+                showSettingsDialog = false
+            },
+            onDisable = {
+                enabled = false
+                settingsRepository.saveNfcFeatureEnabled(false)
+                onDisableNfc()
+                showSettingsDialog = false
+            },
+            settingsRepository = settingsRepository
+        )
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Confirmation Dialog
+// ────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun NfcGlyphConfirmationDialog(
+    onTest: () -> Unit,
+    onSettings: () -> Unit,
+    onDismiss: () -> Unit,
+    settingsRepository: SettingsRepository,
+    modifier: Modifier = Modifier
+) {
+    val themeState = LocalThemeState.current
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    var showSettingsInternal by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = { /* prevent outside dismiss */ },
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false
+        ),
+        title = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "📡 NFC Glyph",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Animate glyphs on NFC events",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = when (themeState.themeStyle) {
+                            AppThemeStyle.AMOLED -> Color(0xFF1A1A1A)
+                            AppThemeStyle.CLASSIC -> if (themeState.isDarkTheme)
+                                MaterialTheme.colorScheme.surfaceContainer
+                            else Color(0xFFF8F5FF)
+                            else -> MaterialTheme.colorScheme.surfaceContainer
+                        }
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "✨ How it works:",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "• Triggers when you tap to pay (Google Pay, etc.)\n" +
+                                    "• Triggers when an NFC tag is scanned\n" +
+                                    "• Plays a chosen glyph animation\n" +
+                                    "• Respects Quiet Hours if enabled",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 20.sp
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Primary: Test
+                ElevatedButton(
+                    onClick = {
+                        HapticUtils.triggerMediumFeedback(haptic, context)
+                        onTest()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    colors = ButtonDefaults.elevatedButtonColors(
+                        containerColor = when (themeState.themeStyle) {
+                            AppThemeStyle.AMOLED -> Color(0xFF4CAF50)
+                            AppThemeStyle.CLASSIC -> Color(0xFF674FA3)
+                            else -> MaterialTheme.colorScheme.primary
+                        },
+                        contentColor = Color.White
+                    ),
+                    elevation = ButtonDefaults.elevatedButtonElevation(
+                        defaultElevation = 6.dp,
+                        pressedElevation = 12.dp
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(
+                        "🧪 Test Animation",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // Secondary: Settings & Cancel
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            HapticUtils.triggerLightFeedback(haptic, context)
+                            showSettingsInternal = true
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = when (themeState.themeStyle) {
+                                AppThemeStyle.AMOLED -> Color(0xFF2D4A3E)
+                                AppThemeStyle.CLASSIC -> Color(0xFF8D7BA5)
+                                else -> MaterialTheme.colorScheme.secondaryContainer
+                            },
+                            contentColor = when (themeState.themeStyle) {
+                                AppThemeStyle.AMOLED -> Color.White
+                                AppThemeStyle.CLASSIC -> Color.White
+                                else -> MaterialTheme.colorScheme.onSecondaryContainer
+                            }
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            "⚙️ Settings",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = {
+                            HapticUtils.triggerLightFeedback(haptic, context)
+                            onDismiss()
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            "✕ Cancel",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        },
+        dismissButton = {},
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(24.dp),
+        modifier = modifier
+    )
+
+    // Nested settings dialog
+    if (showSettingsInternal) {
+        NfcGlyphConfigDialog(
+            onDismiss = { showSettingsInternal = false },
+            onEnable = {
+                settingsRepository.saveNfcFeatureEnabled(true)
+                showSettingsInternal = false
+            },
+            onDisable = {
+                settingsRepository.saveNfcFeatureEnabled(false)
+                showSettingsInternal = false
+            },
+            settingsRepository = settingsRepository
+        )
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+//  Config Dialog — animation picker + duration slider
+// ────────────────────────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun NfcGlyphConfigDialog(
+    onDismiss: () -> Unit,
+    onEnable: () -> Unit,
+    onDisable: () -> Unit,
+    settingsRepository: SettingsRepository,
+    modifier: Modifier = Modifier
+) {
+    val themeState = LocalThemeState.current
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val accentColor = when (themeState.themeStyle) {
+        AppThemeStyle.AMOLED -> Color(0xFF4CAF50)
+        else -> Color(0xFF674FA3)
+    }
+
+    // ── State ───────────────────────────────────────────────────────────
+    var selectedAnim by remember {
+        mutableStateOf(
+            PulseLockAnimations.getById(settingsRepository.getNfcAnimationId())
+        )
+    }
+    var duration by remember {
+        mutableStateOf(settingsRepository.getNfcAnimationDuration().toFloat())
+    }
+    val currentlyEnabled = remember { settingsRepository.isNfcFeatureEnabled() }
+
+    // Get GlyphAnimationManager via Hilt entry point
+    val glyphAnimationManager = remember {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            GlyphComponent::class.java
+        ).glyphAnimationManager()
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = "Configure",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Customize NFC glyph animation",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // ── Animation Picker ────────────────────────────────────
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = when (themeState.themeStyle) {
+                            AppThemeStyle.AMOLED -> Color(0xFF1A1A1A)
+                            AppThemeStyle.CLASSIC -> if (themeState.isDarkTheme)
+                                MaterialTheme.colorScheme.surfaceContainer
+                            else Color(0xFFF8F5FF)
+                            else -> MaterialTheme.colorScheme.surfaceContainer
+                        }
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            "🎞️ Animation",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                        ) {
+                            PulseLockAnimations.list.forEach { anim ->
+                                FilterChip(
+                                    selected = anim == selectedAnim,
+                                    onClick = {
+                                        HapticUtils.triggerLightFeedback(haptic, context)
+                                        selectedAnim = anim
+                                        settingsRepository.saveNfcAnimationId(anim.id)
+                                    },
+                                    label = { Text(anim.displayName) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                )
+                            }
+                        }
+
+                        // Test button
+                        Button(
+                            onClick = {
+                                HapticUtils.triggerMediumFeedback(haptic, context)
+                                coroutineScope.launch {
+                                    try {
+                                        when (selectedAnim.id) {
+                                            "SPIRAL"    -> glyphAnimationManager.runSpiralAnimation()
+                                            "HEARTBEAT" -> glyphAnimationManager.runHeartbeatAnimation()
+                                            "MATRIX"    -> glyphAnimationManager.runMatrixRainAnimation()
+                                            "FIREWORKS" -> glyphAnimationManager.runFireworksAnimation()
+                                            "DNA"       -> glyphAnimationManager.runDNAHelixAnimation()
+                                            else        -> glyphAnimationManager.playNfcAnimation(selectedAnim.id)
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.e("NfcGlyphCard", "Error testing animation: ${e.message}")
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = when (themeState.themeStyle) {
+                                    AppThemeStyle.AMOLED -> Color(0xFF2D2D2D)
+                                    AppThemeStyle.CLASSIC -> Color(0xFFE8E1F5)
+                                    else -> MaterialTheme.colorScheme.surfaceVariant
+                                },
+                                contentColor = when (themeState.themeStyle) {
+                                    AppThemeStyle.AMOLED -> Color.White
+                                    AppThemeStyle.CLASSIC -> Color(0xFF674FA3)
+                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                }
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = "🧪 Test \"${selectedAnim.displayName}\"",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+
+                // ── Duration Slider ─────────────────────────────────────
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = when (themeState.themeStyle) {
+                            AppThemeStyle.AMOLED -> Color(0xFF1A1A1A)
+                            AppThemeStyle.CLASSIC -> if (themeState.isDarkTheme)
+                                MaterialTheme.colorScheme.surfaceContainer
+                            else Color(0xFFF8F5FF)
+                            else -> MaterialTheme.colorScheme.surfaceContainer
+                        }
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "⏱️ Duration",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Surface(
+                                color = when (themeState.themeStyle) {
+                                    AppThemeStyle.AMOLED -> Color(0xFF2D2D2D)
+                                    AppThemeStyle.CLASSIC -> if (themeState.isDarkTheme)
+                                        MaterialTheme.colorScheme.primaryContainer
+                                    else Color(0xFFE8DEF8)
+                                    else -> MaterialTheme.colorScheme.primaryContainer
+                                },
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "${"%.1f".format(duration / 1000f)}s",
+                                    modifier = Modifier.padding(
+                                        horizontal = 12.dp,
+                                        vertical = 4.dp
+                                    ),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = when (themeState.themeStyle) {
+                                        AppThemeStyle.AMOLED -> Color.White
+                                        AppThemeStyle.CLASSIC -> Color(0xFF674FA3)
+                                        else -> MaterialTheme.colorScheme.onPrimaryContainer
+                                    }
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = "How long the animation plays after an NFC event.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Slider(
+                            value = duration,
+                            onValueChange = {
+                                duration = it
+                            },
+                            valueRange = 1000f..10000f,
+                            steps = 17,  // 500ms increments
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = SliderDefaults.colors(thumbColor = accentColor)
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "1s",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                "10s",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                // ── Info note ───────────────────────────────────────────
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = when (themeState.themeStyle) {
+                            AppThemeStyle.AMOLED -> Color(0xFF1A1A1A)
+                            AppThemeStyle.CLASSIC -> if (themeState.isDarkTheme)
+                                MaterialTheme.colorScheme.surfaceContainer
+                            else Color(0xFFF8F5FF)
+                            else -> MaterialTheme.colorScheme.surfaceContainer
+                        }
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "ℹ️ Note",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "• NFC must be enabled in system settings\n" +
+                                    "• Works with Google Pay, tag scans, etc.\n" +
+                                    "• HCE payment detection is automatic\n" +
+                                    "• Tag detection requires the app in foreground",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                var isSaving by remember { mutableStateOf(false) }
+
+                // Primary: Save / Enable
+                ElevatedButton(
+                    onClick = {
+                        isSaving = true
+                        settingsRepository.saveNfcAnimationId(selectedAnim.id)
+                        settingsRepository.saveNfcAnimationDuration(duration.toLong())
+
+                        if (!currentlyEnabled) {
+                            settingsRepository.saveNfcFeatureEnabled(true)
+                            onEnable()
+                        } else {
+                            onDismiss()
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    colors = ButtonDefaults.elevatedButtonColors(
+                        containerColor = accentColor,
+                        contentColor = Color.White
+                    ),
+                    elevation = ButtonDefaults.elevatedButtonElevation(
+                        defaultElevation = 6.dp,
+                        pressedElevation = 12.dp
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    if (isSaving) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    } else {
+                        Text(
+                            text = if (currentlyEnabled) "💾 Save Settings"
+                            else "⚡ Enable NFC Glyph",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                // Secondary: Disable & Cancel
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = {
+                            settingsRepository.saveNfcFeatureEnabled(false)
+                            onDisable()
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = NothingRed,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            "✖️ Disable",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
+                        border = BorderStroke(
+                            1.5.dp,
+                            MaterialTheme.colorScheme.outline
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            "✕ Cancel",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        },
+        dismissButton = {},
+        containerColor = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(24.dp),
+        modifier = modifier
+    )
+}
+
+
 
 /**
  * Copy a file from external URI to internal storage to avoid permission issues

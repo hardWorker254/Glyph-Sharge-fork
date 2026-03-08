@@ -112,7 +112,7 @@ fun SettingsScreen(
         ) {
             // Typography Settings Card with Drag Navigation
             item {
-                var offsetX by remember { mutableStateOf(0f) }
+                var offsetX by remember { mutableFloatStateOf(0f) }
                 val configuration = LocalConfiguration.current
                 val density = LocalDensity.current
                 
@@ -242,7 +242,7 @@ fun SettingsScreen(
 
             // Theme Settings Card  
             item {
-                var offsetX by remember { mutableStateOf(0f) }
+                var offsetX by remember { mutableFloatStateOf(0f) }
                 val configuration = LocalConfiguration.current
                 val density = LocalDensity.current
                 
@@ -376,7 +376,7 @@ fun SettingsScreen(
 
             // Quiet Hours Settings Card (draggable with toggle)
             item {
-                var offsetX by remember { mutableStateOf(0f) }
+                var offsetX by remember { mutableFloatStateOf(0f) }
                 val configuration = LocalConfiguration.current
                 val density = LocalDensity.current
                 
@@ -556,7 +556,7 @@ private fun HiddenSettingsDragCard(
     onHiddenSettingsAccess: (() -> Unit)?,
     modifier: Modifier = Modifier
 ) {
-    var offsetX by remember { mutableStateOf(0f) }
+    var offsetX by remember { mutableFloatStateOf(0f) }
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
     val configuration = LocalConfiguration.current

@@ -2,8 +2,10 @@ package com.bleelblep.glyphsharge
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.PendingIntent
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.nfc.NfcAdapter
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
@@ -67,6 +69,9 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var createLogFileLauncher: androidx.activity.result.ActivityResultLauncher<String>
 
+    private var nfcAdapter: NfcAdapter? = null
+    private var nfcPendingIntent: PendingIntent? = null
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,6 +88,7 @@ class MainActivity : ComponentActivity() {
         configureWindow()
         initializeGlyphService()
         initializeServices()
+        initializeNfcDispatch()
         WatermarkHelper.disable()
         setupUI()
         startPersistentGlyphService()
@@ -104,6 +110,17 @@ class MainActivity : ComponentActivity() {
         if (wasServiceEnabled) glyphManager.openSession()
         maybeRestoreSession()
         WatermarkHelper.addToActivity(this)
+        enableNfcForegroundDispatch()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        disableNfcForegroundDispatch()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        NfcGlyphService.forwardNfcIntent(this, intent)
     }
 
     override fun onDestroy() {
@@ -140,12 +157,13 @@ class MainActivity : ComponentActivity() {
 
     /** Start / stop every background service according to saved preferences. */
     private fun initializeServices() {
-        initServiceByPref(PowerPeekService::class.java,   settingsRepository.isPowerPeekEnabled())
+        initServiceByPref(PowerPeekService::class.java,       settingsRepository.isPowerPeekEnabled())
         initServiceByPref(LowBatteryAlertService::class.java, settingsRepository.isLowBatteryEnabled())
-        initServiceByPref(QuietHoursService::class.java,  settingsRepository.isQuietHoursEnabled())
+        initServiceByPref(QuietHoursService::class.java,      settingsRepository.isQuietHoursEnabled())
         initializePulseLock()
         initializeGlyphGuard()
         initializeScreenOffFeature()
+        initializeNfcFeature()            // NFC
     }
 
     /** Generic helper: start or stop a foreground service class based on a boolean flag. */
@@ -211,6 +229,63 @@ class MainActivity : ComponentActivity() {
         if (enabled) startForegroundServiceCompat(intent) else stopService(intent)
     }
 
+    // ── NFC initialisation ───────────────────────────────────────────────────
+
+    /**
+     * Prepare the NFC adapter + PendingIntent needed for foreground dispatch.
+     * Called once from [onCreate].
+     */
+    private fun initializeNfcDispatch() {
+        nfcAdapter = NfcAdapter.getDefaultAdapter(this)
+        if (nfcAdapter == null) {
+            Log.w(TAG, "NFC adapter not available on this device")
+            return
+        }
+        nfcPendingIntent = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+    }
+
+    /**
+     * Start or stop [NfcGlyphService] based on saved preference.
+     * Called from [initializeServices] and when the user toggles the feature.
+     */
+    private fun initializeNfcFeature() {
+        val enabled = settingsRepository.isNfcFeatureEnabled()
+        val intent = Intent(this, NfcGlyphService::class.java).apply {
+            action = if (enabled) NfcGlyphService.ACTION_START else NfcGlyphService.ACTION_STOP
+        }
+        if (enabled) startForegroundServiceCompat(intent) else stopService(intent)
+    }
+
+    /**
+     * Enable NFC foreground dispatch so that tag intents are delivered to
+     * [onNewIntent] and forwarded to [NfcGlyphService].
+     * Called from [onResume].
+     */
+    private fun enableNfcForegroundDispatch() {
+        if (!settingsRepository.isNfcFeatureEnabled()) return
+        try {
+            nfcAdapter?.enableForegroundDispatch(this, nfcPendingIntent, null, null)
+            Log.d(TAG, "NFC foreground dispatch enabled")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to enable NFC foreground dispatch", e)
+        }
+    }
+
+    /**
+     * Disable NFC foreground dispatch. Called from [onPause].
+     */
+    private fun disableNfcForegroundDispatch() {
+        try {
+            nfcAdapter?.disableForegroundDispatch(this)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to disable NFC foreground dispatch", e)
+        }
+    }
+
     // ── UI ────────────────────────────────────────────────────────────────────
     private fun setupUI() {
         setContent {
@@ -248,9 +323,15 @@ class MainActivity : ComponentActivity() {
                                 onEnablePulseLock          = ::enablePulseLock,
                                 onDisablePulseLock         = ::disablePulseLock,
 
+                                // Screen Off
                                 onTestScreenOff            = ::testScreenOffAnimation,
                                 onEnableScreenOff          = ::enableScreenOffFeature,
                                 onDisableScreenOff         = ::disableScreenOffFeature,
+
+                                // NFC
+                                onTestNfc                  = ::testNfcAnimation,
+                                onEnableNfc                = ::enableNfcFeature,
+                                onDisableNfc               = ::disableNfcFeature,
 
                                 onTestLowBattery           = ::testLowBatteryAlert,
                                 onRunDiagnostics           = ::runDiagnostics,
@@ -303,12 +384,14 @@ class MainActivity : ComponentActivity() {
     private fun syncServicesAfterToggle(glyphOn: Boolean) {
         val fgIntent = Intent(this, GlyphForegroundService::class.java)
         if (glyphOn) {
-            if (settingsRepository.isPulseLockEnabled()) initializePulseLock()
-            if (settingsRepository.isScreenOffFeatureEnabled()) initializeScreenOffFeature() // Возобновляем
+            if (settingsRepository.isPulseLockEnabled())        initializePulseLock()
+            if (settingsRepository.isScreenOffFeatureEnabled())  initializeScreenOffFeature()
+            if (settingsRepository.isNfcFeatureEnabled())        initializeNfcFeature()   // NFC
             startForegroundServiceCompat(fgIntent)
         } else {
-            runCatching { startService(Intent(this, PulseLockService::class.java).apply { action = PulseLockService.ACTION_STOP }) }
-            runCatching { startService(Intent(this, ScreenOffGlyphService::class.java).apply { action = ScreenOffGlyphService.ACTION_STOP }) } // Останавливаем
+            runCatching { startService(Intent(this, PulseLockService::class.java).apply        { action = PulseLockService.ACTION_STOP }) }
+            runCatching { startService(Intent(this, ScreenOffGlyphService::class.java).apply   { action = ScreenOffGlyphService.ACTION_STOP }) }
+            runCatching { startService(Intent(this, NfcGlyphService::class.java).apply         { action = NfcGlyphService.ACTION_STOP }) }   // NFC
             stopService(fgIntent)
         }
     }
@@ -412,6 +495,37 @@ class MainActivity : ComponentActivity() {
         showToast("Screen Off Animation disabled")
     }
 
+    // ── NFC Glyph Animation ──────────────────────────────────────────────────
+    fun testNfcAnimation() = lifecycleScope.launch {
+        runCatching {
+            glyphAnimationManager.playNfcAnimation(settingsRepository.getNfcAnimationId())
+        }.onFailure { Log.e(TAG, "Error testing NFC animation", it) }
+    }
+
+
+    fun enableNfcFeature() {
+        if (nfcAdapter == null) {
+            showToast("NFC is not available on this device")
+            return
+        }
+        if (nfcAdapter?.isEnabled == false) {
+            showToast("Please enable NFC in system settings first")
+            return
+        }
+        settingsRepository.saveNfcFeatureEnabled(true)
+        initializeNfcFeature()
+        enableNfcForegroundDispatch()
+        showToast("NFC Glyph Animation enabled")
+    }
+
+
+    fun disableNfcFeature() {
+        settingsRepository.saveNfcFeatureEnabled(false)
+        initializeNfcFeature()
+        disableNfcForegroundDispatch()
+        showToast("NFC Glyph Animation disabled")
+    }
+
     // ── Low Battery Alert ─────────────────────────────────────────────────────
     fun testLowBatteryAlert() {
         runCatching {
@@ -454,6 +568,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+
 // ── MainScreen ────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -488,6 +603,11 @@ fun MainScreen(
     onTestScreenOff: () -> Unit,
     onEnableScreenOff: () -> Unit,
     onDisableScreenOff: () -> Unit,
+
+    // NFC
+    onTestNfc: () -> Unit,
+    onEnableNfc: () -> Unit,
+    onDisableNfc: () -> Unit,
 
     onTestLowBattery: () -> Unit,
     onRunDiagnostics: () -> Unit,
@@ -556,82 +676,97 @@ fun MainScreen(
                     item {
                         GlyphControlCard(
                             enabled = glyphServiceEnabled,
-                            onEnabledChange = onGlyphServiceToggle,
-                            illustrationRes = R.drawable.su
+                            onEnabledChange = onGlyphServiceToggle
                         )
                     }
                     item { HomeSectionHeader(title = "Features") }
                     item {
-                        FeatureGrid {
-                            PowerPeekCard(
-                                title = "Power Peek",
-                                description = "Peek at your battery life with a quick shake.",
-                                icon = painterResource(id = R.drawable._44),
-                                onTestPowerPeek   = { requireGlyphService(onTestPowerPeek) },
-                                onEnablePowerPeek = {
-                                    requireGlyphService {
-                                        when (ContextCompat.checkSelfPermission(context, Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE)) {
-                                            PackageManager.PERMISSION_GRANTED -> onEnablePowerPeek()
-                                            else -> permissionLauncher.launch(Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE)
-                                        }
+                        PowerPeekCard(
+                            title = "Power Peek",
+                            description = "Peek at your battery life with a quick shake.",
+                            icon = painterResource(id = R.drawable._44),
+                            onTestPowerPeek = { requireGlyphService(onTestPowerPeek) },
+                            onEnablePowerPeek = {
+                                requireGlyphService {
+                                    when (ContextCompat.checkSelfPermission(context, Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE)) {
+                                        PackageManager.PERMISSION_GRANTED -> onEnablePowerPeek()
+                                        else -> permissionLauncher.launch(Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE)
                                     }
-                                },
-                                onDisablePowerPeek = { requireGlyphService(onDisablePowerPeek) },
-                                modifier = Modifier.weight(1f),
-                                iconSize = 40,
-                                isServiceActive = glyphServiceEnabled,
-                                settingsRepository = settingsRepository
-                            )
-                            GlyphGuardCard(
-                                title = "Glyph Guard",
-                                description = "Stay secure with Glyph and Sound Alerts if Unplugged.",
-                                icon = painterResource(id = R.drawable._78),
-                                onTest  = { requireGlyphService(onTestGlyphGuard) },
-                                onStart = { requireGlyphService(onStartGlyphGuard) },
-                                onStop  = onStopGlyphGuard,
-                                modifier = Modifier.weight(1f),
-                                iconSize = 32,
-                                isServiceActive = glyphServiceEnabled,
-                                glyphGuardMode = GlyphGuardMode.Standard,
-                                settingsRepository = settingsRepository
-                            )
-                        }
+                                }
+                            },
+                            onDisablePowerPeek = { requireGlyphService(onDisablePowerPeek) },
+                            modifier = Modifier.fillMaxWidth(),
+                            iconSize = 32,
+                            isServiceActive = glyphServiceEnabled,
+                            settingsRepository = settingsRepository
+                        )
                     }
                     item {
-                        FeatureGrid {
-                            PulseLockCard(
-                                title = "Glow Gate",
-                                description = "Light up your unlock with stunning glyph animations.",
-                                icon = rememberVectorPainter(image = Icons.Default.Lock),
-                                modifier = Modifier.weight(1f),
-                                iconSize = 32,
-                                isServiceActive = glyphServiceEnabled,
-                                onTestPulseLock    = { requireGlyphService(onTestPulseLock) },
-                                onEnablePulseLock  = { requireGlyphService(onEnablePulseLock) },
-                                onDisablePulseLock = onDisablePulseLock,
-                                settingsRepository = settingsRepository
-                            )
-                            BatteryStoryCard(
-                                title = "Battery Story",
-                                description = "Track your device's charging patterns and battery health.",
-                                icon = rememberVectorPainter(image = Icons.Default.BatteryChargingFull),
-                                onOpen = { navController.navigate("battery_story") },
-                                modifier = Modifier.weight(1f),
-                                iconSize = 32,
-                                settingsRepository = settingsRepository
-                            )
-                        }
+                        GlyphGuardCard(
+                            title = "Glyph Guard",
+                            description = "Stay secure with Glyph and Sound Alerts if Unplugged.",
+                            icon = painterResource(id = R.drawable._78),
+                            onTest = { requireGlyphService(onTestGlyphGuard) },
+                            onStart = { requireGlyphService(onStartGlyphGuard) },
+                            onStop = onStopGlyphGuard,
+                            modifier = Modifier.fillMaxWidth(),
+                            iconSize = 32,
+                            isServiceActive = glyphServiceEnabled,
+                            glyphGuardMode = GlyphGuardMode.Standard,
+                            settingsRepository = settingsRepository
+                        )
+                    }
+                    item {
+                        PulseLockCard(
+                            title = "Glow Gate",
+                            description = "Light up your unlock with stunning glyph animations.",
+                            icon = rememberVectorPainter(image = Icons.Default.Lock),
+                            modifier = Modifier.fillMaxWidth(),
+                            iconSize = 32,
+                            isServiceActive = glyphServiceEnabled,
+                            onTestPulseLock = { requireGlyphService(onTestPulseLock) },
+                            onEnablePulseLock = { requireGlyphService(onEnablePulseLock) },
+                            onDisablePulseLock = onDisablePulseLock,
+                            settingsRepository = settingsRepository
+                        )
+                    }
+                    item {
+                        BatteryStoryCard(
+                            title = "Battery Story",
+                            description = "Track your device's charging patterns and battery health.",
+                            icon = rememberVectorPainter(image = Icons.Default.BatteryChargingFull),
+                            onOpen = { navController.navigate("battery_story") },
+                            modifier = Modifier.fillMaxWidth(),
+                            iconSize = 32,
+                            isServiceActive = glyphServiceEnabled,
+                            settingsRepository = settingsRepository
+                        )
                     }
 
                     item {
                         ScreenOffCard(
                             title = "Screen Off",
                             description = "Play a Glyph animation when the screen turns off.",
-                            icon = rememberVectorPainter(image = Icons.Default.PowerSettingsNew), // или painterResource(...)
+                            icon = rememberVectorPainter(image = Icons.Default.PowerSettingsNew),
                             modifier = Modifier.fillMaxWidth(),
                             iconSize = 32,
                             isServiceActive = glyphServiceEnabled,
                             onTestScreenOff    = { requireGlyphService(onTestScreenOff) },
+                            settingsRepository = settingsRepository
+                        )
+                    }
+
+                    item {
+                        NfcGlyphCard(
+                            title = "NFC Glyph",
+                            description = "Play a Glyph animation on NFC tap or contactless payment.",
+                            icon = rememberVectorPainter(image = Icons.Default.Nfc),
+                            modifier = Modifier.fillMaxWidth(),
+                            iconSize = 32,
+                            isServiceActive = glyphServiceEnabled,
+                            onTestNfc    = { requireGlyphService(onTestNfc) },
+                            onEnableNfc  = { requireGlyphService(onEnableNfc) },
+                            onDisableNfc = onDisableNfc,
                             settingsRepository = settingsRepository
                         )
                     }

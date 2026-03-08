@@ -1893,6 +1893,32 @@ class GlyphAnimationManager @Inject constructor(
         }
     }
 
+
+
+    /**
+     * Play a nfc animation
+     */
+    suspend fun playNfcAnimation(id: String) {
+        if (!isGlyphServiceEnabled()) return
+
+        val durationMs = settingsRepository.getScreenOffDuration()
+        val cyclesFromDuration = (durationMs / 500L).toInt().coerceAtLeast(1)
+
+        when (id) {
+            "C1" -> runC1SequentialAnimation()
+            "WAVE" -> runWaveAnimation()
+            "BEEDAH" -> runBeedahAnimation()
+            "LOCK" -> runLockPulseAnimation()
+            "PULSE" -> runPulseEffect(cyclesFromDuration)
+            "SPIRAL" -> runSpiralAnimation()
+            "HEARTBEAT" -> runHeartbeatAnimation()
+            "MATRIX" -> runMatrixRainAnimation()
+            "FIREWORKS" -> runFireworksAnimation()
+            "DNA" -> runDNAHelixAnimation()
+            else -> runPulseEffect(cyclesFromDuration)
+        }
+    }
+
     /**
      * Quick guard: returns true if glyph service is enabled
      */

@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.core.net.toUri
 
 // --------------------------- Data class ---------------------------
 
@@ -284,19 +285,19 @@ fun PulseLockEnableDialog(
     var selectedAnim by remember { mutableStateOf(PulseLockAnimations.getById(settingsRepository.getPulseLockAnimationId())) }
     var soundEnabled by remember { mutableStateOf(settingsRepository.isPulseLockAudioEnabled()) }
     var soundUri by remember { mutableStateOf(settingsRepository.getPulseLockAudioUri()) }
-    var soundOffset by remember { 
-        mutableStateOf(
+    var soundOffset by remember {
+        mutableFloatStateOf(
             // Ensure offset is not negative - reset to 0 if it was previously negative
             maxOf(0f, settingsRepository.getPulseLockAudioOffset().toFloat())
         ) 
     }
-    var animationDuration by remember { mutableStateOf(settingsRepository.getPulseLockDuration()) }
+    var animationDuration by remember { mutableLongStateOf(settingsRepository.getPulseLockDuration()) }
     
     // Get sound name for display
     val soundName = remember(soundUri) {
         soundUri?.let { uriString ->
             try {
-                val uri = Uri.parse(uriString)
+                val uri = uriString.toUri()
                 
                 // Try to get ringtone title first (works for system sounds)
                 val ringtone = RingtoneManager.getRingtone(context, uri)

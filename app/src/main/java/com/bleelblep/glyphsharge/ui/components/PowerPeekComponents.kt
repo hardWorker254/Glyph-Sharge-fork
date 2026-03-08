@@ -274,8 +274,8 @@ fun PowerPeekEnableDialog(
     val initialDuration = remember { settingsRepository.getDisplayDuration() }
 
     var enableWhenScreenOff by remember { mutableStateOf(true) }
-    var shakeThreshold by remember { mutableStateOf(initialThreshold) }
-    var displayDuration by remember { mutableStateOf(initialDuration / 1000f) } // in seconds
+    var shakeThreshold by remember { mutableFloatStateOf(initialThreshold) }
+    var displayDuration by remember { mutableFloatStateOf(initialDuration / 1000f) } // in seconds
     val themeState = LocalThemeState.current
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -380,7 +380,7 @@ fun PowerPeekEnableDialog(
                         
                         // Backing value: 0-Medium, 1-Hard, 2-Harder
                         var sliderStep by remember {
-                            mutableStateOf(
+                            mutableFloatStateOf(
                                 when (shakeThreshold) {
                                     SettingsRepository.SHAKE_HARD      -> 1f
                                     SettingsRepository.SHAKE_HARDEST   -> 2f

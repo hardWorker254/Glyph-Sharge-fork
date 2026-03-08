@@ -44,11 +44,7 @@ class ChargingEventReceiver : BroadcastReceiver() {
                 // Start foreground tracker service to keep session updated
                 val svcIntent = Intent(context, com.bleelblep.glyphsharge.services.ChargeTrackerService::class.java)
                 Log.d("ChargeReceiver", "Starting ChargeTrackerService")
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    context.startForegroundService(svcIntent)
-                } else {
-                    context.startService(svcIntent)
-                }
+                context.startForegroundService(svcIntent)
                 Log.d("ChargeReceiver", "ChargeTrackerService start requested")
             }
             Intent.ACTION_POWER_DISCONNECTED -> {

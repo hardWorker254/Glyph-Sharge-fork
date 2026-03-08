@@ -8,14 +8,14 @@ plugins {
 
 android {
     namespace 'com.bleelblep.glyphsharge'
-    compileSdk 34
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.bleelblep.glyphsharge"
         minSdk 34  // Android 14+ only
         targetSdk 34
-        versionCode 1024
-        versionName "1.0.25-ScreenOff"
+        versionCode 1025
+        versionName "1.0.26-NFC"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

@@ -52,17 +52,17 @@ fun QuietHoursSettingsScreen(
         // This will re-read the enabled state when the screen is opened
         // The toggle is now controlled from the main settings screen
     }
-    var startHour by remember { 
-        mutableStateOf(settingsRepository.getQuietHoursStartHour()) 
+    var startHour by remember {
+        mutableIntStateOf(settingsRepository.getQuietHoursStartHour())
     }
-    var startMinute by remember { 
-        mutableStateOf(settingsRepository.getQuietHoursStartMinute()) 
+    var startMinute by remember {
+        mutableIntStateOf(settingsRepository.getQuietHoursStartMinute())
     }
-    var endHour by remember { 
-        mutableStateOf(settingsRepository.getQuietHoursEndHour()) 
+    var endHour by remember {
+        mutableIntStateOf(settingsRepository.getQuietHoursEndHour())
     }
-    var endMinute by remember { 
-        mutableStateOf(settingsRepository.getQuietHoursEndMinute()) 
+    var endMinute by remember {
+        mutableIntStateOf(settingsRepository.getQuietHoursEndMinute())
     }
 
     // Save settings when they change (enabled state is now controlled from main settings)

@@ -168,8 +168,8 @@ fun PowerPeekEnableDialog(
     modifier: Modifier = Modifier
 ) {
     var enableWhenScreenOff by remember { mutableStateOf(true) }
-    var shakeThreshold by remember { mutableStateOf(12.0f) }
-    var displayDuration by remember { mutableStateOf(3.0f) } // in seconds
+    var shakeThreshold by remember { mutableFloatStateOf(12.0f) }
+    var displayDuration by remember { mutableFloatStateOf(3.0f) } // in seconds
     
     AlertDialog(
         onDismissRequest = onDismiss,

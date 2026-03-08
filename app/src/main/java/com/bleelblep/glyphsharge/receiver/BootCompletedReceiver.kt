@@ -83,7 +83,12 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 context.startForegroundServiceCompat(PulseLockService::class.java)
             }
             if (settingsRepository.isScreenOffFeatureEnabled()) {
+                Log.d(TAG, "Tier 2 – ScreenOff")
                 context.startForegroundServiceCompat(ScreenOffGlyphService::class.java)
+            }
+            if (settingsRepository.isNfcFeatureEnabled()) {
+                Log.d(TAG, "Tier 2 – Hfc")
+                context.startForegroundServiceCompat(NfcGlyphService::class.java)
             }
         }
 

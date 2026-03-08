@@ -86,10 +86,15 @@ class SettingsRepository @Inject constructor(
         private const val KEY_LOW_BATTERY_AUDIO_OFFSET = "low_battery_audio_offset"
         private const val KEY_LOW_BATTERY_DURATION = "low_battery_duration"
 
-        // Screen Off keys (НОВОЕ)
+        // Screen Off keys
         private const val KEY_SCREEN_OFF_ENABLED = "screen_off_enabled"
         private const val KEY_SCREEN_OFF_ANIMATION_ID = "screen_off_animation_id"
         private const val KEY_SCREEN_OFF_DURATION = "screen_off_duration"
+
+        // NFC keys
+        private const val KEY_NFC_FEATURE_ENABLED = "nfc_feature_enabled"
+        private const val KEY_NFC_ANIMATION_ID = "nfc_animation_id"
+        private const val KEY_NFC_ANIMATION_DURATION = "nfc_animation_duration"
 
         // Quiet Hours keys
         private const val KEY_QUIET_HOURS_ENABLED = "quiet_hours_enabled"
@@ -104,7 +109,8 @@ class SettingsRepository @Inject constructor(
         private const val DEFAULT_GLYPH_GUARD_SOUND_TYPE = "ALARM"
         private const val DEFAULT_PULSE_LOCK_DURATION = 5000L
         private const val DEFAULT_LOW_BATTERY_DURATION = 10000L
-        private const val DEFAULT_SCREEN_OFF_DURATION = 3000L // НОВОЕ
+        private const val DEFAULT_SCREEN_OFF_DURATION = 3000L
+        private const val DEFAULT_NFC_ANIMATION_DURATION = 3000L
         private const val DEFAULT_LOW_BATTERY_THRESHOLD = 20
         private const val DEFAULT_QUIET_HOURS_START_HOUR = 22
         private const val DEFAULT_QUIET_HOURS_START_MINUTE = 0
@@ -128,7 +134,8 @@ class SettingsRepository @Inject constructor(
             putBoolean(KEY_BATTERY_STORY_ENABLED, false)
             putBoolean(KEY_PULSE_LOCK_ENABLED, false)
             putBoolean(KEY_LOW_BATTERY_ENABLED, false)
-            putBoolean(KEY_SCREEN_OFF_ENABLED, false) // НОВОЕ
+            putBoolean(KEY_SCREEN_OFF_ENABLED, false)
+            putBoolean(KEY_NFC_FEATURE_ENABLED, false)          // NFC
             putBoolean(KEY_GLYPH_GUARD_SOUND_ENABLED, false)
             putString(KEY_FONT_VARIANT, FontVariant.HEADLINE.name)
             putBoolean(KEY_USE_CUSTOM_FONTS, true)
@@ -137,7 +144,7 @@ class SettingsRepository @Inject constructor(
             putFloat(KEY_FONT_SIZE_BODY_SCALE, 1.0f)
             putFloat(KEY_FONT_SIZE_LABEL_SCALE, 1.0f)
             putBoolean(KEY_FIRST_RUN_COMPLETED, true)
-            putInt(KEY_LAST_MIGRATED_VERSION, 110) // Обновлено
+            putInt(KEY_LAST_MIGRATED_VERSION, 111)
         }
         Log.i(TAG, "First-run defaults applied")
     }
@@ -174,10 +181,25 @@ class SettingsRepository @Inject constructor(
             }
             Log.i(TAG, "Migration to 110 applied")
         }
+
+        // NFC migration
+        if (lastMigrated < 111) {
+            prefs.edit {
+                if (!prefs.contains(KEY_NFC_FEATURE_ENABLED)) {
+                    putBoolean(KEY_NFC_FEATURE_ENABLED, false)
+                }
+                putInt(KEY_LAST_MIGRATED_VERSION, 111)
+            }
+            Log.i(TAG, "Migration to 111 applied")
+        }
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
     // Font settings
-    fun saveFontVariant(variant: FontVariant) = prefs.edit { putString(KEY_FONT_VARIANT, variant.name) }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    fun saveFontVariant(variant: FontVariant) =
+        prefs.edit { putString(KEY_FONT_VARIANT, variant.name) }
 
     fun getFontVariant(): FontVariant {
         val variantName = prefs.getString(KEY_FONT_VARIANT, FontVariant.HEADLINE.name)
@@ -188,7 +210,9 @@ class SettingsRepository @Inject constructor(
         }
     }
 
-    fun saveUseCustomFonts(useCustom: Boolean) = prefs.edit { putBoolean(KEY_USE_CUSTOM_FONTS, useCustom) }
+    fun saveUseCustomFonts(useCustom: Boolean) =
+        prefs.edit { putBoolean(KEY_USE_CUSTOM_FONTS, useCustom) }
+
     fun getUseCustomFonts(): Boolean = prefs.getBoolean(KEY_USE_CUSTOM_FONTS, true)
 
     fun saveFontSizeSettings(settings: FontSizeSettings) {
@@ -228,11 +252,17 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
     // Theme settings
-    fun saveTheme(isDarkTheme: Boolean) = prefs.edit { putBoolean(KEY_IS_DARK_THEME, isDarkTheme) }
+    // ─────────────────────────────────────────────────────────────────────────
+
+    fun saveTheme(isDarkTheme: Boolean) =
+        prefs.edit { putBoolean(KEY_IS_DARK_THEME, isDarkTheme) }
+
     fun getTheme(): Boolean = prefs.getBoolean(KEY_IS_DARK_THEME, false)
 
-    fun saveThemeStyle(themeStyle: AppThemeStyle) = prefs.edit { putString(KEY_THEME_STYLE, themeStyle.name) }
+    fun saveThemeStyle(themeStyle: AppThemeStyle) =
+        prefs.edit { putString(KEY_THEME_STYLE, themeStyle.name) }
 
     fun getThemeStyle(): AppThemeStyle {
         val styleName = prefs.getString(KEY_THEME_STYLE, AppThemeStyle.CLASSIC.name)
@@ -243,15 +273,27 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
     // Services
-    fun saveGlyphServiceEnabled(enabled: Boolean) = prefs.edit { putBoolean(KEY_GLYPH_SERVICE_ENABLED, enabled) }
-    fun getGlyphServiceEnabled(): Boolean = prefs.getBoolean(KEY_GLYPH_SERVICE_ENABLED, false)
+    // ─────────────────────────────────────────────────────────────────────────
 
-    fun savePowerPeekEnabled(enabled: Boolean) = prefs.edit { putBoolean(KEY_POWER_PEEK_ENABLED, enabled) }
-    fun isPowerPeekEnabled(): Boolean = prefs.getBoolean(KEY_POWER_PEEK_ENABLED, false)
+    fun saveGlyphServiceEnabled(enabled: Boolean) =
+        prefs.edit { putBoolean(KEY_GLYPH_SERVICE_ENABLED, enabled) }
 
-    fun saveShakeThreshold(threshold: Float) = prefs.edit { putFloat(KEY_SHAKE_THRESHOLD, threshold) }
-    fun getShakeThreshold(): Float = prefs.getFloat(KEY_SHAKE_THRESHOLD, SHAKE_MEDIUM)
+    fun getGlyphServiceEnabled(): Boolean =
+        prefs.getBoolean(KEY_GLYPH_SERVICE_ENABLED, false)
+
+    fun savePowerPeekEnabled(enabled: Boolean) =
+        prefs.edit { putBoolean(KEY_POWER_PEEK_ENABLED, enabled) }
+
+    fun isPowerPeekEnabled(): Boolean =
+        prefs.getBoolean(KEY_POWER_PEEK_ENABLED, false)
+
+    fun saveShakeThreshold(threshold: Float) =
+        prefs.edit { putFloat(KEY_SHAKE_THRESHOLD, threshold) }
+
+    fun getShakeThreshold(): Float =
+        prefs.getFloat(KEY_SHAKE_THRESHOLD, SHAKE_MEDIUM)
 
     fun getShakeIntensityLevel(threshold: Float): String = when (threshold) {
         SHAKE_SOFT -> "Soft"
@@ -262,8 +304,11 @@ class SettingsRepository @Inject constructor(
         else -> "Medium"
     }
 
-    fun saveDisplayDuration(duration: Long) = prefs.edit { putLong(KEY_DISPLAY_DURATION, duration) }
-    fun getDisplayDuration(): Long = prefs.getLong(KEY_DISPLAY_DURATION, 3000L)
+    fun saveDisplayDuration(duration: Long) =
+        prefs.edit { putLong(KEY_DISPLAY_DURATION, duration) }
+
+    fun getDisplayDuration(): Long =
+        prefs.getLong(KEY_DISPLAY_DURATION, 3000L)
 
     fun saveVibrationIntensity(intensity: Float) {
         prefs.edit { putFloat(KEY_VIBRATION_INTENSITY, intensity) }
@@ -280,123 +325,257 @@ class SettingsRepository @Inject constructor(
         return converted
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
     // Glyph Guard
-    fun saveGlyphGuardDuration(duration: Long) = prefs.edit { putLong(KEY_GLYPH_GUARD_DURATION, duration) }
-    fun getGlyphGuardDuration(): Long = prefs.getLong(KEY_GLYPH_GUARD_DURATION, DEFAULT_GLYPH_GUARD_DURATION)
+    // ─────────────────────────────────────────────────────────────────────────
 
-    fun saveGlyphGuardSoundType(soundType: String) = prefs.edit { putString(KEY_GLYPH_GUARD_SOUND_TYPE, soundType) }
-    fun getGlyphGuardSoundType(): String = prefs.getString(KEY_GLYPH_GUARD_SOUND_TYPE, null) ?: DEFAULT_GLYPH_GUARD_SOUND_TYPE
+    fun saveGlyphGuardDuration(duration: Long) =
+        prefs.edit { putLong(KEY_GLYPH_GUARD_DURATION, duration) }
 
-    fun saveGlyphGuardCustomRingtoneUri(uri: String?) = prefs.edit { putString(KEY_GLYPH_GUARD_CUSTOM_RINGTONE_URI, uri) }
-    fun getGlyphGuardCustomRingtoneUri(): String? = prefs.getString(KEY_GLYPH_GUARD_CUSTOM_RINGTONE_URI, null)
+    fun getGlyphGuardDuration(): Long =
+        prefs.getLong(KEY_GLYPH_GUARD_DURATION, DEFAULT_GLYPH_GUARD_DURATION)
 
-    fun saveGlyphGuardSoundEnabled(enabled: Boolean) = prefs.edit { putBoolean(KEY_GLYPH_GUARD_SOUND_ENABLED, enabled) }
-    fun isGlyphGuardSoundEnabled(): Boolean = prefs.getBoolean(KEY_GLYPH_GUARD_SOUND_ENABLED, false)
+    fun saveGlyphGuardSoundType(soundType: String) =
+        prefs.edit { putString(KEY_GLYPH_GUARD_SOUND_TYPE, soundType) }
 
-    fun saveGlyphGuardEnabled(enabled: Boolean) = prefs.edit { putBoolean(KEY_GLYPH_GUARD_ENABLED, enabled) }
-    fun isGlyphGuardEnabled(): Boolean = prefs.getBoolean(KEY_GLYPH_GUARD_ENABLED, false)
+    fun getGlyphGuardSoundType(): String =
+        prefs.getString(KEY_GLYPH_GUARD_SOUND_TYPE, null) ?: DEFAULT_GLYPH_GUARD_SOUND_TYPE
 
-    fun saveGlyphGuardAlertMode(mode: GlyphGuardMode) = prefs.edit { putString(KEY_GLYPH_GUARD_ALERT_MODE, mode.name) }
+    fun saveGlyphGuardCustomRingtoneUri(uri: String?) =
+        prefs.edit { putString(KEY_GLYPH_GUARD_CUSTOM_RINGTONE_URI, uri) }
+
+    fun getGlyphGuardCustomRingtoneUri(): String? =
+        prefs.getString(KEY_GLYPH_GUARD_CUSTOM_RINGTONE_URI, null)
+
+    fun saveGlyphGuardSoundEnabled(enabled: Boolean) =
+        prefs.edit { putBoolean(KEY_GLYPH_GUARD_SOUND_ENABLED, enabled) }
+
+    fun isGlyphGuardSoundEnabled(): Boolean =
+        prefs.getBoolean(KEY_GLYPH_GUARD_SOUND_ENABLED, false)
+
+    fun saveGlyphGuardEnabled(enabled: Boolean) =
+        prefs.edit { putBoolean(KEY_GLYPH_GUARD_ENABLED, enabled) }
+
+    fun isGlyphGuardEnabled(): Boolean =
+        prefs.getBoolean(KEY_GLYPH_GUARD_ENABLED, false)
+
+    fun saveGlyphGuardAlertMode(mode: GlyphGuardMode) =
+        prefs.edit { putString(KEY_GLYPH_GUARD_ALERT_MODE, mode.name) }
 
     fun getGlyphGuardAlertMode(): GlyphGuardMode {
-        return when (prefs.getString(KEY_GLYPH_GUARD_ALERT_MODE, GlyphGuardMode.Standard.name)) {
+        return when (prefs.getString(
+            KEY_GLYPH_GUARD_ALERT_MODE,
+            GlyphGuardMode.Standard.name
+        )) {
             GlyphGuardMode.Stealth.name -> GlyphGuardMode.Stealth
             GlyphGuardMode.Intense.name -> GlyphGuardMode.Intense
             else -> GlyphGuardMode.Standard
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
     // Misc
-    fun isOnboardingComplete(): Boolean = prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
-    fun setOnboardingComplete(complete: Boolean) = prefs.edit { putBoolean(KEY_ONBOARDING_COMPLETE, complete) }
-
-    fun saveBatteryStoryEnabled(enabled: Boolean) = prefs.edit { putBoolean(KEY_BATTERY_STORY_ENABLED, enabled) }
-    fun isBatteryStoryEnabled(): Boolean = prefs.getBoolean(KEY_BATTERY_STORY_ENABLED, false)
-
-    // Glow Gate (Pulse Lock)
-    fun savePulseLockEnabled(enabled: Boolean) = prefs.edit { putBoolean(KEY_PULSE_LOCK_ENABLED, enabled) }
-    fun isPulseLockEnabled(): Boolean = prefs.getBoolean(KEY_PULSE_LOCK_ENABLED, false)
-
-    fun savePulseLockAnimationId(id: String) = prefs.edit { putString(KEY_PULSE_LOCK_ANIMATION_ID, id) }
-    fun getPulseLockAnimationId(): String = prefs.getString(KEY_PULSE_LOCK_ANIMATION_ID, "C1") ?: "C1"
-
-    fun savePulseLockAudioUri(uri: String?) = prefs.edit { putString(KEY_PULSE_LOCK_AUDIO_URI, uri) }
-    fun getPulseLockAudioUri(): String? = prefs.getString(KEY_PULSE_LOCK_AUDIO_URI, null)
-
-    fun savePulseLockAudioEnabled(enabled: Boolean) = prefs.edit { putBoolean(KEY_PULSE_LOCK_AUDIO_ENABLED, enabled) }
-    fun isPulseLockAudioEnabled(): Boolean = prefs.getBoolean(KEY_PULSE_LOCK_AUDIO_ENABLED, false)
-
-    fun savePulseLockAudioOffset(offsetMs: Long) = prefs.edit { putLong(KEY_PULSE_LOCK_AUDIO_OFFSET, offsetMs) }
-    fun getPulseLockAudioOffset(): Long = prefs.getLong(KEY_PULSE_LOCK_AUDIO_OFFSET, 0L)
-
-    fun savePulseLockDuration(durationMs: Long) = prefs.edit { putLong(KEY_PULSE_LOCK_DURATION, durationMs) }
-    fun getPulseLockDuration(): Long = prefs.getLong(KEY_PULSE_LOCK_DURATION, DEFAULT_PULSE_LOCK_DURATION)
-
-    // Low-Battery
-    fun saveLowBatteryEnabled(enabled: Boolean) = prefs.edit { putBoolean(KEY_LOW_BATTERY_ENABLED, enabled) }
-    fun isLowBatteryEnabled(): Boolean = prefs.getBoolean(KEY_LOW_BATTERY_ENABLED, false)
-
-    fun saveLowBatteryThreshold(pct: Int) = prefs.edit { putInt(KEY_LOW_BATTERY_THRESHOLD, pct) }
-    fun getLowBatteryThreshold(): Int = prefs.getInt(KEY_LOW_BATTERY_THRESHOLD, DEFAULT_LOW_BATTERY_THRESHOLD)
-
-    fun saveLowBatteryAnimationId(id: String) = prefs.edit { putString(KEY_LOW_BATTERY_ANIMATION_ID, id) }
-    fun getLowBatteryAnimationId(): String = prefs.getString(KEY_LOW_BATTERY_ANIMATION_ID, "C1") ?: "C1"
-
-    fun saveLowBatteryAudioUri(uri: String?) = prefs.edit { putString(KEY_LOW_BATTERY_AUDIO_URI, uri) }
-    fun getLowBatteryAudioUri(): String? = prefs.getString(KEY_LOW_BATTERY_AUDIO_URI, null)
-
-    fun saveLowBatteryAudioEnabled(enabled: Boolean) = prefs.edit { putBoolean(KEY_LOW_BATTERY_AUDIO_ENABLED, enabled) }
-    fun isLowBatteryAudioEnabled(): Boolean = prefs.getBoolean(KEY_LOW_BATTERY_AUDIO_ENABLED, false)
-
-    fun saveLowBatteryAudioOffset(offsetMs: Long) = prefs.edit { putLong(KEY_LOW_BATTERY_AUDIO_OFFSET, offsetMs) }
-    fun getLowBatteryAudioOffset(): Long = prefs.getLong(KEY_LOW_BATTERY_AUDIO_OFFSET, 0L)
-
-    fun saveLowBatteryDuration(durationMs: Long) = prefs.edit { putLong(KEY_LOW_BATTERY_DURATION, durationMs) }
-    fun getLowBatteryDuration(): Long = prefs.getLong(KEY_LOW_BATTERY_DURATION, DEFAULT_LOW_BATTERY_DURATION)
-
-    // Screen Off
-    fun saveScreenOffFeatureEnabled(enabled: Boolean) = prefs.edit { putBoolean(KEY_SCREEN_OFF_ENABLED, enabled) }
-    fun isScreenOffFeatureEnabled(): Boolean = prefs.getBoolean(KEY_SCREEN_OFF_ENABLED, false)
-
-    fun saveScreenOffAnimationId(id: String) = prefs.edit { putString(KEY_SCREEN_OFF_ANIMATION_ID, id) }
-    fun getScreenOffAnimationId(): String = prefs.getString(KEY_SCREEN_OFF_ANIMATION_ID, "C1") ?: "C1"
-
-    fun saveScreenOffDuration(durationMs: Long) = prefs.edit { putLong(KEY_SCREEN_OFF_DURATION, durationMs) }
-    fun getScreenOffDuration(): Long = prefs.getLong(KEY_SCREEN_OFF_DURATION, DEFAULT_SCREEN_OFF_DURATION)
-
     // ─────────────────────────────────────────────────────────────────────────
 
+    fun isOnboardingComplete(): Boolean =
+        prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
+
+    fun setOnboardingComplete(complete: Boolean) =
+        prefs.edit { putBoolean(KEY_ONBOARDING_COMPLETE, complete) }
+
+    fun saveBatteryStoryEnabled(enabled: Boolean) =
+        prefs.edit { putBoolean(KEY_BATTERY_STORY_ENABLED, enabled) }
+
+    fun isBatteryStoryEnabled(): Boolean =
+        prefs.getBoolean(KEY_BATTERY_STORY_ENABLED, false)
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Glow Gate (Pulse Lock)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    fun savePulseLockEnabled(enabled: Boolean) =
+        prefs.edit { putBoolean(KEY_PULSE_LOCK_ENABLED, enabled) }
+
+    fun isPulseLockEnabled(): Boolean =
+        prefs.getBoolean(KEY_PULSE_LOCK_ENABLED, false)
+
+    fun savePulseLockAnimationId(id: String) =
+        prefs.edit { putString(KEY_PULSE_LOCK_ANIMATION_ID, id) }
+
+    fun getPulseLockAnimationId(): String =
+        prefs.getString(KEY_PULSE_LOCK_ANIMATION_ID, "C1") ?: "C1"
+
+    fun savePulseLockAudioUri(uri: String?) =
+        prefs.edit { putString(KEY_PULSE_LOCK_AUDIO_URI, uri) }
+
+    fun getPulseLockAudioUri(): String? =
+        prefs.getString(KEY_PULSE_LOCK_AUDIO_URI, null)
+
+    fun savePulseLockAudioEnabled(enabled: Boolean) =
+        prefs.edit { putBoolean(KEY_PULSE_LOCK_AUDIO_ENABLED, enabled) }
+
+    fun isPulseLockAudioEnabled(): Boolean =
+        prefs.getBoolean(KEY_PULSE_LOCK_AUDIO_ENABLED, false)
+
+    fun savePulseLockAudioOffset(offsetMs: Long) =
+        prefs.edit { putLong(KEY_PULSE_LOCK_AUDIO_OFFSET, offsetMs) }
+
+    fun getPulseLockAudioOffset(): Long =
+        prefs.getLong(KEY_PULSE_LOCK_AUDIO_OFFSET, 0L)
+
+    fun savePulseLockDuration(durationMs: Long) =
+        prefs.edit { putLong(KEY_PULSE_LOCK_DURATION, durationMs) }
+
+    fun getPulseLockDuration(): Long =
+        prefs.getLong(KEY_PULSE_LOCK_DURATION, DEFAULT_PULSE_LOCK_DURATION)
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Low-Battery
+    // ─────────────────────────────────────────────────────────────────────────
+
+    fun saveLowBatteryEnabled(enabled: Boolean) =
+        prefs.edit { putBoolean(KEY_LOW_BATTERY_ENABLED, enabled) }
+
+    fun isLowBatteryEnabled(): Boolean =
+        prefs.getBoolean(KEY_LOW_BATTERY_ENABLED, false)
+
+    fun saveLowBatteryThreshold(pct: Int) =
+        prefs.edit { putInt(KEY_LOW_BATTERY_THRESHOLD, pct) }
+
+    fun getLowBatteryThreshold(): Int =
+        prefs.getInt(KEY_LOW_BATTERY_THRESHOLD, DEFAULT_LOW_BATTERY_THRESHOLD)
+
+    fun saveLowBatteryAnimationId(id: String) =
+        prefs.edit { putString(KEY_LOW_BATTERY_ANIMATION_ID, id) }
+
+    fun getLowBatteryAnimationId(): String =
+        prefs.getString(KEY_LOW_BATTERY_ANIMATION_ID, "C1") ?: "C1"
+
+    fun saveLowBatteryAudioUri(uri: String?) =
+        prefs.edit { putString(KEY_LOW_BATTERY_AUDIO_URI, uri) }
+
+    fun getLowBatteryAudioUri(): String? =
+        prefs.getString(KEY_LOW_BATTERY_AUDIO_URI, null)
+
+    fun saveLowBatteryAudioEnabled(enabled: Boolean) =
+        prefs.edit { putBoolean(KEY_LOW_BATTERY_AUDIO_ENABLED, enabled) }
+
+    fun isLowBatteryAudioEnabled(): Boolean =
+        prefs.getBoolean(KEY_LOW_BATTERY_AUDIO_ENABLED, false)
+
+    fun saveLowBatteryAudioOffset(offsetMs: Long) =
+        prefs.edit { putLong(KEY_LOW_BATTERY_AUDIO_OFFSET, offsetMs) }
+
+    fun getLowBatteryAudioOffset(): Long =
+        prefs.getLong(KEY_LOW_BATTERY_AUDIO_OFFSET, 0L)
+
+    fun saveLowBatteryDuration(durationMs: Long) =
+        prefs.edit { putLong(KEY_LOW_BATTERY_DURATION, durationMs) }
+
+    fun getLowBatteryDuration(): Long =
+        prefs.getLong(KEY_LOW_BATTERY_DURATION, DEFAULT_LOW_BATTERY_DURATION)
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Screen Off
+    // ─────────────────────────────────────────────────────────────────────────
+
+    fun saveScreenOffFeatureEnabled(enabled: Boolean) =
+        prefs.edit { putBoolean(KEY_SCREEN_OFF_ENABLED, enabled) }
+
+    fun isScreenOffFeatureEnabled(): Boolean =
+        prefs.getBoolean(KEY_SCREEN_OFF_ENABLED, false)
+
+    fun saveScreenOffAnimationId(id: String) =
+        prefs.edit { putString(KEY_SCREEN_OFF_ANIMATION_ID, id) }
+
+    fun getScreenOffAnimationId(): String =
+        prefs.getString(KEY_SCREEN_OFF_ANIMATION_ID, "C1") ?: "C1"
+
+    fun saveScreenOffDuration(durationMs: Long) =
+        prefs.edit { putLong(KEY_SCREEN_OFF_DURATION, durationMs) }
+
+    fun getScreenOffDuration(): Long =
+        prefs.getLong(KEY_SCREEN_OFF_DURATION, DEFAULT_SCREEN_OFF_DURATION)
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // NFC
+    // ─────────────────────────────────────────────────────────────────────────
+
+    fun saveNfcFeatureEnabled(enabled: Boolean) =
+        prefs.edit { putBoolean(KEY_NFC_FEATURE_ENABLED, enabled) }
+
+    fun isNfcFeatureEnabled(): Boolean =
+        prefs.getBoolean(KEY_NFC_FEATURE_ENABLED, false)
+
+    fun saveNfcAnimationId(id: String) =
+        prefs.edit { putString(KEY_NFC_ANIMATION_ID, id) }
+
+    fun getNfcAnimationId(): String =
+        prefs.getString(KEY_NFC_ANIMATION_ID, "C1") ?: "C1"
+
+    fun saveNfcAnimationDuration(durationMs: Long) =
+        prefs.edit { putLong(KEY_NFC_ANIMATION_DURATION, durationMs) }
+
+    fun getNfcAnimationDuration(): Long =
+        prefs.getLong(KEY_NFC_ANIMATION_DURATION, DEFAULT_NFC_ANIMATION_DURATION)
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Quiet Hours
-    fun saveQuietHoursEnabled(enabled: Boolean) = prefs.edit { putBoolean(KEY_QUIET_HOURS_ENABLED, enabled) }
-    fun isQuietHoursEnabled(): Boolean = prefs.getBoolean(KEY_QUIET_HOURS_ENABLED, false)
+    // ─────────────────────────────────────────────────────────────────────────
 
-    fun saveQuietHoursStartHour(hour: Int) = prefs.edit { putInt(KEY_QUIET_HOURS_START_HOUR, hour) }
-    fun getQuietHoursStartHour(): Int = prefs.getInt(KEY_QUIET_HOURS_START_HOUR, DEFAULT_QUIET_HOURS_START_HOUR)
+    fun saveQuietHoursEnabled(enabled: Boolean) =
+        prefs.edit { putBoolean(KEY_QUIET_HOURS_ENABLED, enabled) }
 
-    fun saveQuietHoursStartMinute(minute: Int) = prefs.edit { putInt(KEY_QUIET_HOURS_START_MINUTE, minute) }
-    fun getQuietHoursStartMinute(): Int = prefs.getInt(KEY_QUIET_HOURS_START_MINUTE, DEFAULT_QUIET_HOURS_START_MINUTE)
+    fun isQuietHoursEnabled(): Boolean =
+        prefs.getBoolean(KEY_QUIET_HOURS_ENABLED, false)
 
-    fun saveQuietHoursEndHour(hour: Int) = prefs.edit { putInt(KEY_QUIET_HOURS_END_HOUR, hour) }
-    fun getQuietHoursEndHour(): Int = prefs.getInt(KEY_QUIET_HOURS_END_HOUR, DEFAULT_QUIET_HOURS_END_HOUR)
+    fun saveQuietHoursStartHour(hour: Int) =
+        prefs.edit { putInt(KEY_QUIET_HOURS_START_HOUR, hour) }
 
-    fun saveQuietHoursEndMinute(minute: Int) = prefs.edit { putInt(KEY_QUIET_HOURS_END_MINUTE, minute) }
-    fun getQuietHoursEndMinute(): Int = prefs.getInt(KEY_QUIET_HOURS_END_MINUTE, DEFAULT_QUIET_HOURS_END_MINUTE)
+    fun getQuietHoursStartHour(): Int =
+        prefs.getInt(KEY_QUIET_HOURS_START_HOUR, DEFAULT_QUIET_HOURS_START_HOUR)
+
+    fun saveQuietHoursStartMinute(minute: Int) =
+        prefs.edit { putInt(KEY_QUIET_HOURS_START_MINUTE, minute) }
+
+    fun getQuietHoursStartMinute(): Int =
+        prefs.getInt(KEY_QUIET_HOURS_START_MINUTE, DEFAULT_QUIET_HOURS_START_MINUTE)
+
+    fun saveQuietHoursEndHour(hour: Int) =
+        prefs.edit { putInt(KEY_QUIET_HOURS_END_HOUR, hour) }
+
+    fun getQuietHoursEndHour(): Int =
+        prefs.getInt(KEY_QUIET_HOURS_END_HOUR, DEFAULT_QUIET_HOURS_END_HOUR)
+
+    fun saveQuietHoursEndMinute(minute: Int) =
+        prefs.edit { putInt(KEY_QUIET_HOURS_END_MINUTE, minute) }
+
+    fun getQuietHoursEndMinute(): Int =
+        prefs.getInt(KEY_QUIET_HOURS_END_MINUTE, DEFAULT_QUIET_HOURS_END_MINUTE)
 
     fun isCurrentlyInQuietHours(): Boolean {
         if (!isQuietHoursEnabled()) return false
 
         val calendar = Calendar.getInstance()
-        val currentTimeInMinutes = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
-        val startTimeInMinutes = getQuietHoursStartHour() * 60 + getQuietHoursStartMinute()
-        val endTimeInMinutes = getQuietHoursEndHour() * 60 + getQuietHoursEndMinute()
+        val currentTimeInMinutes =
+            calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+        val startTimeInMinutes =
+            getQuietHoursStartHour() * 60 + getQuietHoursStartMinute()
+        val endTimeInMinutes =
+            getQuietHoursEndHour() * 60 + getQuietHoursEndMinute()
 
         return if (startTimeInMinutes <= endTimeInMinutes) {
             currentTimeInMinutes in startTimeInMinutes..endTimeInMinutes
         } else {
             // Overnight
-            currentTimeInMinutes >= startTimeInMinutes || currentTimeInMinutes <= endTimeInMinutes
+            currentTimeInMinutes >= startTimeInMinutes ||
+                    currentTimeInMinutes <= endTimeInMinutes
         }
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Debug
+    // ─────────────────────────────────────────────────────────────────────────
 
     fun dumpAllSettings() {
         if (!Log.isLoggable(TAG, Log.DEBUG)) return
@@ -418,6 +597,9 @@ class SettingsRepository @Inject constructor(
             Glow Gate enabled: ${isPulseLockEnabled()}
             Low-Battery Alert enabled: ${isLowBatteryEnabled()}
             Screen Off Anim enabled: ${isScreenOffFeatureEnabled()}
+            NFC Feature enabled: ${isNfcFeatureEnabled()}
+            NFC Animation ID: ${getNfcAnimationId()}
+            NFC Animation Duration: ${getNfcAnimationDuration()}ms
             Quiet Hours enabled: ${isQuietHoursEnabled()}
             Quiet Hours start: ${getQuietHoursStartHour()}:${getQuietHoursStartMinute()}
             Quiet Hours end: ${getQuietHoursEndHour()}:${getQuietHoursEndMinute()}

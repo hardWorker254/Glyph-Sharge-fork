@@ -311,7 +311,7 @@ private fun StateTransitionCard() {
  */
 @Composable
 private fun DragInteractionCard() {
-    var offsetX by remember { mutableStateOf(0f) }
+    var offsetX by remember { mutableFloatStateOf(0f) }
     val density = LocalDensity.current
 
     // Animate the offset back to center when released
@@ -540,7 +540,7 @@ private fun ExpandableMotionCard() {
  */
 @Composable
 private fun ProgressAnimationCard() {
-    var progress by remember { mutableStateOf(0f) }
+    var progress by remember { mutableFloatStateOf(0f) }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -597,7 +597,7 @@ private fun ProgressAnimationCard() {
  */
 @Composable
 private fun MultiStateCard() {
-    var currentState by remember { mutableStateOf(0) }
+    var currentState by remember { mutableIntStateOf(0) }
     val states = listOf("Compact", "Medium", "Expanded")
 
     val animatedHeight by animateDpAsState(
@@ -666,7 +666,7 @@ private fun MultiStateCard() {
  */
 @Composable
 private fun ParallaxMotionCard() {
-    var offsetY by remember { mutableStateOf(0f) }
+    var offsetY by remember { mutableFloatStateOf(0f) }
 
     // Animate the offset for smooth reset behavior
     val animatedOffsetY by animateFloatAsState(
@@ -1130,7 +1130,7 @@ private enum class ButtonMorphState {
  */
 @Composable
 private fun ExpressiveProgressCard() {
-    var progress by remember { mutableStateOf(0f) }
+    var progress by remember { mutableFloatStateOf(0f) }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -1190,8 +1190,8 @@ private fun ExpressiveProgressCard() {
  */
 @Composable
 private fun GestureBasedCard() {
-    var scale by remember { mutableStateOf(1f) }
-    var rotation by remember { mutableStateOf(0f) }
+    var scale by remember { mutableFloatStateOf(1f) }
+    var rotation by remember { mutableFloatStateOf(0f) }
 
     val animatedScale by animateFloatAsState(
         targetValue = scale,
@@ -1260,7 +1260,7 @@ private fun GestureBasedCard() {
  */
 @Composable
 private fun DynamicColorCard() {
-    var colorIndex by remember { mutableStateOf(0) }
+    var colorIndex by remember { mutableIntStateOf(0) }
 
     val colors = listOf(
         MaterialTheme.colorScheme.primaryContainer,
@@ -1317,7 +1317,7 @@ private fun DynamicColorCard() {
  */
 @Composable
 private fun ExpressiveNavigationCard() {
-    var selectedTab by remember { mutableStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Home", "Search", "Profile")
 
     Card(
@@ -1512,7 +1512,7 @@ private fun SlideAnimationCard() {
  */
 @Composable
 private fun RotationCard() {
-    var rotationAngle by remember { mutableStateOf(0f) }
+    var rotationAngle by remember { mutableFloatStateOf(0f) }
 
     val animatedRotation by animateFloatAsState(
         targetValue = rotationAngle,
@@ -1738,7 +1738,7 @@ private fun HeightAnimationCard() {
  */
 @Composable
 private fun CircularProgressCard() {
-    var progress by remember { mutableStateOf(0f) }
+    var progress by remember { mutableFloatStateOf(0f) }
     var isPressed by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -1809,7 +1809,7 @@ private fun CircularProgressCard() {
  */
 @Composable
 private fun ExpressiveCircularProgressCard() {
-    var progress by remember { mutableStateOf(0f) }
+    var progress by remember { mutableFloatStateOf(0f) }
     var isPressed by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -1900,7 +1900,7 @@ private fun ExpressiveCircularProgressCard() {
  */
 @Composable
 private fun PhysicsBasedCard() {
-    var velocity by remember { mutableStateOf(0f) }
+    var velocity by remember { mutableFloatStateOf(0f) }
     var position by remember { mutableStateOf(0f) }
 
     val animatedPosition by animateFloatAsState(
@@ -1968,7 +1968,7 @@ private fun PhysicsBasedCard() {
  */
 @Composable
 private fun ResponsiveShapeCard() {
-    var pressProgress by remember { mutableStateOf(0f) }
+    var pressProgress by remember { mutableFloatStateOf(0f) }
 
     val cornerRadius by animateDpAsState(
         targetValue = (12 + pressProgress * 20).dp,
@@ -2100,7 +2100,7 @@ private fun PlayfulMicroInteractionCard() {
  */
 @Composable
 private fun AdaptiveColorCard() {
-    var colorIntensity by remember { mutableStateOf(0f) }
+    var colorIntensity by remember { mutableFloatStateOf(0f) }
 
     val adaptiveColor by animateColorAsState(
         targetValue = lerp(

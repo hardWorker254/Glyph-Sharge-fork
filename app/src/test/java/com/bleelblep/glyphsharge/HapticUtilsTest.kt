@@ -52,13 +52,17 @@ class HapticUtilsTest {
         val intensity3 = 0.75f
         
         val amplitude1 = HapticUtils.convertUserIntensityToAndroidAmplitude(intensity1)
-        val amplitude2 = HapticUtils.convertUserIntensityToAndroidAmplitude(intensity2)
+        val amplitude2: Int = HapticUtils.convertUserIntensityToAndroidAmplitude(intensity2)
         val amplitude3 = HapticUtils.convertUserIntensityToAndroidAmplitude(intensity3)
         
         // amplitude2 should be roughly double amplitude1
-        assertEquals("0.5f should be roughly double 0.25f", amplitude1 * 2, amplitude2, 2)
+        assertEquals("0.5f should be roughly double 0.25f",
+            (amplitude1 * 2).toDouble(), amplitude2.toDouble(), 2.0
+        )
         
         // amplitude3 should be roughly triple amplitude1
-        assertEquals("0.75f should be roughly triple 0.25f", amplitude1 * 3, amplitude3, 2)
+        assertEquals("0.75f should be roughly triple 0.25f",
+            (amplitude1 * 3).toDouble(), amplitude3.toDouble(), 2.0
+        )
     }
 } 
