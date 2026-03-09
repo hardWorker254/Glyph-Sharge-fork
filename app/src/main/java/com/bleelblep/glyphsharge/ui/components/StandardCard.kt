@@ -6,15 +6,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -199,54 +196,6 @@ fun SimpleCard(
         title = title,
         description = description,
         onCardClick = onClick,
-        content = content
-    )
-}
-
-/**
- * Icon card variant with prominent icon display
- */
-@Composable
-fun IconCard(
-    modifier: Modifier = Modifier,
-    title: String,
-    subtitle: String? = null,
-    icon: ImageVector,
-    actionText: String? = null,
-    onCardClick: (() -> Unit)? = null,
-    onActionClick: (() -> Unit)? = null,
-    content: (@Composable ColumnScope.() -> Unit)? = null
-) {
-    StandardCard(
-        modifier = modifier,
-        title = title,
-        subtitle = subtitle,
-        icon = icon,
-        actionText = actionText,
-        onCardClick = onCardClick,
-        onActionClick = onActionClick,
-        content = content
-    )
-}
-
-/**
- * Action card variant with prominent action button
- */
-@Composable
-fun ActionCard(
-    modifier: Modifier = Modifier,
-    title: String,
-    description: String? = null,
-    actionText: String,
-    onActionClick: () -> Unit,
-    content: (@Composable ColumnScope.() -> Unit)? = null
-) {
-    StandardCard(
-        modifier = modifier,
-        title = title,
-        description = description,
-        actionText = actionText,
-        onActionClick = onActionClick,
         content = content
     )
 }

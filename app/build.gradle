@@ -15,7 +15,7 @@ android {
         minSdk 34  // Android 14+ only
         targetSdk 34
         versionCode 1025
-        versionName "1.0.26-NFC"
+        versionName "1.0.27"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

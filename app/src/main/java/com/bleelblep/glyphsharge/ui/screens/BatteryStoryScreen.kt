@@ -15,7 +15,6 @@ import com.bleelblep.glyphsharge.data.model.HealthStatus
 import com.bleelblep.glyphsharge.ui.components.FeatureGrid
 import com.bleelblep.glyphsharge.ui.components.HomeSectionHeader
 import com.bleelblep.glyphsharge.ui.components.SquareFeatureCard
-import com.bleelblep.glyphsharge.ui.components.TransparentTopAppBar
 import com.bleelblep.glyphsharge.ui.components.rememberEmojiPainter
 import java.util.*
 import androidx.compose.ui.graphics.Color

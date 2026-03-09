@@ -514,16 +514,6 @@ fun SettingsScreen(
                 }
             }
 
-            // Haptic/Vibration Settings Card
-            if (false) { // showVibrationCard is removed, so this card is always shown
-                item {
-                    HapticSettingsCard(
-                        settingsRepository = settingsRepository,
-                        onNavigateToFullSettings = onVibrationSettingsClick
-                    )
-                }
-            }
-
             // App Info Section Header
             item {
                 HomeSectionHeader(

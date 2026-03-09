@@ -68,12 +68,6 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 Log.d(TAG, "Tier 2 – PowerPeek")
                 context.startForegroundServiceCompat(PowerPeekService::class.java)
             }
-            if (settingsRepository.isGlyphGuardEnabled()) {
-                Log.d(TAG, "Tier 2 – GlyphGuard")
-                context.startForegroundServiceCompat(GlyphGuardService::class.java) {
-                    action = GlyphGuardService.ACTION_START_GLYPH_GUARD
-                }
-            }
             if (settingsRepository.isLowBatteryEnabled()) {
                 Log.d(TAG, "Tier 2 – LowBatteryAlert")
                 context.startForegroundServiceCompat(LowBatteryAlertService::class.java)

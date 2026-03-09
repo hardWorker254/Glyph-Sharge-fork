@@ -73,16 +73,6 @@
         </activity>
 
         <receiver
-            android:name=".receiver.ChargingEventReceiver"
-            android:enabled="true"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.POWER_CONNECTED" />
-                <action android:name="android.intent.action.POWER_DISCONNECTED" />
-            </intent-filter>
-        </receiver>
-
-        <receiver
             android:name=".receiver.BootCompletedReceiver"
             android:enabled="true"
             android:exported="false">
@@ -99,15 +89,6 @@
             android:foregroundServiceType="specialUse" >
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="This service uses the accelerometer to provide the PowerPeek feature when the screen is off." />
-        </service>
-
-        <service
-            android:name=".services.GlyphGuardService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="specialUse" >
-            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="This service monitors for USB disconnection and provides security alerts using glyph interface." />
         </service>
 
         <!-- Foreground service that samples battery data while charging -->

@@ -3,7 +3,6 @@ package com.bleelblep.glyphsharge.ui.components
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.material.icons.Icons
@@ -14,8 +13,6 @@ import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.*
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.*
 import androidx.compose.ui.unit.*
@@ -23,15 +20,6 @@ import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import kotlin.math.roundToInt
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.ui.unit.IntOffset
-
-// Fixed colors for consistent theming instead of Material You dynamic colors
-private val GlyphPurple = Color(0xFF7B1FA2)
-private val GlyphPurpleContainer = Color(0xFFE8E1F5)
-private val GlyphGray = Color(0xFF9E9E9E)
-private val GlyphGrayContainer = Color(0xFFF5F5F5)
-private val GlyphRed = Color(0xFFd71921)
-private val GlyphRedContainer = Color(0xFFFFE5E6)
 
 /**
  * Three-state morphing toggle for font family selection
@@ -89,9 +77,9 @@ private fun ThreeStateFontToggleItem(
     val backgroundColor by animateColorAsState(
         targetValue = when {
             isSelected -> when (variant) {
-                FontVariant.HEADLINE -> GlyphPurple
-                FontVariant.NDOT -> GlyphPurple
-                FontVariant.SYSTEM -> GlyphRed
+                FontVariant.HEADLINE -> NothingViolate
+                FontVariant.NDOT -> NothingViolate
+                FontVariant.SYSTEM -> NothingRed
             }
             else -> MaterialTheme.colorScheme.surfaceVariant
         },
@@ -101,7 +89,7 @@ private fun ThreeStateFontToggleItem(
     
     val contentColor by animateColorAsState(
         targetValue = when {
-            isSelected -> Color.White // White text on colored backgrounds
+            isSelected -> NothingWhite
             else -> MaterialTheme.colorScheme.onSurfaceVariant
         },
         animationSpec = tween(300),
@@ -259,9 +247,9 @@ private fun SimpleFontButton(
     val backgroundColor by animateColorAsState(
         targetValue = if (isSelected) {
             when (variant) {
-                FontVariant.HEADLINE -> GlyphPurpleContainer
-                FontVariant.NDOT -> GlyphPurpleContainer
-                FontVariant.SYSTEM -> GlyphRedContainer
+                FontVariant.HEADLINE -> NothingViolate
+                FontVariant.NDOT -> NothingViolate
+                FontVariant.SYSTEM -> NothingRed
             }
         } else {
             Color.Transparent
@@ -273,9 +261,9 @@ private fun SimpleFontButton(
     val borderColor by animateColorAsState(
         targetValue = if (isSelected) {
             when (variant) {
-                FontVariant.HEADLINE -> GlyphPurple
-                FontVariant.NDOT -> GlyphPurple
-                FontVariant.SYSTEM -> GlyphRed
+                FontVariant.HEADLINE -> NothingViolate
+                FontVariant.NDOT -> NothingViolate
+                FontVariant.SYSTEM -> NothingRed
             }
         } else {
             MaterialTheme.colorScheme.outline
@@ -334,9 +322,9 @@ private fun SimpleFontButton(
                 ),
                 color = if (isSelected) {
                     when (variant) {
-                        FontVariant.HEADLINE -> GlyphPurple
-                        FontVariant.NDOT -> GlyphPurple
-                        FontVariant.SYSTEM -> GlyphRed
+                        FontVariant.HEADLINE -> NothingViolate
+                        FontVariant.NDOT -> NothingViolate
+                        FontVariant.SYSTEM -> NothingRed
                     }
                 } else {
                     MaterialTheme.colorScheme.onSurface
@@ -352,196 +340,10 @@ private fun SimpleFontButton(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = "Selected",
                     tint = when (variant) {
-                        FontVariant.HEADLINE -> GlyphPurple
-                        FontVariant.NDOT -> GlyphPurple
-                        FontVariant.SYSTEM -> GlyphRed
+                        FontVariant.HEADLINE -> NothingViolate
+                        FontVariant.NDOT -> NothingViolate
+                        FontVariant.SYSTEM -> NothingRed
                     },
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-    }
-}
-
-/**
- * Draggable Font Family Selector with reordering capability
- */
-@Composable
-fun DraggableFontSelector(
-    currentVariant: FontVariant,
-    onVariantSelected: (FontVariant) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val haptic = LocalHapticFeedback.current
-    val context = LocalContext.current
-    
-    // Font variants with their display info
-    val fontVariants = remember {
-        listOf(
-            FontVariant.HEADLINE to Triple("NType Headline", "Modern Nothing display font", "Aa"),
-            FontVariant.NDOT to Triple("NDot 57 Caps", "Distinctive caps-only typeface", "NN"),
-            FontVariant.SYSTEM to Triple("System Default", "Your device's default font", "Ab")
-        )
-    }
-
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
-            Text(
-                text = "Detailed Font Selection",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold
-            )
-            
-            Spacer(modifier = Modifier.height(4.dp))
-            
-            Text(
-                text = "Drag to reorder • Tap to select",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Font options
-            fontVariants.forEach { (variant, details) ->
-                DraggableFontItem(
-                    variant = variant,
-                    title = details.first,
-                    description = details.second,
-                    preview = details.third,
-                    isSelected = variant == currentVariant,
-                    onClick = { onVariantSelected(variant) }
-                )
-                
-                if (variant != fontVariants.last().first) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
-            }
-        }
-    }
-}
-
-/**
- * Individual draggable font item
- */
-@Composable
-private fun DraggableFontItem(
-    variant: FontVariant,
-    title: String,
-    description: String,
-    preview: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var isDragging by remember { mutableStateOf(false) }
-    var dragOffset by remember { mutableStateOf(Offset.Zero) }
-    val haptic = LocalHapticFeedback.current
-    val context = LocalContext.current
-
-    val animatedElevation by animateDpAsState(
-        targetValue = if (isDragging) 8.dp else if (isSelected) 4.dp else 1.dp,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "fontItemElevation"
-    )
-
-    val backgroundColor by animateColorAsState(
-        targetValue = when {
-            isSelected -> GlyphPurpleContainer
-            isDragging -> GlyphPurpleContainer.copy(alpha = 0.7f)
-            else -> MaterialTheme.colorScheme.surfaceVariant
-        },
-        animationSpec = tween(300),
-        label = "fontItemBackground"
-    )
-
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .offset { IntOffset(dragOffset.x.roundToInt(), dragOffset.y.roundToInt()) }
-            .pointerInput(variant) {
-                detectDragGestures(
-                    onDragStart = { 
-                        isDragging = true
-                        HapticUtils.triggerLightFeedback(haptic, context)
-                    },
-                    onDragEnd = {
-                        isDragging = false
-                        dragOffset = Offset.Zero
-                    }
-                ) { change, dragAmount ->
-                    dragOffset += dragAmount
-                }
-            }
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = animatedElevation)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Drag handle
-            Icon(
-                imageVector = Icons.Default.DragHandle,
-                contentDescription = "Drag to reorder",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                modifier = Modifier.size(20.dp)
-            )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Font info
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
-                )
-                
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Font preview
-            Text(
-                text = preview,
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontFamily = when (variant) {
-                        FontVariant.HEADLINE -> FontFamily(Font(com.bleelblep.glyphsharge.R.font.ntype_82_headline))
-                        FontVariant.NDOT -> FontFamily(Font(com.bleelblep.glyphsharge.R.font.ndot55caps))
-                        FontVariant.SYSTEM -> FontFamily.Default
-                    }
-                ),
-                color = if (isSelected) 
-                    GlyphPurple 
-                else 
-                    MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            if (isSelected) {
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = "Selected",
-                    tint = GlyphPurple,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -667,7 +469,7 @@ private fun FontSizeSlider(
                 text = "${(value * 100).roundToInt()}%",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Medium,
-                color = GlyphPurple
+                color = NothingViolate
             )
         }
 
@@ -682,102 +484,11 @@ private fun FontSizeSlider(
             valueRange = 0.5f..2.0f,
             steps = 29, // 0.5 to 2.0 in 0.05 increments
             colors = SliderDefaults.colors(
-                thumbColor = GlyphPurple,
-                activeTrackColor = GlyphPurple,
+                thumbColor = NothingViolate,
+                activeTrackColor = NothingViolate,
                 inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
             )
         )
-    }
-}
-
-/**
- * Custom Fonts Toggle Card
- */
-@Composable
-fun CustomFontsToggle(
-    useCustomFonts: Boolean,
-    onToggle: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val haptic = LocalHapticFeedback.current
-    val context = LocalContext.current
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Custom Fonts",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    
-                    Spacer(modifier = Modifier.height(4.dp))
-                    
-                    Text(
-                        text = if (useCustomFonts) 
-                            "Using Nothing Design fonts" 
-                        else 
-                            "Using system default fonts",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                Switch(
-                    checked = useCustomFonts,
-                    onCheckedChange = { 
-                        HapticUtils.triggerLightFeedback(haptic, context)
-                        onToggle() 
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = GlyphPurple,
-                        checkedTrackColor = GlyphPurpleContainer
-                    )
-                )
-            }
-
-            if (!useCustomFonts) {
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = GlyphPurpleContainer.copy(alpha = 0.5f)
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = null,
-                            tint = GlyphPurple,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        
-                        Spacer(modifier = Modifier.width(8.dp))
-                        
-                        Text(
-                            text = "Font family selection is disabled when using system fonts",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = GlyphPurple
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -844,7 +555,7 @@ fun FontPreview(
             // Current settings summary
             Card(
                 colors = CardDefaults.cardColors(
-                    containerColor = GlyphPurpleContainer.copy(alpha = 0.5f)
+                    containerColor = NothingViolate.copy(alpha = 0.5f)
                 )
             ) {
                 Column(
@@ -854,7 +565,7 @@ fun FontPreview(
                         text = "Current Settings",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.SemiBold,
-                        color = GlyphPurple
+                        color = NothingViolate
                     )
                     
                     Spacer(modifier = Modifier.height(4.dp))

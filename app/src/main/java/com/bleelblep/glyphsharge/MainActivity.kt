@@ -160,10 +160,10 @@ class MainActivity : ComponentActivity() {
         initServiceByPref(PowerPeekService::class.java,       settingsRepository.isPowerPeekEnabled())
         initServiceByPref(LowBatteryAlertService::class.java, settingsRepository.isLowBatteryEnabled())
         initServiceByPref(QuietHoursService::class.java,      settingsRepository.isQuietHoursEnabled())
+        initializeGlyphService()
         initializePulseLock()
-        initializeGlyphGuard()
         initializeScreenOffFeature()
-        initializeNfcFeature()            // NFC
+        initializeNfcFeature()
     }
 
     /** Generic helper: start or stop a foreground service class based on a boolean flag. */
@@ -179,13 +179,6 @@ class MainActivity : ComponentActivity() {
         glyphManager.initialize()
         glyphManager.onSessionStateChanged = { isActive ->
             _glyphServiceState.value = isActive
-            if (isActive && settingsRepository.isGlyphGuardEnabled()) {
-                startForegroundServiceCompat(
-                    Intent(this, GlyphGuardService::class.java).apply {
-                        action = GlyphGuardService.ACTION_START_GLYPH_GUARD
-                    }
-                )
-            }
             if (!isActive) maybeRestoreSession()
         }
 
@@ -198,19 +191,6 @@ class MainActivity : ComponentActivity() {
         } else {
             _glyphServiceState.value = glyphManager.isSessionActive
         }
-    }
-
-    private fun initializeGlyphGuard() {
-        if (!settingsRepository.isGlyphGuardEnabled()) return
-        if (!glyphManager.isSessionActive) {
-            Log.d(TAG, "Glyph Guard deferred – session inactive")
-            return
-        }
-        startForegroundServiceCompat(
-            Intent(this, GlyphGuardService::class.java).apply {
-                action = GlyphGuardService.ACTION_START_GLYPH_GUARD
-            }
-        )
     }
 
     private fun initializePulseLock() {
@@ -293,52 +273,48 @@ class MainActivity : ComponentActivity() {
                 val bgColor = MaterialTheme.colorScheme.background
                 WatermarkBox(enabled = false, text = "TESTING", alpha = 0.5f, fontSize = 20.sp) {
                     Surface(modifier = Modifier.fillMaxSize(), color = bgColor) {
-                        if (!settingsRepository.isOnboardingComplete()) {
-                            OnboardingScreen(onFinish = { recreate() })
-                        } else {
-                            MainScreen(
-                                isNothingPhone             = glyphManager.isNothingPhone(),
-                                glyphServiceEnabled        = glyphServiceState.value,
-                                onGlyphServiceToggle       = ::toggleGlyphService,
-                                onLaunchGlyphDemo          = ::runGlyphDemo,
-                                onTestAllZones             = ::testAllZones,
-                                onTestCustomPattern        = ::testCustomPattern,
-                                onRunWaveAnimation         = ::runWaveAnimation,
-                                onRunPulseEffect           = ::runPulseEffect,
-                                onTestGlyphGuard           = ::testGlyphGuard,
-                                onStartGlyphGuard          = ::startGlyphGuard,
-                                onStopGlyphGuard           = ::stopGlyphGuard,
-                                onRunBoxBreathing          = ::runBoxBreathing,
-                                onTestPowerPeek            = ::testPowerPeek,
-                                onEnablePowerPeek          = ::enablePowerPeek,
-                                onDisablePowerPeek         = ::disablePowerPeek,
-                                onRunNotificationEffect    = ::runNotificationEffect,
-                                onTestGlyphChannel         = ::testGlyphChannel,
-                                onTestC1Segment            = ::testC1Segment,
-                                onTestFinalState           = ::testFinalStateBeforeTurnoff,
-                                onTestC14C15Isolated       = ::testC14AndC15Isolated,
+                        MainScreen(
+                            isNothingPhone             = glyphManager.isNothingPhone(),
+                            glyphServiceEnabled        = glyphServiceState.value,
+                            onGlyphServiceToggle       = ::toggleGlyphService,
+                            onLaunchGlyphDemo          = ::runGlyphDemo,
+                            onTestAllZones             = ::testAllZones,
+                            onTestCustomPattern        = ::testCustomPattern,
+                            onRunWaveAnimation         = ::runWaveAnimation,
+                            onRunPulseEffect           = ::runPulseEffect,
+                            onTestGlyphGuard           = ::testGlyphGuard,
+                            onStartGlyphGuard          = ::startGlyphGuard,
+                            onStopGlyphGuard           = ::stopGlyphGuard,
+                            onRunBoxBreathing          = ::runBoxBreathing,
+                            onTestPowerPeek            = ::testPowerPeek,
+                            onEnablePowerPeek          = ::enablePowerPeek,
+                            onDisablePowerPeek         = ::disablePowerPeek,
+                            onRunNotificationEffect    = ::runNotificationEffect,
+                            onTestGlyphChannel         = ::testGlyphChannel,
+                            onTestC1Segment            = ::testC1Segment,
+                            onTestFinalState           = ::testFinalStateBeforeTurnoff,
+                            onTestC14C15Isolated       = ::testC14AndC15Isolated,
 
-                                // Pulse Lock
-                                onTestPulseLock            = ::testPulseLock,
-                                onEnablePulseLock          = ::enablePulseLock,
-                                onDisablePulseLock         = ::disablePulseLock,
+                            // Pulse Lock
+                            onTestPulseLock            = ::testPulseLock,
+                            onEnablePulseLock          = ::enablePulseLock,
+                            onDisablePulseLock         = ::disablePulseLock,
 
-                                // Screen Off
-                                onTestScreenOff            = ::testScreenOffAnimation,
-                                onEnableScreenOff          = ::enableScreenOffFeature,
-                                onDisableScreenOff         = ::disableScreenOffFeature,
+                            // Screen Off
+                            onTestScreenOff            = ::testScreenOffAnimation,
+                            onEnableScreenOff          = ::enableScreenOffFeature,
+                            onDisableScreenOff         = ::disableScreenOffFeature,
 
-                                // NFC
-                                onTestNfc                  = ::testNfcAnimation,
-                                onEnableNfc                = ::enableNfcFeature,
-                                onDisableNfc               = ::disableNfcFeature,
+                            // NFC
+                            onTestNfc                  = ::testNfcAnimation,
+                            onEnableNfc                = ::enableNfcFeature,
+                            onDisableNfc               = ::disableNfcFeature,
 
-                                onTestLowBattery           = ::testLowBatteryAlert,
-                                onRunDiagnostics           = ::runDiagnostics,
-                                backgroundColorMain        = bgColor,
-                                settingsRepository         = settingsRepository
-                            )
-                        }
+                            onTestLowBattery           = ::testLowBatteryAlert,
+                            onRunDiagnostics           = ::runDiagnostics,
+                            backgroundColorMain        = bgColor,
+                            settingsRepository         = settingsRepository
+                        )
                     }
                 }
             }
@@ -702,21 +678,6 @@ fun MainScreen(
                         )
                     }
                     item {
-                        GlyphGuardCard(
-                            title = "Glyph Guard",
-                            description = "Stay secure with Glyph and Sound Alerts if Unplugged.",
-                            icon = painterResource(id = R.drawable._78),
-                            onTest = { requireGlyphService(onTestGlyphGuard) },
-                            onStart = { requireGlyphService(onStartGlyphGuard) },
-                            onStop = onStopGlyphGuard,
-                            modifier = Modifier.fillMaxWidth(),
-                            iconSize = 32,
-                            isServiceActive = glyphServiceEnabled,
-                            glyphGuardMode = GlyphGuardMode.Standard,
-                            settingsRepository = settingsRepository
-                        )
-                    }
-                    item {
                         PulseLockCard(
                             title = "Glow Gate",
                             description = "Light up your unlock with stunning glyph animations.",
@@ -752,7 +713,9 @@ fun MainScreen(
                             iconSize = 32,
                             isServiceActive = glyphServiceEnabled,
                             onTestScreenOff    = { requireGlyphService(onTestScreenOff) },
-                            settingsRepository = settingsRepository
+                            settingsRepository = settingsRepository,
+                            onEnableScreenOff = { requireGlyphService(onEnableScreenOff) },
+                            onDisableScreenOff = { requireGlyphService(onDisableScreenOff) },
                         )
                     }
 
@@ -766,7 +729,7 @@ fun MainScreen(
                             isServiceActive = glyphServiceEnabled,
                             onTestNfc    = { requireGlyphService(onTestNfc) },
                             onEnableNfc  = { requireGlyphService(onEnableNfc) },
-                            onDisableNfc = onDisableNfc,
+                            onDisableNfc = { requireGlyphService(onDisableNfc) },
                             settingsRepository = settingsRepository
                         )
                     }
@@ -779,7 +742,6 @@ fun MainScreen(
                             isServiceActive = glyphServiceEnabled
                         )
                     }
-                    item { InformationCard(modifier = Modifier.fillMaxWidth()) }
                 }
             }
         }
@@ -798,8 +760,6 @@ fun MainScreen(
         }
         composable("theme_settings")   { ThemeSettingsScreen(onBackClick = { navController.popBackStack() }) }
         composable("font_settings")    { FontSettingsScreen(fontState = LocalFontState.current, onNavigateBack = { navController.popBackStack() }) }
-        composable("card_examples")    { CardExamplesScreen(paddingValues = PaddingValues(0.dp)) }
-        composable("hidden_settings")  { HiddenSettingsScreen(onBackClick = { navController.popBackStack() }, onLEDCalibrationClick = { navController.navigate("led_calibration") }, onCardExamplesClick = { navController.navigate("card_examples") }, onHardwareDiagnosticsClick = { navController.navigate("hardware_diagnostics") }, settingsRepository = settingsRepository) }
         composable("hardware_diagnostics") { HardwareDiagnosticsScreen(onBackClick = { navController.popBackStack() }) }
         composable("vibration_settings") { VibrationSettingsScreen(onBackClick = { navController.popBackStack() }, settingsRepository = settingsRepository) }
         composable("quiet_hours_settings") { QuietHoursSettingsScreen(onBackClick = { navController.popBackStack() }, settingsRepository = settingsRepository) }

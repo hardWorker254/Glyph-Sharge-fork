@@ -13,7 +13,6 @@ import javax.inject.Singleton
 import com.bleelblep.glyphsharge.ui.theme.FontVariant
 import com.bleelblep.glyphsharge.ui.theme.FontSizeSettings
 import com.bleelblep.glyphsharge.ui.theme.AppThemeStyle
-import com.bleelblep.glyphsharge.ui.components.GlyphGuardMode
 import java.util.Calendar
 
 /**
@@ -326,54 +325,6 @@ class SettingsRepository @Inject constructor(
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Glyph Guard
-    // ─────────────────────────────────────────────────────────────────────────
-
-    fun saveGlyphGuardDuration(duration: Long) =
-        prefs.edit { putLong(KEY_GLYPH_GUARD_DURATION, duration) }
-
-    fun getGlyphGuardDuration(): Long =
-        prefs.getLong(KEY_GLYPH_GUARD_DURATION, DEFAULT_GLYPH_GUARD_DURATION)
-
-    fun saveGlyphGuardSoundType(soundType: String) =
-        prefs.edit { putString(KEY_GLYPH_GUARD_SOUND_TYPE, soundType) }
-
-    fun getGlyphGuardSoundType(): String =
-        prefs.getString(KEY_GLYPH_GUARD_SOUND_TYPE, null) ?: DEFAULT_GLYPH_GUARD_SOUND_TYPE
-
-    fun saveGlyphGuardCustomRingtoneUri(uri: String?) =
-        prefs.edit { putString(KEY_GLYPH_GUARD_CUSTOM_RINGTONE_URI, uri) }
-
-    fun getGlyphGuardCustomRingtoneUri(): String? =
-        prefs.getString(KEY_GLYPH_GUARD_CUSTOM_RINGTONE_URI, null)
-
-    fun saveGlyphGuardSoundEnabled(enabled: Boolean) =
-        prefs.edit { putBoolean(KEY_GLYPH_GUARD_SOUND_ENABLED, enabled) }
-
-    fun isGlyphGuardSoundEnabled(): Boolean =
-        prefs.getBoolean(KEY_GLYPH_GUARD_SOUND_ENABLED, false)
-
-    fun saveGlyphGuardEnabled(enabled: Boolean) =
-        prefs.edit { putBoolean(KEY_GLYPH_GUARD_ENABLED, enabled) }
-
-    fun isGlyphGuardEnabled(): Boolean =
-        prefs.getBoolean(KEY_GLYPH_GUARD_ENABLED, false)
-
-    fun saveGlyphGuardAlertMode(mode: GlyphGuardMode) =
-        prefs.edit { putString(KEY_GLYPH_GUARD_ALERT_MODE, mode.name) }
-
-    fun getGlyphGuardAlertMode(): GlyphGuardMode {
-        return when (prefs.getString(
-            KEY_GLYPH_GUARD_ALERT_MODE,
-            GlyphGuardMode.Standard.name
-        )) {
-            GlyphGuardMode.Stealth.name -> GlyphGuardMode.Stealth
-            GlyphGuardMode.Intense.name -> GlyphGuardMode.Intense
-            else -> GlyphGuardMode.Standard
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
     // Misc
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -589,11 +540,7 @@ class SettingsRepository @Inject constructor(
             Shake Threshold: ${getShakeThreshold()}
             Display Duration: ${getDisplayDuration()}
             Vibration Intensity: ${getVibrationIntensity()}
-            Glyph Guard Duration: ${getGlyphGuardDuration()}
-            Glyph Guard Sound: ${isGlyphGuardSoundEnabled()}
-            Glyph Guard Enabled: ${isGlyphGuardEnabled()}
             Battery Story: ${isBatteryStoryEnabled()}
-            Glyph Guard Alert Mode: ${getGlyphGuardAlertMode()}
             Glow Gate enabled: ${isPulseLockEnabled()}
             Low-Battery Alert enabled: ${isLowBatteryEnabled()}
             Screen Off Anim enabled: ${isScreenOffFeatureEnabled()}

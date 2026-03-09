@@ -12,11 +12,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.WindowInsets
 import com.bleelblep.glyphsharge.ui.components.SquareFeatureCard
 import com.bleelblep.glyphsharge.ui.components.FeatureGrid
-import com.bleelblep.glyphsharge.ui.components.ActionCard
 import com.bleelblep.glyphsharge.R
 import androidx.compose.ui.res.painterResource
 import com.bleelblep.glyphsharge.ui.theme.LocalThemeState
-import com.bleelblep.glyphsharge.ui.theme.ThemeState
 import com.bleelblep.glyphsharge.ui.components.FeatureCard
 import androidx.compose.ui.graphics.painter.Painter
 import com.bleelblep.glyphsharge.ui.theme.AppThemeStyle
@@ -24,14 +22,12 @@ import com.bleelblep.glyphsharge.ui.components.ContentCard
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.core.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
-import com.bleelblep.glyphsharge.ui.theme.NothingRed
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.rememberTopAppBarState

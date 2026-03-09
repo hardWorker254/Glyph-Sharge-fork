@@ -1,5 +1,6 @@
 package com.bleelblep.glyphsharge.utils
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -15,10 +16,13 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
+@SuppressLint("StaticFieldLeak")
 object LoggingManager {
     private var isLoggingEnabled = false
     private val logMutex = Mutex()
+    @SuppressLint("ConstantLocale")
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
+    @SuppressLint("ConstantLocale")
     private val fileDateFormat = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.getDefault())
     
     private lateinit var context: Context
