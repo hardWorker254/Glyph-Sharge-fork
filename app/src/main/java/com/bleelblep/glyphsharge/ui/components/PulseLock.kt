@@ -4,15 +4,10 @@ import android.content.Intent
 import android.media.RingtoneManager
 import android.net.Uri
 import android.util.Log
-import java.io.File
-import java.io.FileOutputStream
-import java.io.InputStream
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -21,32 +16,26 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.platform.LocalHapticFeedback
-import com.bleelblep.glyphsharge.ui.theme.AppThemeStyle
-import com.bleelblep.glyphsharge.ui.theme.LocalThemeState
-import com.bleelblep.glyphsharge.ui.theme.SettingsRepository
-import com.bleelblep.glyphsharge.ui.utils.HapticUtils
+import androidx.core.net.toUri
 import com.bleelblep.glyphsharge.di.GlyphComponent
+import com.bleelblep.glyphsharge.ui.theme.*
+import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.core.net.toUri
-import com.bleelblep.glyphsharge.ui.theme.NothingGray
-import com.bleelblep.glyphsharge.ui.theme.NothingGreen
-import com.bleelblep.glyphsharge.ui.theme.NothingRed
-import com.bleelblep.glyphsharge.ui.theme.NothingViolate
-import com.bleelblep.glyphsharge.ui.theme.NothingWhite
+import java.io.File
+import java.io.FileOutputStream
+import java.io.InputStream
 
-// --------------------------- Data class ---------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+//  Data
+// ─────────────────────────────────────────────────────────────────────────────
 
 data class PulseLockConfig(
     val animationId: String,
@@ -56,9 +45,10 @@ data class PulseLockConfig(
     val durationMs: Long,
 )
 
-// --------------------- TOP-LEVEL confirmation dialog ----------------------
+// ─────────────────────────────────────────────────────────────────────────────
+//  Confirmation Dialog  (uses FeatureConfirmationButtons)
+// ─────────────────────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PulseLockConfirmationDialog(
     onTestPulseLock: () -> Unit,
@@ -68,54 +58,39 @@ fun PulseLockConfirmationDialog(
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
-    val themeState = LocalThemeState.current
     var showEnableDialog by remember { mutableStateOf(false) }
-    val haptic = LocalHapticFeedback.current
-    val context = LocalContext.current
 
-    AlertDialog(
-        onDismissRequest = { /* Prevent dismissal */ },
-        properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false
-        ),
-        title = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "✨ Glow Gate",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = "Unlock animation",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                // Feature description
+    if (!showEnableDialog) {
+        AlertDialog(
+            onDismissRequest = { /* non-dismissible */ },
+            properties = DialogProperties(
+                dismissOnBackPress = false,
+                dismissOnClickOutside = false
+            ),
+            title = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "✨ Glow Gate",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "Unlock animation",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            text = {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = when (themeState.themeStyle) {
-                            AppThemeStyle.AMOLED -> NothingRed
-                            AppThemeStyle.CLASSIC -> if (themeState.isDarkTheme) {
-                                MaterialTheme.colorScheme.surfaceContainer
-                            } else {
-                                NothingWhite
-                            }
-                            else -> MaterialTheme.colorScheme.surfaceContainer
-                        }
+                        containerColor = themeCardContainerColor()
                     ),
                     shape = RoundedCornerShape(16.dp)
                 ) {
@@ -129,126 +104,34 @@ fun PulseLockConfirmationDialog(
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "• Plays the selected Glyph animation after unlock\n• Optional sound with adjustable delay",
+                            text = "• Plays the selected Glyph animation after unlock\n" +
+                                    "• Optional sound with adjustable delay",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 20.sp
                         )
                     }
                 }
-            }
-        },
-        confirmButton = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                                        // Primary Action - Test Glow Gate
-                ElevatedButton(
-                    onClick = { 
-                        HapticUtils.triggerMediumFeedback(haptic, context)
-                        onTestPulseLock() 
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    colors = ButtonDefaults.elevatedButtonColors(
-                        containerColor = when (themeState.themeStyle) {
-                            AppThemeStyle.AMOLED -> NothingGreen
-                            AppThemeStyle.CLASSIC -> NothingViolate
-                            else -> MaterialTheme.colorScheme.primary
-                        },
-                        contentColor = NothingWhite
-                    ),
-                    elevation = ButtonDefaults.elevatedButtonElevation(
-                        defaultElevation = 6.dp,
-                        pressedElevation = 12.dp
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "🧪 Test Glow Gate",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-                
-                // Secondary Actions Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Settings Button
-                    Button(
-                        onClick = { 
-                            HapticUtils.triggerLightFeedback(haptic, context)
-                            showEnableDialog = true 
-                        },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = when (themeState.themeStyle) {
-                                AppThemeStyle.AMOLED -> NothingGray
-                                AppThemeStyle.CLASSIC -> NothingViolate
-                                else -> MaterialTheme.colorScheme.secondaryContainer
-                            },
-                            contentColor = when (themeState.themeStyle) {
-                                AppThemeStyle.AMOLED -> NothingWhite
-                                AppThemeStyle.CLASSIC -> NothingWhite
-                                else -> MaterialTheme.colorScheme.onSecondaryContainer
-                            }
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            text = "⚙️ Settings",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    
-                    // Cancel Button
-                    OutlinedButton(
-                        onClick = { 
-                            HapticUtils.triggerLightFeedback(haptic, context)
-                            onDismiss() 
-                        },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        border = BorderStroke(
-                            1.5.dp,
-                            MaterialTheme.colorScheme.outline
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            text = "✕ Cancel",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-        },
-        dismissButton = {},
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(24.dp),
-        modifier = modifier
-    )
+            },
+            confirmButton = {
+                FeatureConfirmationButtons(
+                    primaryLabel = "🧪 Test Glow Gate",
+                    onPrimary = onTestPulseLock,
+                    onSettings = { showEnableDialog = true },
+                    onCancel = onDismiss
+                )
+            },
+            dismissButton = {},
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(24.dp),
+            modifier = modifier
+        )
+    }
 
-    // nested settings dialog
     if (showEnableDialog) {
         PulseLockEnableDialog(
             settingsRepository = settingsRepository,
-            onConfirm = { cfg ->
+            onConfirm = { _ ->
                 onEnablePulseLock()
                 showEnableDialog = false
                 onDismiss()
@@ -263,9 +146,11 @@ fun PulseLockConfirmationDialog(
     }
 }
 
-// --------------------------- Enable dialog ---------------------------
+// ─────────────────────────────────────────────────────────────────────────────
+//  Enable / Settings Dialog  (uses FeatureSaveButtons + ThemedValueBadge)
+// ─────────────────────────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PulseLockEnableDialog(
     onConfirm: (PulseLockConfig) -> Unit,
@@ -274,101 +159,89 @@ fun PulseLockEnableDialog(
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
-    val themeState = LocalThemeState.current
-    val haptic = LocalHapticFeedback.current
+    val haptic  = LocalHapticFeedback.current
     val context = LocalContext.current
+    val scope   = rememberCoroutineScope()
 
-    // Check if PulseLock is currently enabled
     val currentlyEnabled = remember { settingsRepository.isPulseLockEnabled() }
     var isSaving by remember { mutableStateOf(false) }
 
-    // initial prefs
-    var selectedAnim by remember { mutableStateOf(GlyphAnimations.getById(settingsRepository.getPulseLockAnimationId())) }
+    // ── State ───────────────────────────────────────────────────────────
+    var selectedAnim by remember {
+        mutableStateOf(GlyphAnimations.getById(settingsRepository.getPulseLockAnimationId()))
+    }
     var soundEnabled by remember { mutableStateOf(settingsRepository.isPulseLockAudioEnabled()) }
     var soundUri by remember { mutableStateOf(settingsRepository.getPulseLockAudioUri()) }
     var soundOffset by remember {
-        mutableFloatStateOf(
-            // Ensure offset is not negative - reset to 0 if it was previously negative
-            maxOf(0f, settingsRepository.getPulseLockAudioOffset().toFloat())
-        ) 
+        mutableFloatStateOf(maxOf(0f, settingsRepository.getPulseLockAudioOffset().toFloat()))
     }
-    var animationDuration by remember { mutableLongStateOf(settingsRepository.getPulseLockDuration()) }
-    
-    // Get sound name for display
+    var animationDuration by remember {
+        mutableLongStateOf(settingsRepository.getPulseLockDuration())
+    }
+
+    // Derived sound display name
     val soundName = remember(soundUri) {
         soundUri?.let { uriString ->
             try {
                 val uri = uriString.toUri()
-                
-                // Try to get ringtone title first (works for system sounds)
-                val ringtone = RingtoneManager.getRingtone(context, uri)
-                val ringtoneTitle = ringtone?.getTitle(context)
-                
-                if (!ringtoneTitle.isNullOrEmpty()) {
-                    ringtoneTitle
-                } else {
-                    // For custom files, try to get filename from URI
-                    uri.lastPathSegment?.let { segment ->
-                        // Remove file extension and decode
-                        segment.substringBeforeLast('.').replace("%20", " ")
-                    } ?: "Custom audio file"
-                }
+                RingtoneManager.getRingtone(context, uri)?.getTitle(context)
+                    ?: uri.lastPathSegment
+                        ?.substringBeforeLast('.')
+                        ?.replace("%20", " ")
+                    ?: "Custom audio file"
             } catch (e: Exception) {
-                Log.w("PulseLockComponents", "Error getting sound name for URI: $uriString", e)
+                Log.w("PulseLock", "Error getting sound name", e)
                 "Custom audio file"
             }
         } ?: "No sound selected"
     }
 
-    // Ringtone picker (system sounds)
+    // DI
+    val glyphAnimationManager = remember {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            GlyphComponent::class.java
+        ).glyphAnimationManager()
+    }
+
+    // Pickers
     val ringtonePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
+        ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == ComponentActivity.RESULT_OK) {
-            val uri = result.data?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
-            soundUri = uri?.toString()
+            soundUri = result.data
+                ?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+                ?.toString()
             settingsRepository.savePulseLockAudioUri(soundUri)
-            Log.d("PulseLockComponents", "Selected ringtone URI: $soundUri")
         }
     }
-    
-    // Custom file picker
+
     val customFilePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+        ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        if (uri != null) {
-            try {
-                Log.d("PulseLockComponents", "Processing custom file: $uri")
-                
-                // Copy the file to internal storage to avoid permission issues
-                val internalUri = copyFileToInternalStorage(context, uri, "pulselock_custom_audio")
-                
-                if (internalUri != null) {
-                    soundUri = internalUri.toString()
-                    settingsRepository.savePulseLockAudioUri(soundUri)
-                    Log.d("PulseLockComponents", "Successfully copied custom file to internal storage: $internalUri")
-                } else {
-                    // Fallback: try to use original URI with persistable permission
-                    try {
-                        context.contentResolver.takePersistableUriPermission(
-                            uri, 
-                            Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        )
-                        soundUri = uri.toString()
-                        settingsRepository.savePulseLockAudioUri(soundUri)
-                        Log.d("PulseLockComponents", "Fallback: using original URI with persistable permission")
-                    } catch (e: Exception) {
-                        Log.e("PulseLockComponents", "Failed to copy file and take persistable permission", e)
-                        // Last resort: save original URI anyway
-                        soundUri = uri.toString()
-                        settingsRepository.savePulseLockAudioUri(soundUri)
-                    }
+        uri ?: return@rememberLauncherForActivityResult
+        try {
+            val internalUri = copyFileToInternalStorage(context, uri, "pulselock_custom_audio")
+            if (internalUri != null) {
+                soundUri = internalUri.toString()
+            } else {
+                runCatching {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
                 }
-            } catch (e: Exception) {
-                Log.e("PulseLockComponents", "Error processing custom file: $uri", e)
+                soundUri = uri.toString()
             }
+            settingsRepository.savePulseLockAudioUri(soundUri)
+        } catch (e: Exception) {
+            Log.e("PulseLock", "Error processing custom file", e)
         }
     }
+
+    // Pre-resolve themed values
+    val cardColor    = themeCardContainerColor()
+    val accent       = themePrimaryActionColor()
+    val secBtnColors = themeSecondaryButtonColors()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -395,46 +268,26 @@ fun PulseLockEnableDialog(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 400.dp) // Limit max height to ensure dialog doesn't get too tall
+                    .heightIn(max = 400.dp)
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // Animation picker card
+                // ── Animation Picker ─────────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = when (themeState.themeStyle) {
-                            AppThemeStyle.AMOLED -> NothingRed
-                            AppThemeStyle.CLASSIC -> if (themeState.isDarkTheme) {
-                                MaterialTheme.colorScheme.surfaceContainer
-                            } else {
-                                NothingWhite
-                            }
-                            else -> MaterialTheme.colorScheme.surfaceContainer
-                        }
-                    ),
+                    colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Get GlyphAnimationManager via dependency injection
-                        val glyphAnimationManager = remember {
-                            EntryPointAccessors.fromApplication(
-                                context.applicationContext,
-                                GlyphComponent::class.java
-                            ).glyphAnimationManager()
-                        }
-                        val coroutineScope = rememberCoroutineScope()
-                        
                         Text(
                             text = "🎞️ Animation",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        // Display animation options as icon chips in a wrap-content row
-                        @OptIn(ExperimentalLayoutApi::class)
+
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -447,9 +300,7 @@ fun PulseLockEnableDialog(
                                         selectedAnim = anim
                                         settingsRepository.savePulseLockAnimationId(anim.id)
                                     },
-                                    label = {
-                                        Text(anim.displayName)
-                                    },
+                                    label = { Text(anim.displayName) },
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                         selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
@@ -457,70 +308,42 @@ fun PulseLockEnableDialog(
                                 )
                             }
                         }
-                        
-                        // Test button for selected animation
+
                         Button(
                             onClick = {
                                 HapticUtils.triggerMediumFeedback(haptic, context)
-                                // Launch animation test in background
-                                coroutineScope.launch {
+                                scope.launch {
                                     try {
                                         when (selectedAnim.id) {
-                                            "SPIRAL" -> glyphAnimationManager.runSpiralAnimation()
+                                            "SPIRAL"    -> glyphAnimationManager.runSpiralAnimation()
                                             "HEARTBEAT" -> glyphAnimationManager.runHeartbeatAnimation()
-                                            "MATRIX" -> glyphAnimationManager.runMatrixRainAnimation()
+                                            "MATRIX"    -> glyphAnimationManager.runMatrixRainAnimation()
                                             "FIREWORKS" -> glyphAnimationManager.runFireworksAnimation()
-                                            "DNA" -> glyphAnimationManager.runDNAHelixAnimation()
-                                            else -> glyphAnimationManager.playPulseLockAnimation(selectedAnim.id)
+                                            "DNA"       -> glyphAnimationManager.runDNAHelixAnimation()
+                                            else        -> glyphAnimationManager.playPulseLockAnimation(selectedAnim.id)
                                         }
                                     } catch (e: Exception) {
-                                        Log.e("PulseLockComponents", "Error testing animation: ${e.message}")
+                                        Log.e("PulseLock", "Error testing animation: ${e.message}")
                                     }
                                 }
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = when (themeState.themeStyle) {
-                                    AppThemeStyle.AMOLED -> NothingGray
-                                    AppThemeStyle.CLASSIC -> NothingWhite
-                                    else -> MaterialTheme.colorScheme.surfaceVariant
-                                },
-                                contentColor = when (themeState.themeStyle) {
-                                    AppThemeStyle.AMOLED -> NothingWhite
-                                    AppThemeStyle.CLASSIC -> NothingViolate
-                                    else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                }
-                            ),
+                            colors = secBtnColors,
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Row(
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "🧪 Test \"${selectedAnim.displayName}\"",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
+                            Text(
+                                text = "🧪 Test \"${selectedAnim.displayName}\"",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
                 }
 
-                // Animation Duration Card
+                // ── Animation Duration ───────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = when (themeState.themeStyle) {
-                            AppThemeStyle.AMOLED -> NothingRed
-                            AppThemeStyle.CLASSIC -> if (themeState.isDarkTheme) {
-                                MaterialTheme.colorScheme.surfaceContainer
-                            } else {
-                                NothingWhite
-                            }
-                            else -> MaterialTheme.colorScheme.surfaceContainer
-                        }
-                    ),
+                    colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
@@ -532,39 +355,16 @@ fun PulseLockEnableDialog(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        
+
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "Duration:",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Surface(
-                                color = when (themeState.themeStyle) {
-                                    AppThemeStyle.AMOLED -> NothingGray
-                                    AppThemeStyle.CLASSIC -> NothingWhite
-                                    else -> MaterialTheme.colorScheme.primaryContainer
-                                },
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(
-                                    text = "${(animationDuration / 1000f).toInt()}s",
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = when (themeState.themeStyle) {
-                                        AppThemeStyle.AMOLED -> NothingWhite
-                                        AppThemeStyle.CLASSIC -> NothingViolate
-                                        else -> MaterialTheme.colorScheme.onPrimaryContainer
-                                    }
-                                )
-                            }
+                            Text("Duration:", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            ThemedValueBadge("${(animationDuration / 1000f).toInt()}s")
                         }
-                        
+
                         Slider(
                             value = animationDuration.toFloat(),
                             onValueChange = {
@@ -572,106 +372,61 @@ fun PulseLockEnableDialog(
                                 animationDuration = it.toLong()
                                 settingsRepository.savePulseLockDuration(animationDuration)
                             },
-                            valueRange = 1000f..10000f, // 1 to 10 seconds
-                            steps = 17, // 0.5s increments (1s to 10s in 0.5s steps = 19 values, so 18 steps)
+                            valueRange = 1000f..10000f,
+                            steps = 17,
                             modifier = Modifier.fillMaxWidth(),
-                            colors = SliderDefaults.colors(
-                                thumbColor = when (themeState.themeStyle) {
-                                    AppThemeStyle.AMOLED -> NothingGreen
-                                    AppThemeStyle.CLASSIC -> NothingViolate
-                                    else -> MaterialTheme.colorScheme.primary
-                                }
-                            )
+                            colors = SliderDefaults.colors(thumbColor = accent)
                         )
-                        
+
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
-                                text = "Short (1s)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "Long (10s)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Text("Short (1s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Long (10s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        
-                        // Sync with sound duration button (only show when sound is enabled and a sound is selected)
+
+                        // Sync with sound duration
                         if (soundEnabled && soundUri != null) {
                             Button(
                                 onClick = {
                                     HapticUtils.triggerMediumFeedback(haptic, context)
-                                    // Get sound duration and set animation duration to match
                                     try {
-                                        val mediaPlayer = android.media.MediaPlayer()
-                                        mediaPlayer.setDataSource(context, Uri.parse(soundUri))
-                                        mediaPlayer.prepare()
-                                        val soundDuration = mediaPlayer.duration.toLong()
-                                        mediaPlayer.release()
-                                        
-                                        // Set animation duration to sound duration (with a minimum of 1s and max of 10s)
-                                        val newDuration = soundDuration.coerceIn(1000L, 10000L)
-                                        animationDuration = newDuration
-                                        settingsRepository.savePulseLockDuration(newDuration)
+                                        val mp = android.media.MediaPlayer()
+                                        mp.setDataSource(context, Uri.parse(soundUri))
+                                        mp.prepare()
+                                        val dur = mp.duration.toLong().coerceIn(1000L, 10000L)
+                                        mp.release()
+                                        animationDuration = dur
+                                        settingsRepository.savePulseLockDuration(dur)
                                     } catch (e: Exception) {
-                                        Log.e("PulseLockComponents", "Error getting sound duration: ${e.message}")
+                                        Log.e("PulseLock", "Error getting sound duration: ${e.message}")
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = when (themeState.themeStyle) {
-                                        AppThemeStyle.AMOLED -> NothingGray
-                                        AppThemeStyle.CLASSIC -> NothingWhite
-                                        else -> MaterialTheme.colorScheme.surfaceVariant
-                                    },
-                                    contentColor = when (themeState.themeStyle) {
-                                        AppThemeStyle.AMOLED -> NothingWhite
-                                        AppThemeStyle.CLASSIC -> NothingViolate
-                                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                    }
-                                ),
+                                colors = secBtnColors,
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Row(
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "🎵 Sync with Sound Duration",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
+                                Text(
+                                    text = "🎵 Sync with Sound Duration",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                             }
                         }
                     }
                 }
 
-                // Sound Alerts Card (matching GlyphGuard style)
+                // ── Sound Alerts ─────────────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = when (themeState.themeStyle) {
-                            AppThemeStyle.AMOLED -> NothingRed
-                            AppThemeStyle.CLASSIC -> if (themeState.isDarkTheme) {
-                                MaterialTheme.colorScheme.surfaceContainer
-                            } else {
-                                NothingWhite
-                            }
-                            else -> MaterialTheme.colorScheme.surfaceContainer
-                        }
-                    ),
+                    colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Sound enabled toggle
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -690,22 +445,14 @@ fun PulseLockEnableDialog(
                                     settingsRepository.savePulseLockAudioEnabled(it)
                                 },
                                 colors = SwitchDefaults.colors(
-                                    checkedThumbColor = when (themeState.themeStyle) {
-                                        AppThemeStyle.AMOLED -> NothingGreen
-                                        AppThemeStyle.CLASSIC -> NothingViolate
-                                        else -> MaterialTheme.colorScheme.primary
-                                    },
-                                    checkedTrackColor = when (themeState.themeStyle) {
-                                        AppThemeStyle.AMOLED -> NothingGreen.copy(alpha = 0.5f)
-                                        AppThemeStyle.CLASSIC -> NothingViolate.copy(alpha = 0.5f)
-                                        else -> MaterialTheme.colorScheme.primaryContainer
-                                    }
+                                    checkedThumbColor = accent,
+                                    checkedTrackColor = accent.copy(alpha = 0.5f)
                                 )
                             )
                         }
-                        
-                        // Sound selection (only show when sound is enabled)
+
                         if (soundEnabled) {
+                            // Selected sound name
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -717,11 +464,7 @@ fun PulseLockEnableDialog(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Surface(
-                                    color = when (themeState.themeStyle) {
-                                        AppThemeStyle.AMOLED -> NothingGray
-                                        AppThemeStyle.CLASSIC -> NothingWhite
-                                        else -> MaterialTheme.colorScheme.primaryContainer
-                                    },
+                                    color = MaterialTheme.colorScheme.primaryContainer,
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text(
@@ -729,133 +472,64 @@ fun PulseLockEnableDialog(
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                                         style = MaterialTheme.typography.titleSmall,
                                         fontWeight = FontWeight.Bold,
-                                        color = when (themeState.themeStyle) {
-                                            AppThemeStyle.AMOLED -> NothingWhite
-                                            AppThemeStyle.CLASSIC -> NothingViolate
-                                            else -> MaterialTheme.colorScheme.onPrimaryContainer
-                                        },
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
                                 }
                             }
-                        }
-                        
-                        // Sound selection buttons (only show when sound is enabled)
-                        if (soundEnabled) {
+
+                            // Sound picker buttons
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                // System sounds button
                                 Button(
                                     onClick = {
                                         HapticUtils.triggerLightFeedback(haptic, context)
-                                        val intent = Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                                            putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALL)
-                                            putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Select PulseLock Sound")
-                                            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
-                                            putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-                                            
-                                            // Set current selection
-                                            soundUri?.let { uriString ->
-                                                try {
-                                                    putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(uriString))
-                                                } catch (e: Exception) {
-                                                    // If current URI is invalid, don't set it
+                                        ringtonePickerLauncher.launch(
+                                            Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                                                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALL)
+                                                putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Select PulseLock Sound")
+                                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
+                                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
+                                                soundUri?.let {
+                                                    runCatching {
+                                                        putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(it))
+                                                    }
                                                 }
                                             }
-                                        }
-                                        ringtonePickerLauncher.launch(intent)
+                                        )
                                     },
                                     modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = when (themeState.themeStyle) {
-                                            AppThemeStyle.AMOLED -> NothingGray
-                                            AppThemeStyle.CLASSIC -> NothingWhite
-                                            else -> MaterialTheme.colorScheme.surfaceVariant
-                                        },
-                                        contentColor = when (themeState.themeStyle) {
-                                            AppThemeStyle.AMOLED -> NothingWhite
-                                            AppThemeStyle.CLASSIC -> NothingViolate
-                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                        }
-                                    ),
+                                    colors = secBtnColors,
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Text(
-                                        text = "🎵 System",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
+                                    Text("🎵 System", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                                 }
-                                
-                                // Custom file button
+
                                 Button(
-                                    onClick = { 
+                                    onClick = {
                                         HapticUtils.triggerLightFeedback(haptic, context)
-                                        customFilePickerLauncher.launch("audio/*") 
+                                        customFilePickerLauncher.launch("audio/*")
                                     },
                                     modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = when (themeState.themeStyle) {
-                                            AppThemeStyle.AMOLED -> NothingGray
-                                            AppThemeStyle.CLASSIC -> NothingWhite
-                                            else -> MaterialTheme.colorScheme.surfaceVariant
-                                        },
-                                        contentColor = when (themeState.themeStyle) {
-                                            AppThemeStyle.AMOLED -> NothingWhite
-                                            AppThemeStyle.CLASSIC -> NothingViolate
-                                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                                        }
-                                    ),
+                                    colors = secBtnColors,
                                     shape = RoundedCornerShape(12.dp)
                                 ) {
-                                    Text(
-                                        text = "📁 Custom",
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.SemiBold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                    Text("📁 Custom", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                             }
-                        }
-                        
-                        // Audio offset slider (only show when sound is enabled)
-                        if (soundEnabled) {
+
+                            // Audio offset
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = "Audio Offset:",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Surface(
-                                    color = when (themeState.themeStyle) {
-                                        AppThemeStyle.AMOLED -> NothingGray
-                                        AppThemeStyle.CLASSIC -> NothingWhite
-                                        else -> MaterialTheme.colorScheme.primaryContainer
-                                    },
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text(
-                                        text = "${soundOffset.toInt()}ms",
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        color = when (themeState.themeStyle) {
-                                            AppThemeStyle.AMOLED -> NothingWhite
-                                            AppThemeStyle.CLASSIC -> NothingViolate
-                                            else -> MaterialTheme.colorScheme.onPrimaryContainer
-                                        }
-                                    )
-                                }
+                                Text("Audio Offset:", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                ThemedValueBadge("${soundOffset.toInt()}ms")
                             }
-                            
+
                             Slider(
                                 value = soundOffset,
                                 onValueChange = {
@@ -864,31 +538,17 @@ fun PulseLockEnableDialog(
                                     settingsRepository.savePulseLockAudioOffset(it.toLong())
                                 },
                                 valueRange = 0f..1500f,
-                                steps = 29, // 50ms increments (0 to 1500ms in 50ms steps = 30 values, so 29 steps)
+                                steps = 29,
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = SliderDefaults.colors(
-                                    thumbColor = when (themeState.themeStyle) {
-                                        AppThemeStyle.AMOLED -> NothingGreen
-                                        AppThemeStyle.CLASSIC -> NothingViolate
-                                        else -> MaterialTheme.colorScheme.primary
-                                    }
-                                )
+                                colors = SliderDefaults.colors(thumbColor = accent)
                             )
-                            
+
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Text(
-                                    text = "Simultaneous (0ms)",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = "After (+1.5s)",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Text("Simultaneous (0ms)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text("After (+1.5s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -896,100 +556,30 @@ fun PulseLockEnableDialog(
             }
         },
         confirmButton = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                ElevatedButton(
-                    onClick = {
-                        HapticUtils.triggerMediumFeedback(haptic, context)
-                        isSaving = true
-                        settingsRepository.savePulseLockAnimationId(selectedAnim.id)
-                        settingsRepository.savePulseLockDuration(animationDuration)
-                        settingsRepository.savePulseLockAudioEnabled(soundEnabled)
-                        settingsRepository.savePulseLockAudioUri(soundUri)
-                        settingsRepository.savePulseLockAudioOffset(soundOffset.toLong())
-                        onConfirm(PulseLockConfig(selectedAnim.id, soundEnabled, soundUri, soundOffset.toLong(), animationDuration))
-                        isSaving = false
-                    },
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                    colors = ButtonDefaults.elevatedButtonColors(
-                        containerColor = when (themeState.themeStyle) {
-                            AppThemeStyle.AMOLED -> NothingGreen
-                            AppThemeStyle.CLASSIC -> NothingViolate
-                            else -> MaterialTheme.colorScheme.primary
-                        },
-                        contentColor = NothingWhite
-                    ),
-                    elevation = ButtonDefaults.elevatedButtonElevation(
-                        defaultElevation = 6.dp,
-                        pressedElevation = 12.dp
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    if (isSaving) {
-                        CircularProgressIndicator(
-                            color = NothingWhite,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(20.dp)
+            FeatureSaveButtons(
+                isSaving = isSaving,
+                isCurrentlyEnabled = currentlyEnabled,
+                enableLabel = "✨ Enable Glow Gate",
+                onSave = {
+                    isSaving = true
+                    settingsRepository.savePulseLockAnimationId(selectedAnim.id)
+                    settingsRepository.savePulseLockDuration(animationDuration)
+                    settingsRepository.savePulseLockAudioEnabled(soundEnabled)
+                    settingsRepository.savePulseLockAudioUri(soundUri)
+                    settingsRepository.savePulseLockAudioOffset(soundOffset.toLong())
+                    onConfirm(
+                        PulseLockConfig(
+                            selectedAnim.id,
+                            soundEnabled,
+                            soundUri,
+                            soundOffset.toLong(),
+                            animationDuration
                         )
-                    } else {
-                        Text(
-                            text = if (currentlyEnabled) "💾 Save Settings" else "✨ Enable Glow Gate",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Button(
-                        onClick = { onDisable() },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = when (themeState.themeStyle) {
-                                AppThemeStyle.AMOLED -> NothingGray
-                                AppThemeStyle.CLASSIC -> NothingRed
-                                else -> MaterialTheme.colorScheme.secondaryContainer
-                            },
-                            contentColor = when (themeState.themeStyle) {
-                                AppThemeStyle.AMOLED -> NothingWhite
-                                AppThemeStyle.CLASSIC -> NothingWhite
-                                else -> MaterialTheme.colorScheme.onSecondaryContainer
-                            }
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            text = "✖️ Disable",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        border = BorderStroke(
-                            1.5.dp,
-                            MaterialTheme.colorScheme.outline
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            text = "✕ Cancel",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
+                    )
+                },
+                onDisable = onDisable,
+                onCancel = onDismiss
+            )
         },
         dismissButton = {},
         containerColor = MaterialTheme.colorScheme.surface,
@@ -998,45 +588,38 @@ fun PulseLockEnableDialog(
     )
 }
 
-/**
- * Copy a file from external URI to internal storage to avoid permission issues
- */
-fun copyFileToInternalStorage(context: android.content.Context, sourceUri: Uri, fileName: String): Uri? {
+// ─────────────────────────────────────────────────────────────────────────────
+//  Utility: copy external URI to internal storage
+// ─────────────────────────────────────────────────────────────────────────────
+
+fun copyFileToInternalStorage(
+    context: android.content.Context,
+    sourceUri: Uri,
+    fileName: String
+): Uri? {
     return try {
-        val inputStream: InputStream? = context.contentResolver.openInputStream(sourceUri)
-        if (inputStream == null) {
-            Log.e("PulseLockComponents", "Could not open input stream for URI: $sourceUri")
-            return null
-        }
-        
-        // Get file extension from original URI
-        val originalFileName = sourceUri.lastPathSegment ?: "audio"
-        val extension = when {
-            originalFileName.contains(".mp3", ignoreCase = true) -> ".mp3"
-            originalFileName.contains(".wav", ignoreCase = true) -> ".wav"
-            originalFileName.contains(".m4a", ignoreCase = true) -> ".m4a"
-            originalFileName.contains(".aac", ignoreCase = true) -> ".aac"
-            originalFileName.contains(".ogg", ignoreCase = true) -> ".ogg"
-            else -> ".mp3" // default
-        }
-        
-        // Create file in internal storage
+        val inputStream: InputStream = context.contentResolver.openInputStream(sourceUri)
+            ?: run {
+                Log.e("FileUtils", "Could not open input stream for URI: $sourceUri")
+                return null
+            }
+
+        val originalName = sourceUri.lastPathSegment ?: "audio"
+        val extension = listOf(".mp3", ".wav", ".m4a", ".aac", ".ogg")
+            .firstOrNull { originalName.contains(it, ignoreCase = true) }
+            ?: ".mp3"
+
         val internalFile = File(context.filesDir, "$fileName$extension")
-        
-        // Copy the file
+
         inputStream.use { input ->
             FileOutputStream(internalFile).use { output ->
                 input.copyTo(output)
             }
         }
-        
-        Log.d("PulseLockComponents", "Successfully copied file to: ${internalFile.absolutePath}")
-        
-        // Return file:// URI for internal storage
+
         Uri.fromFile(internalFile)
-        
     } catch (e: Exception) {
-        Log.e("PulseLockComponents", "Failed to copy file to internal storage", e)
+        Log.e("FileUtils", "Failed to copy file to internal storage", e)
         null
     }
 }

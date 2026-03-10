@@ -11,6 +11,7 @@ import android.content.IntentFilter
 import android.nfc.NfcAdapter
 import android.nfc.Tag
 import android.os.IBinder
+import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -22,6 +23,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -110,7 +112,12 @@ class NfcGlyphService : Service() {
     // ──────────────────────────────────────────────────────────────────────────
 
     private val serviceJob = Job()
-    private val scope = CoroutineScope(Dispatchers.Main + serviceJob)
+    private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
+
+    private val animationJob = SupervisorJob()
+    private val animationScope = CoroutineScope(Dispatchers.Main + animationJob)
+
+    private lateinit var wakeLock: PowerManager.WakeLock
 
     // ──────────────────────────────────────────────────────────────────────────
     // BroadcastReceiver — HCE / contactless payment transactions
@@ -145,6 +152,11 @@ class NfcGlyphService : Service() {
         super.onCreate()
         createNotificationChannel()
         registerNfcReceiver()
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "GlyphSharge:NfcAnimation"
+        )
         Log.d(TAG, "NfcGlyphService created")
     }
 
@@ -186,7 +198,7 @@ class NfcGlyphService : Service() {
         unregisterReceiver(nfcTransactionReceiver)
         stopForegroundCompat()
         serviceJob.cancel()
-        Log.d(TAG, "NfcGlyphService destroyed")
+        Log.d(TAG, "NfcGlyphService destroyed – animation may still be finishing")
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -222,7 +234,7 @@ class NfcGlyphService : Service() {
     // ──────────────────────────────────────────────────────────────────────────
 
     private fun triggerGlyphAnimation(eventLabel: String) {
-        scope.launch {
+        animationScope.launch {
             if (!settingsRepository.isNfcFeatureEnabled() ||
                 !settingsRepository.getGlyphServiceEnabled()
             ) {
@@ -236,7 +248,7 @@ class NfcGlyphService : Service() {
             }
 
             if (!featureCoordinator.acquire(GlyphFeature.NFC)) {
-                Log.d(TAG, "LEDs busy (owner: ${featureCoordinator.currentOwner.value}) – skipping ($eventLabel)")
+                Log.d(TAG, "LEDs busy – skipping ($eventLabel)")
                 return@launch
             }
 
@@ -244,6 +256,12 @@ class NfcGlyphService : Service() {
             val duration    = settingsRepository.getNfcAnimationDuration()
 
             Log.d(TAG, "NFC sequence start – event=$eventLabel anim=$animationId duration=${duration}ms")
+
+            try {
+                wakeLock.acquire(duration + 3000L)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to acquire WakeLock: ${e.message}")
+            }
 
             try {
                 val animJob = launch(Dispatchers.Default) {
@@ -264,10 +282,14 @@ class NfcGlyphService : Service() {
                 Log.e(TAG, "Error in NFC glyph sequence", e)
             } finally {
                 featureCoordinator.release(GlyphFeature.NFC)
+                try {
+                    if (wakeLock.isHeld) wakeLock.release()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to release WakeLock: ${e.message}")
+                }
             }
         }
     }
-
     // ──────────────────────────────────────────────────────────────────────────
     // Notification helpers
     // ──────────────────────────────────────────────────────────────────────────

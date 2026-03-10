@@ -14,10 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -97,120 +95,6 @@ fun WideFeatureCardWithToggle(
                 .offset(x = (-12).dp, y = 12.dp)
         )
     }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  FeatureInfoDialog
-//
-//  Replaces: PowerPeekInformationDialog, GlyphGuardInformationDialog,
-//            GlowGateInformationDialog, LowBatteryAlertInformationDialog,
-//            BatteryStoryInformationDialog, QuietHoursInformationDialog
-//
-//  All six dialogs are structurally identical: title block + one card with
-//  several labelled text sections + one "Got it!" button.
-// ─────────────────────────────────────────────────────────────────────────────
-
-data class InfoSection(
-    val label: String,   // e.g. "🔋 What is Power Peek?"
-    val body: String     // bullet or numbered text
-)
-
-@Composable
-fun FeatureInfoDialog(
-    titleEmoji: String,
-    title: String,
-    subtitle: String,
-    sections: List<InfoSection>,
-    buttonColor: Color,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val themeState = LocalThemeState.current
-    val haptic    = LocalHapticFeedback.current
-    val context   = LocalContext.current
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "$titleEmoji $title",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 400.dp)
-                    .then(Modifier), // verticalScroll added below
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = themeCardContainerColor()
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        sections.forEach { section ->
-                            Text(
-                                text = section.label,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = section.body,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                lineHeight = 20.sp
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            ElevatedButton(
-                onClick = {
-                    HapticUtils.triggerMediumFeedback(haptic, context)
-                    onDismiss()
-                },
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                colors = ButtonDefaults.elevatedButtonColors(
-                    containerColor = buttonColor,
-                    contentColor = NothingWhite
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(
-                    text = "✓ Got it!",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        },
-        dismissButton = {},
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(24.dp),
-        modifier = modifier
-    )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

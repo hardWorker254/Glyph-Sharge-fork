@@ -1,47 +1,33 @@
 package com.bleelblep.glyphsharge.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.platform.LocalHapticFeedback
-import com.bleelblep.glyphsharge.ui.theme.AppThemeStyle
-import com.bleelblep.glyphsharge.ui.theme.LocalThemeState
-import com.bleelblep.glyphsharge.ui.theme.SettingsRepository
+import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.foundation.layout.size
-import androidx.compose.ui.text.style.TextOverflow
-import com.bleelblep.glyphsharge.ui.theme.NothingGray
-import com.bleelblep.glyphsharge.ui.theme.NothingGreen
-import com.bleelblep.glyphsharge.ui.theme.NothingRed
-import com.bleelblep.glyphsharge.ui.theme.NothingViolate
-import com.bleelblep.glyphsharge.ui.theme.NothingWhite
 import kotlin.math.roundToInt
 
-/**
- * PowerPeek Configuration Data Class
- */
 data class PowerPeekConfig(
     val isEnabled: Boolean = false,
     val shakeThreshold: Float = 12.0f,
-    val displayDuration: Long = 3000L, // 3 seconds
+    val displayDuration: Long = 3000L,
     val enableWhenScreenOff: Boolean = false
 )
 
-/**
- * Redesigned PowerPeek Confirmation Dialog with improved layout and button placement
- */
+// ─────────────────────────────────────────────────────────────────────────────
+//  Confirmation Dialog  (uses FeatureConfirmationButtons)
+// ─────────────────────────────────────────────────────────────────────────────
+
 @Composable
 fun PowerPeekConfirmationDialog(
     onTestPowerPeek: () -> Unit,
@@ -52,53 +38,38 @@ fun PowerPeekConfirmationDialog(
     settingsRepository: SettingsRepository
 ) {
     var showEnableDialog by remember { mutableStateOf(false) }
-    val themeState = LocalThemeState.current
-    val haptic = LocalHapticFeedback.current
-    val context = LocalContext.current
-    
-    AlertDialog(
-        onDismissRequest = { /* Prevent dismissal */ },
-        properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false
-        ),
-        title = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "⚡ PowerPeek",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = "Battery peek on shake",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-            }
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
-            ) {
-                // Feature description
+
+    if (!showEnableDialog) {
+        AlertDialog(
+            onDismissRequest = { /* non-dismissible */ },
+            properties = DialogProperties(
+                dismissOnBackPress = false,
+                dismissOnClickOutside = false
+            ),
+            title = {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "⚡ PowerPeek",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "Battery peek on shake",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            text = {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = when (themeState.themeStyle) {
-                            AppThemeStyle.AMOLED -> NothingRed
-                            AppThemeStyle.CLASSIC -> if (themeState.isDarkTheme) {
-                                MaterialTheme.colorScheme.surfaceContainer
-                            } else {
-                                NothingWhite
-                            }
-                            else -> MaterialTheme.colorScheme.surfaceContainer
-                        }
+                        containerColor = themeCardContainerColor()
                     ),
                     shape = RoundedCornerShape(16.dp)
                 ) {
@@ -112,122 +83,31 @@ fun PowerPeekConfirmationDialog(
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "• Shake your device to view battery percentage\n• Works even when screen is off\n• Customizable sensitivity and display duration",
+                            text = "• Shake your device to view battery percentage\n" +
+                                    "• Works even when screen is off\n" +
+                                    "• Customizable sensitivity and display duration",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 20.sp
                         )
                     }
                 }
-            }
-        },
-        confirmButton = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Primary Action - Test PowerPeek
-                ElevatedButton(
-                    onClick = { 
-                        HapticUtils.triggerMediumFeedback(haptic, context)
-                        onTestPowerPeek() 
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    colors = ButtonDefaults.elevatedButtonColors(
-                        containerColor = when (themeState.themeStyle) {
-                            AppThemeStyle.AMOLED -> NothingGreen
-                            AppThemeStyle.CLASSIC -> NothingViolate
-                            else -> MaterialTheme.colorScheme.primary
-                        },
-                        contentColor = NothingWhite
-                    ),
-                    elevation = ButtonDefaults.elevatedButtonElevation(
-                        defaultElevation = 6.dp,
-                        pressedElevation = 12.dp
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "🧪 Test Power Peek",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-                
-                // Secondary Actions Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Enable PowerPeek Button
-                    Button(
-                        onClick = { 
-                            HapticUtils.triggerLightFeedback(haptic, context)
-                            showEnableDialog = true 
-                        },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = when (themeState.themeStyle) {
-                                AppThemeStyle.AMOLED -> NothingGray
-                                AppThemeStyle.CLASSIC -> NothingViolate
-                                else -> MaterialTheme.colorScheme.secondaryContainer
-                            },
-                            contentColor = when (themeState.themeStyle) {
-                                AppThemeStyle.AMOLED -> NothingWhite
-                                AppThemeStyle.CLASSIC -> NothingWhite
-                                else -> MaterialTheme.colorScheme.onSecondaryContainer
-                            }
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            text = "⚙️ Settings",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    
-                    // Cancel Button
-                    OutlinedButton(
-                        onClick = { 
-                            HapticUtils.triggerLightFeedback(haptic, context)
-                            onDismiss() 
-                        },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        border = BorderStroke(
-                            1.5.dp,
-                            MaterialTheme.colorScheme.outline
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            text = "✕ Cancel",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-        },
-        dismissButton = {},
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(24.dp),
-        modifier = modifier
-    )
-    
-    // Enable PowerPeek Settings Dialog
+            },
+            confirmButton = {
+                FeatureConfirmationButtons(
+                    primaryLabel = "🧪 Test Power Peek",
+                    onPrimary = onTestPowerPeek,
+                    onSettings = { showEnableDialog = true },
+                    onCancel = onDismiss
+                )
+            },
+            dismissButton = {},
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(24.dp),
+            modifier = modifier
+        )
+    }
+
     if (showEnableDialog) {
         PowerPeekEnableDialog(
             onConfirm = { config ->
@@ -235,9 +115,7 @@ fun PowerPeekConfirmationDialog(
                 showEnableDialog = false
                 onDismiss()
             },
-            onDismiss = {
-                showEnableDialog = false
-            },
+            onDismiss = { showEnableDialog = false },
             onDisable = {
                 onDisablePowerPeek()
                 showEnableDialog = false
@@ -248,9 +126,10 @@ fun PowerPeekConfirmationDialog(
     }
 }
 
-/**
- * Redesigned PowerPeek Enable Dialog with modern layout and better controls
- */
+// ─────────────────────────────────────────────────────────────────────────────
+//  Enable / Settings Dialog  (uses FeatureSaveButtons + ThemedValueBadge)
+// ─────────────────────────────────────────────────────────────────────────────
+
 @Composable
 fun PowerPeekEnableDialog(
     onConfirm: (PowerPeekConfig) -> Unit,
@@ -259,16 +138,19 @@ fun PowerPeekEnableDialog(
     modifier: Modifier = Modifier,
     settingsRepository: SettingsRepository
 ) {
-    val initialThreshold = remember { settingsRepository.getShakeThreshold() }
-    val initialDuration = remember { settingsRepository.getDisplayDuration() }
-
-    var enableWhenScreenOff by remember { mutableStateOf(true) }
-    var shakeThreshold by remember { mutableFloatStateOf(initialThreshold) }
-    var displayDuration by remember { mutableFloatStateOf(initialDuration / 1000f) } // in seconds
-    val themeState = LocalThemeState.current
-    val haptic = LocalHapticFeedback.current
+    val haptic  = LocalHapticFeedback.current
     val context = LocalContext.current
-    
+
+    val currentlyEnabled = remember { settingsRepository.isPowerPeekEnabled() }
+    var enableWhenScreenOff by remember { mutableStateOf(true) }
+    var shakeThreshold by remember { mutableFloatStateOf(settingsRepository.getShakeThreshold()) }
+    var displayDuration by remember { mutableFloatStateOf(settingsRepository.getDisplayDuration() / 1000f) }
+    var isSaving by remember { mutableStateOf(false) }
+
+    // Pre-resolve themed values
+    val cardColor = themeCardContainerColor()
+    val accent    = themePrimaryActionColor()
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -295,20 +177,10 @@ fun PowerPeekEnableDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // Sensitivity Control Card
+                // ── Shake Sensitivity ────────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = when (themeState.themeStyle) {
-                            AppThemeStyle.AMOLED -> NothingRed
-                            AppThemeStyle.CLASSIC -> if (themeState.isDarkTheme) {
-                                MaterialTheme.colorScheme.surfaceContainer
-                            } else {
-                                NothingWhite
-                            }
-                            else -> MaterialTheme.colorScheme.surfaceContainer
-                        }
-                    ),
+                    colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
@@ -325,33 +197,11 @@ fun PowerPeekEnableDialog(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            Surface(
-                                color = when (themeState.themeStyle) {
-                                    AppThemeStyle.AMOLED -> NothingGray
-                                    AppThemeStyle.CLASSIC -> if (themeState.isDarkTheme) {
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    } else {
-                                        NothingWhite
-                                    }
-                                    else -> MaterialTheme.colorScheme.primaryContainer
-                                },
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(
-                                    text = settingsRepository.getShakeIntensityLevel(shakeThreshold),
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = when (themeState.themeStyle) {
-                                        AppThemeStyle.AMOLED -> NothingWhite
-                                        AppThemeStyle.CLASSIC -> NothingViolate
-                                        else -> MaterialTheme.colorScheme.onPrimaryContainer
-                                    }
-                                )
-                            }
+                            ThemedValueBadge(
+                                settingsRepository.getShakeIntensityLevel(shakeThreshold)
+                            )
                         }
 
-                        // Simple discrete slider with exactly three stops (0,1,2)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -366,14 +216,13 @@ fun PowerPeekEnableDialog(
                                 )
                             }
                         }
-                        
-                        // Backing value: 0-Medium, 1-Hard, 2-Harder
+
                         var sliderStep by remember {
                             mutableFloatStateOf(
                                 when (shakeThreshold) {
-                                    SettingsRepository.SHAKE_HARD      -> 1f
-                                    SettingsRepository.SHAKE_HARDEST   -> 2f
-                                    else                              -> 0f
+                                    SettingsRepository.SHAKE_HARD    -> 1f
+                                    SettingsRepository.SHAKE_HARDEST -> 2f
+                                    else                             -> 0f
                                 }
                             )
                         }
@@ -382,50 +231,32 @@ fun PowerPeekEnableDialog(
                             value = sliderStep,
                             onValueChange = { raw ->
                                 HapticUtils.triggerLightFeedback(haptic, context)
-                                sliderStep = raw.coerceIn(0f,2f)
+                                sliderStep = raw.coerceIn(0f, 2f)
                             },
                             onValueChangeFinished = {
                                 val snapped = sliderStep.roundToInt().toFloat()
                                 sliderStep = snapped
                                 shakeThreshold = when (snapped.toInt()) {
-                                    1 -> SettingsRepository.SHAKE_HARD
-                                    2 -> SettingsRepository.SHAKE_HARDEST
+                                    1    -> SettingsRepository.SHAKE_HARD
+                                    2    -> SettingsRepository.SHAKE_HARDEST
                                     else -> SettingsRepository.SHAKE_MEDIUM
                                 }
                             },
                             valueRange = 0f..2f,
-                            steps = 0, // continuous track, no tick marks
+                            steps = 0,
                             modifier = Modifier.fillMaxWidth(),
                             colors = SliderDefaults.colors(
-                                thumbColor = when (themeState.themeStyle) {
-                                    AppThemeStyle.AMOLED -> NothingGreen
-                                    AppThemeStyle.CLASSIC -> NothingViolate
-                                    else -> MaterialTheme.colorScheme.primary
-                                },
-                                activeTrackColor = when (themeState.themeStyle) {
-                                    AppThemeStyle.AMOLED -> NothingGreen
-                                    AppThemeStyle.CLASSIC -> NothingViolate
-                                    else -> MaterialTheme.colorScheme.primary
-                                }
+                                thumbColor = accent,
+                                activeTrackColor = accent
                             )
                         )
                     }
                 }
-                
-                // Duration Control Card
+
+                // ── Display Duration ─────────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = when (themeState.themeStyle) {
-                            AppThemeStyle.AMOLED -> NothingRed
-                            AppThemeStyle.CLASSIC -> if (themeState.isDarkTheme) {
-                                MaterialTheme.colorScheme.surfaceContainer
-                            } else {
-                                NothingWhite
-                            }
-                            else -> MaterialTheme.colorScheme.surfaceContainer
-                        }
-                    ),
+                    colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
@@ -442,180 +273,57 @@ fun PowerPeekEnableDialog(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            Surface(
-                                color = when (themeState.themeStyle) {
-                                    AppThemeStyle.AMOLED -> NothingGray
-                                    AppThemeStyle.CLASSIC -> if (themeState.isDarkTheme) {
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    } else {
-                                        NothingWhite
-                                    }
-                                    else -> MaterialTheme.colorScheme.primaryContainer
-                                },
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
-                                Text(
-                                    text = "${displayDuration.toInt()}s",
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.Bold,
-                                    color = when (themeState.themeStyle) {
-                                        AppThemeStyle.AMOLED -> NothingWhite
-                                        AppThemeStyle.CLASSIC -> NothingViolate
-                                        else -> MaterialTheme.colorScheme.onPrimaryContainer
-                                    }
-                                )
-                            }
+                            ThemedValueBadge("${displayDuration.toInt()}s")
                         }
-                        
+
                         Slider(
                             value = displayDuration,
-                            onValueChange = { 
+                            onValueChange = {
                                 HapticUtils.triggerLightFeedback(haptic, context)
-                                displayDuration = it 
+                                displayDuration = it
                             },
                             valueRange = 2f..10f,
                             steps = 7,
                             modifier = Modifier.fillMaxWidth(),
-                            colors = SliderDefaults.colors(
-                                thumbColor = when (themeState.themeStyle) {
-                                    AppThemeStyle.AMOLED -> NothingGreen
-                                    AppThemeStyle.CLASSIC -> NothingViolate
-                                    else -> MaterialTheme.colorScheme.primary
-                                }
-                            )
+                            colors = SliderDefaults.colors(thumbColor = accent)
                         )
-                        
+
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
-                                text = "Quick",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "Long",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Text("Quick", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Long", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
             }
         },
         confirmButton = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Primary Enable Button
-                var isSaving by remember { mutableStateOf(false) }
-                val currentlyEnabled = remember { settingsRepository.isPowerPeekEnabled() }
-
-                ElevatedButton(
-                    onClick = {
-                        HapticUtils.triggerMediumFeedback(haptic, context)
-                        isSaving = true
-                        val newDuration = (displayDuration * 1000).toLong()
-                        settingsRepository.saveShakeThreshold(shakeThreshold)
-                        settingsRepository.saveDisplayDuration(newDuration)
-
-                        val config = PowerPeekConfig(
+            FeatureSaveButtons(
+                isSaving = isSaving,
+                isCurrentlyEnabled = currentlyEnabled,
+                enableLabel = "✅ Enable Power Peek",
+                onSave = {
+                    isSaving = true
+                    val newDuration = (displayDuration * 1000).toLong()
+                    settingsRepository.saveShakeThreshold(shakeThreshold)
+                    settingsRepository.saveDisplayDuration(newDuration)
+                    onConfirm(
+                        PowerPeekConfig(
                             isEnabled = true,
                             shakeThreshold = shakeThreshold,
                             displayDuration = newDuration,
                             enableWhenScreenOff = enableWhenScreenOff
                         )
-                        onConfirm(config)
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    colors = ButtonDefaults.elevatedButtonColors(
-                        containerColor = when (themeState.themeStyle) {
-                            AppThemeStyle.AMOLED -> NothingGreen
-                            AppThemeStyle.CLASSIC -> NothingViolate
-                            else -> MaterialTheme.colorScheme.primary
-                        },
-                        contentColor = NothingWhite
-                    ),
-                    elevation = ButtonDefaults.elevatedButtonElevation(
-                        defaultElevation = 6.dp,
-                        pressedElevation = 12.dp
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    if (isSaving) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    } else {
-                        Text(
-                            text = if (currentlyEnabled) "💾 Save Settings" else "✅ Enable Power Peek",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                // Secondary Actions Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Disable Button
-                    Button(
-                        onClick = {
-                            HapticUtils.triggerMediumFeedback(haptic, context)
-                            onDisable()
-                            onDismiss()
-                        },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = when (themeState.themeStyle) {
-                                AppThemeStyle.AMOLED -> NothingRed
-                                AppThemeStyle.CLASSIC -> NothingRed
-                                else -> MaterialTheme.colorScheme.error
-                            },
-                            contentColor = NothingWhite
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            text = "✖️ Disable",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-
-                    // Cancel Button
-                    OutlinedButton(
-                        onClick = { 
-                            HapticUtils.triggerLightFeedback(haptic, context)
-                            onDismiss() 
-                        },
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.onSurface
-                        ),
-                        border = BorderStroke(
-                            1.5.dp,
-                            MaterialTheme.colorScheme.outline
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            text = "✕ Cancel",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
+                    )
+                },
+                onDisable = {
+                    onDisable()
+                    onDismiss()
+                },
+                onCancel = onDismiss
+            )
         },
         dismissButton = {},
         containerColor = MaterialTheme.colorScheme.surface,
@@ -623,4 +331,3 @@ fun PowerPeekEnableDialog(
         modifier = modifier
     )
 }
-
