@@ -1442,7 +1442,7 @@ class GlyphAnimationManager @Inject constructor(
     /**
      * Run battery percentage visualization
      */
-    suspend fun runBatteryPercentageVisualization(
+    suspend fun playBatteryPercentageVisualization(
         context: Context,
         durationMillis: Long,
         onProgressUpdate: (Float) -> Unit = {}

@@ -16,6 +16,7 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.glyph.GlyphAnimationManager
 import com.bleelblep.glyphsharge.glyph.GlyphFeature
@@ -24,170 +25,271 @@ import com.bleelblep.glyphsharge.ui.theme.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.sqrt
 
 @AndroidEntryPoint
 class PowerPeekService : Service(), SensorEventListener {
 
     companion object {
-        private const val TAG        = "PowerPeekService"
-        private const val NOTIF_ID   = 1337
-        private const val CHANNEL_ID = "PowerPeekServiceChannel"
-        private const val SHAKE_COOLDOWN_MS = 3_000L
+        private const val TAG = "PowerPeekService"
+        private const val NOTIF_CHANNEL_ID = "PowerPeekServiceChannel"
+        private const val NOTIF_ID = 1013
+
+        const val ACTION_START = "com.bleelblep.glyphsharge.POWER_PEEK_START"
+        const val ACTION_STOP = "com.bleelblep.glyphsharge.POWER_PEEK_STOP"
+
+        private const val TRIGGER_COOLDOWN_MS = 5000L
     }
 
-    @Inject lateinit var glyphAnimationManager: GlyphAnimationManager
     @Inject lateinit var settingsRepository: SettingsRepository
+    @Inject lateinit var glyphAnimationManager: GlyphAnimationManager
     @Inject lateinit var featureCoordinator: GlyphFeatureCoordinator
 
+    private val serviceJob = Job()
+    private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
+
+    private val animationJob = SupervisorJob()
+    private val animationScope = CoroutineScope(Dispatchers.Main + animationJob)
+
+    private lateinit var wakeLock: PowerManager.WakeLock
+    private lateinit var powerManager: PowerManager
     private lateinit var sensorManager: SensorManager
     private var accelerometer: Sensor? = null
-    private var powerManager: PowerManager? = null
 
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    private var lastShakeTime = 0L
-    // true while startForeground has been called and we haven't called stopForeground
-    private var isForeground = false
+    private var isSensorRegistered = false
+    private var lastTriggerTime = 0L
 
-    // ── Screen state receiver ─────────────────────────────────────────────────
+    private var isRestingOnTable = false
+    private var stableStartTime = 0L
+
     private val screenStateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 Intent.ACTION_SCREEN_OFF -> {
-                    if (settingsRepository.getGlyphServiceEnabled()) startListening()
+                    startListeningToSensors()
                 }
-                Intent.ACTION_SCREEN_ON -> stopListening()
+                Intent.ACTION_SCREEN_ON -> {
+                    stopListeningToSensors()
+                }
             }
         }
     }
 
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
     override fun onCreate() {
         super.onCreate()
-        sensorManager  = getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        accelerometer  = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        powerManager   = getSystemService(Context.POWER_SERVICE) as PowerManager
-
         createNotificationChannel()
 
-        registerReceiver(screenStateReceiver, IntentFilter().apply {
-            addAction(Intent.ACTION_SCREEN_OFF)
-            addAction(Intent.ACTION_SCREEN_ON)
-        })
+        powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "GlyphSharge:PowerPeekAnimation"
+        )
 
-        // Must enter foreground immediately on Android 14+ FGS rules
-        ensureForeground()
-        Log.d(TAG, "Service created")
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+
+        registerScreenReceiver()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // If screen is already off, start listening right away
-        if (powerManager?.isInteractive == false) startListening()
+        startForeground(NOTIF_ID, buildNotification())
+
+        when (intent?.action) {
+            ACTION_STOP -> {
+                shutDown()
+                return START_NOT_STICKY
+            }
+        }
+
+        if (!settingsRepository.isPowerPeekEnabled() ||
+            !settingsRepository.getGlyphServiceEnabled()
+        ) {
+            shutDown()
+            return START_NOT_STICKY
+        }
+
+        @Suppress("DEPRECATION")
+        if (!powerManager.isInteractive) {
+            startListeningToSensors()
+        }
+
         return START_STICKY
     }
 
     override fun onDestroy() {
-        stopListening()
-        runCatching { unregisterReceiver(screenStateReceiver) }
-        if (isForeground) stopForeground(true)
-        scope.cancel()
         super.onDestroy()
-        Log.d(TAG, "Service destroyed")
+        unregisterReceiver(screenStateReceiver)
+        stopListeningToSensors()
+        stopForegroundCompat()
+        serviceJob.cancel()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        val i = Intent(this, PowerPeekService::class.java)
-        startForegroundService(i)
+        if (!settingsRepository.isPowerPeekEnabled() ||
+            !settingsRepository.getGlyphServiceEnabled()
+        ) return
+
+        val restart = Intent(this, PowerPeekService::class.java).apply { action = ACTION_START }
+        startForegroundService(restart)
     }
 
-    // ── Sensor control ────────────────────────────────────────────────────────
-    private fun startListening() {
-        if (!settingsRepository.getGlyphServiceEnabled() || accelerometer == null) return
-        ensureForeground()
-        sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL)
-        Log.d(TAG, "Shake listening started")
-    }
-
-    private fun stopListening() {
-        sensorManager.unregisterListener(this)
-        if (isForeground) {
-            stopForeground(true)
-            isForeground = false
+    private fun registerScreenReceiver() {
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_OFF)
+            addAction(Intent.ACTION_SCREEN_ON)
         }
-        Log.d(TAG, "Shake listening stopped")
-    }
-
-    private fun ensureForeground() {
-        if (!isForeground) {
-            startForeground(NOTIF_ID, buildNotification())
-            isForeground = true
-        }
-    }
-
-    // ── SensorEventListener ───────────────────────────────────────────────────
-    override fun onSensorChanged(event: SensorEvent?) {
-        if (event?.sensor?.type != Sensor.TYPE_ACCELEROMETER) return
-        val (x, y, z) = event.values
-        val magnitude = sqrt(x * x + y * y + z * z) - SensorManager.GRAVITY_EARTH
-        // Always read the latest threshold so slider changes apply instantly
-        if (magnitude > settingsRepository.getShakeThreshold()) triggerVisualization()
-    }
-
-    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
-
-    // ── Visualization ─────────────────────────────────────────────────────────
-    private fun triggerVisualization() {
-        val now = System.currentTimeMillis()
-        if (now - lastShakeTime < SHAKE_COOLDOWN_MS) return
-        lastShakeTime = now
-
-        if (settingsRepository.isCurrentlyInQuietHours()) {
-            Log.d(TAG, "Trigger blocked by quiet hours")
-            return
-        }
-        if (!glyphAnimationManager.ensureSessionActive()) {
-            Log.w(TAG, "No Glyph session – aborting")
-            return
-        }
-
-        scope.launch {
-            if (!featureCoordinator.acquire(GlyphFeature.POWER_PEEK)) {
-                Log.d(TAG, "LEDs busy by ${featureCoordinator.currentOwner.value}")
-                return@launch
-            }
-            try {
-                glyphAnimationManager.runBatteryPercentageVisualization(
-                    applicationContext, settingsRepository.getDisplayDuration()
-                ) {}
-            } catch (e: Exception) {
-                Log.e(TAG, "Visualization error", e)
-            } finally {
-                featureCoordinator.release(GlyphFeature.POWER_PEEK)
-            }
-        }
-    }
-
-    // ── Notification ──────────────────────────────────────────────────────────
-    private fun createNotificationChannel() {
-        val nm = getSystemService(NotificationManager::class.java)
-        if (nm.getNotificationChannel(CHANNEL_ID) != null) return
-        nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "PowerPeek Service", NotificationManager.IMPORTANCE_LOW)
+        ContextCompat.registerReceiver(
+            this,
+            screenStateReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
         )
     }
 
+    private fun startListeningToSensors() {
+        if (!isSensorRegistered && accelerometer != null) {
+            sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_UI)
+            isSensorRegistered = true
+            isRestingOnTable = false
+            stableStartTime = 0L
+        }
+    }
+
+    private fun stopListeningToSensors() {
+        if (isSensorRegistered) {
+            sensorManager.unregisterListener(this)
+            isSensorRegistered = false
+        }
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event?.sensor?.type != Sensor.TYPE_ACCELEROMETER) return
+
+        val x = event.values[0]
+        val y = event.values[1]
+        val z = event.values[2]
+        val zAbs = abs(z)
+        val now = System.currentTimeMillis()
+
+        val isStillAndFlat = zAbs in 9.0f..10.6f && abs(x) < 1.5f && abs(y) < 1.5f
+
+        if (isStillAndFlat) {
+            if (stableStartTime == 0L) {
+                stableStartTime = now
+            } else if (now - stableStartTime > 500L) {
+                isRestingOnTable = true
+            }
+        } else {
+            if (zAbs < 8.0f || zAbs > 11.5f) {
+                isRestingOnTable = false
+                stableStartTime = 0L
+            }
+        }
+        if (!isRestingOnTable) return
+        val horizontalAcceleration = sqrt((x * x + y * y).toDouble()).toFloat()
+        val baseThreshold = settingsRepository.getShakeThreshold()
+        val horizontalThreshold = max(3.0f, baseThreshold - SensorManager.STANDARD_GRAVITY)
+
+        if (horizontalAcceleration > horizontalThreshold) {
+            isRestingOnTable = false
+            stableStartTime = 0L
+            triggerPowerPeekAnimation()
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Animation
+    // ──────────────────────────────────────────────────────────────────────────
+
+    private fun triggerPowerPeekAnimation() {
+        val now = System.currentTimeMillis()
+        if (now - lastTriggerTime < TRIGGER_COOLDOWN_MS) return
+
+        animationScope.launch {
+            if (!settingsRepository.isPowerPeekEnabled() ||
+                !settingsRepository.getGlyphServiceEnabled()
+            ) return@launch
+
+            if (settingsRepository.isCurrentlyInQuietHours()) return@launch
+
+            if (!featureCoordinator.acquire(GlyphFeature.POWER_PEEK)) return@launch
+
+            lastTriggerTime = System.currentTimeMillis()
+            val duration = settingsRepository.getDisplayDuration()
+
+            Log.d(TAG, "Power Peek: Horizontal shake on table detected! Duration=${duration}ms")
+
+            try {
+                wakeLock.acquire(duration + 2000L)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to acquire WakeLock: ${e.message}")
+            }
+
+            try {
+                val animJob = launch(Dispatchers.Default) {
+                    glyphAnimationManager.playBatteryPercentageVisualization(
+                        this@PowerPeekService,
+                        duration
+                    )
+                }
+
+                val watchdogJob = launch {
+                    delay(duration)
+                    animJob.cancelAndJoin()
+                    glyphAnimationManager.stopAnimations()
+                }
+
+                animJob.join()
+                watchdogJob.cancel()
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in Power Peek glyph sequence", e)
+            } finally {
+                featureCoordinator.release(GlyphFeature.POWER_PEEK)
+                try {
+                    if (wakeLock.isHeld) wakeLock.release()
+                } catch (e: Exception) {}
+            }
+        }
+    }
+
+    private fun createNotificationChannel() {
+        val channel = NotificationChannel(
+            NOTIF_CHANNEL_ID,
+            "Power Peek Service",
+            NotificationManager.IMPORTANCE_LOW
+        )
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    }
+
     private fun buildNotification(): Notification =
-        NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("📲 Power Peek Active")
-            .setContentText("Shake to see battery when screen is off.")
+        NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
+            .setContentTitle("🔋 Power Peek Active")
+            .setContentText("Wiggle phone horizontally on a table to check battery.")
             .setSmallIcon(R.drawable._44)
             .setOngoing(true)
             .build()
+
+    private fun shutDown() {
+        stopForegroundCompat()
+        stopSelf()
+    }
+
+    @Suppress("DEPRECATION")
+    private fun stopForegroundCompat() {
+        stopForeground(STOP_FOREGROUND_REMOVE)
+    }
 }

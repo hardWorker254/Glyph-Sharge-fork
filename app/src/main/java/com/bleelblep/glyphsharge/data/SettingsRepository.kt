@@ -60,14 +60,6 @@ class SettingsRepository @Inject constructor(
         private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
         private const val KEY_BATTERY_STORY_ENABLED = "battery_story_enabled"
 
-        // Glyph Guard keys
-        private const val KEY_GLYPH_GUARD_ENABLED = "glyph_guard_enabled"
-        private const val KEY_GLYPH_GUARD_DURATION = "glyph_guard_duration"
-        private const val KEY_GLYPH_GUARD_SOUND_TYPE = "glyph_guard_sound_type"
-        private const val KEY_GLYPH_GUARD_CUSTOM_RINGTONE_URI = "glyph_guard_custom_ringtone_uri"
-        private const val KEY_GLYPH_GUARD_SOUND_ENABLED = "glyph_guard_sound_enabled"
-        private const val KEY_GLYPH_GUARD_ALERT_MODE = "glyph_guard_alert_mode"
-
         // Pulse Lock keys
         private const val KEY_PULSE_LOCK_ENABLED = "pulse_lock_enabled"
         private const val KEY_PULSE_LOCK_ANIMATION_ID = "pulse_lock_animation_id"
@@ -104,8 +96,6 @@ class SettingsRepository @Inject constructor(
 
         // Defaults
         private const val DEFAULT_VIBRATION_INTENSITY = 0.66f
-        private const val DEFAULT_GLYPH_GUARD_DURATION = 30000L
-        private const val DEFAULT_GLYPH_GUARD_SOUND_TYPE = "ALARM"
         private const val DEFAULT_PULSE_LOCK_DURATION = 5000L
         private const val DEFAULT_LOW_BATTERY_DURATION = 10000L
         private const val DEFAULT_SCREEN_OFF_DURATION = 3000L
@@ -129,13 +119,11 @@ class SettingsRepository @Inject constructor(
         prefs.edit {
             putBoolean(KEY_POWER_PEEK_ENABLED, false)
             putBoolean(KEY_GLYPH_SERVICE_ENABLED, false)
-            putBoolean(KEY_GLYPH_GUARD_ENABLED, false)
             putBoolean(KEY_BATTERY_STORY_ENABLED, false)
             putBoolean(KEY_PULSE_LOCK_ENABLED, false)
             putBoolean(KEY_LOW_BATTERY_ENABLED, false)
             putBoolean(KEY_SCREEN_OFF_ENABLED, false)
-            putBoolean(KEY_NFC_FEATURE_ENABLED, false)          // NFC
-            putBoolean(KEY_GLYPH_GUARD_SOUND_ENABLED, false)
+            putBoolean(KEY_NFC_FEATURE_ENABLED, false)
             putString(KEY_FONT_VARIANT, FontVariant.HEADLINE.name)
             putBoolean(KEY_USE_CUSTOM_FONTS, true)
             putFloat(KEY_FONT_SIZE_DISPLAY_SCALE, 1.0f)
@@ -155,11 +143,9 @@ class SettingsRepository @Inject constructor(
             prefs.edit {
                 putBoolean(KEY_POWER_PEEK_ENABLED, false)
                 putBoolean(KEY_GLYPH_SERVICE_ENABLED, false)
-                putBoolean(KEY_GLYPH_GUARD_ENABLED, false)
                 putBoolean(KEY_BATTERY_STORY_ENABLED, false)
                 putBoolean(KEY_PULSE_LOCK_ENABLED, false)
                 putBoolean(KEY_LOW_BATTERY_ENABLED, false)
-                putBoolean(KEY_GLYPH_GUARD_SOUND_ENABLED, false)
                 putString(KEY_FONT_VARIANT, FontVariant.HEADLINE.name)
                 putBoolean(KEY_USE_CUSTOM_FONTS, true)
                 putFloat(KEY_FONT_SIZE_DISPLAY_SCALE, 1.0f)

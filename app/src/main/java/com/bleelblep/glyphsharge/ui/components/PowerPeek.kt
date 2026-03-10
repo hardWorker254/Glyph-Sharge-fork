@@ -206,7 +206,7 @@ fun PowerPeekEnableDialog(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            listOf("Medium", "Hard", "Harder").forEach { label ->
+                            listOf("Soft", "Easy", "Medium", "Hard", "Harder").forEach { label ->
                                 Text(
                                     text = label,
                                     style = MaterialTheme.typography.bodySmall,
@@ -220,8 +220,10 @@ fun PowerPeekEnableDialog(
                         var sliderStep by remember {
                             mutableFloatStateOf(
                                 when (shakeThreshold) {
-                                    SettingsRepository.SHAKE_HARD    -> 1f
-                                    SettingsRepository.SHAKE_HARDEST -> 2f
+                                    SettingsRepository.SHAKE_EASY    -> 1f
+                                    SettingsRepository.SHAKE_MEDIUM  -> 2f
+                                    SettingsRepository.SHAKE_HARD    -> 3f
+                                    SettingsRepository.SHAKE_HARDEST -> 4f
                                     else                             -> 0f
                                 }
                             )
@@ -231,18 +233,20 @@ fun PowerPeekEnableDialog(
                             value = sliderStep,
                             onValueChange = { raw ->
                                 HapticUtils.triggerLightFeedback(haptic, context)
-                                sliderStep = raw.coerceIn(0f, 2f)
+                                sliderStep = raw.coerceIn(0f, 4f)
                             },
                             onValueChangeFinished = {
                                 val snapped = sliderStep.roundToInt().toFloat()
                                 sliderStep = snapped
                                 shakeThreshold = when (snapped.toInt()) {
-                                    1    -> SettingsRepository.SHAKE_HARD
-                                    2    -> SettingsRepository.SHAKE_HARDEST
-                                    else -> SettingsRepository.SHAKE_MEDIUM
+                                    3    -> SettingsRepository.SHAKE_HARD
+                                    4    -> SettingsRepository.SHAKE_HARDEST
+                                    2    -> SettingsRepository.SHAKE_MEDIUM
+                                    1    -> SettingsRepository.SHAKE_EASY
+                                    else -> SettingsRepository.SHAKE_SOFT
                                 }
                             },
-                            valueRange = 0f..2f,
+                            valueRange = 0f..4f,
                             steps = 0,
                             modifier = Modifier.fillMaxWidth(),
                             colors = SliderDefaults.colors(

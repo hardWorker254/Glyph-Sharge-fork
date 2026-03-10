@@ -412,7 +412,7 @@ class MainActivity : ComponentActivity() {
     fun testPowerPeek(bypass: Boolean = false) = launchGlyphAnim("testPowerPeek", bypass) {
         showToast("Testing PowerPeek – showing battery percentage…")
         val duration = settingsRepository.getDisplayDuration()
-        glyphAnimationManager.runBatteryPercentageVisualization(this@MainActivity, duration) {}
+        glyphAnimationManager.playBatteryPercentageVisualization(this@MainActivity, duration) {}
     }
 
     fun testGlyphGuard(bypass: Boolean = false) { /* ... */ }
