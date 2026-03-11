@@ -12,7 +12,7 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
 import com.bleelblep.glyphsharge.R
 import androidx.compose.ui.res.painterResource
-import com.bleelblep.glyphsharge.ui.theme.SettingsRepository
+import com.bleelblep.glyphsharge.data.SettingsRepository
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  PowerPeekCard

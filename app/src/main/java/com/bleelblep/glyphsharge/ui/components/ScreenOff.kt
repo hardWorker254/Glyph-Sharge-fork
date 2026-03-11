@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
+import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
@@ -248,11 +249,11 @@ fun ScreenOffConfigDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "⏱️ Play Duration",
+                                text = "⏱️ Display Duration",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            ThemedValueBadge("${"%.1f".format(durationMs / 1000f)}s")
+                            ThemedValueBadge("${(durationMs / 1000f).toInt()}s")
                         }
 
                         Slider(

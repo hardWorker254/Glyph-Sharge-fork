@@ -1,6 +1,7 @@
 package com.bleelblep.glyphsharge
 
 import android.app.Application
+import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.glyph.GlyphManager
 import com.bleelblep.glyphsharge.utils.LoggingManager
 import dagger.hilt.android.HiltAndroidApp
@@ -16,7 +17,7 @@ class GlyphShargeApplication : Application() {
     // its `init {}` block reliably writes first-run defaults before *any* component can read
     // preferences – this avoids race conditions seen in release builds.
     @Inject
-    lateinit var settingsRepository: com.bleelblep.glyphsharge.ui.theme.SettingsRepository
+    lateinit var settingsRepository: SettingsRepository
 
     override fun onCreate() {
         super.onCreate()

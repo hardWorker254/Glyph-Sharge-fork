@@ -21,7 +21,7 @@
 #-renamesourcefileattribute SourceFile
 
 # --- Added to preserve preference-initialisation logic and Hilt classes (2025-06-16) ---
--keep class com.bleelblep.glyphsharge.ui.theme.SettingsRepository { *; }
+-keep class com.bleelblep.glyphsharge.data.SettingsRepository { *; }
 # Preserve Hilt generated classes / injection metadata
 -keep class dagger.hilt.** { *; }
 -keep class androidx.hilt.** { *; }

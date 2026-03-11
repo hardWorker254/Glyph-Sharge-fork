@@ -16,7 +16,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.glyph.GlyphManager
-import com.bleelblep.glyphsharge.ui.theme.SettingsRepository
+import com.bleelblep.glyphsharge.data.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

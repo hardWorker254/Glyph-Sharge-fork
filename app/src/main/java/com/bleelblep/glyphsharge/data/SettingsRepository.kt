@@ -4,16 +4,16 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import androidx.core.content.edit
+import com.bleelblep.glyphsharge.ui.theme.AppThemeStyle
+import com.bleelblep.glyphsharge.ui.theme.FontSizeSettings
+import com.bleelblep.glyphsharge.ui.theme.FontVariant
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.Calendar
 import javax.inject.Inject
 import javax.inject.Singleton
-import com.bleelblep.glyphsharge.ui.theme.FontVariant
-import com.bleelblep.glyphsharge.ui.theme.FontSizeSettings
-import com.bleelblep.glyphsharge.ui.theme.AppThemeStyle
-import java.util.Calendar
 
 /**
  * Repository for persisting app settings using SharedPreferences
@@ -57,7 +57,6 @@ class SettingsRepository @Inject constructor(
         private const val KEY_SHAKE_THRESHOLD = "shake_threshold"
         private const val KEY_DISPLAY_DURATION = "display_duration"
         private const val KEY_VIBRATION_INTENSITY = "vibration_intensity"
-        private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
         private const val KEY_BATTERY_STORY_ENABLED = "battery_story_enabled"
 
         // Pulse Lock keys
@@ -190,7 +189,7 @@ class SettingsRepository @Inject constructor(
         val variantName = prefs.getString(KEY_FONT_VARIANT, FontVariant.HEADLINE.name)
         return try {
             FontVariant.valueOf(variantName ?: FontVariant.HEADLINE.name)
-        } catch (e: IllegalArgumentException) {
+        } catch (_: IllegalArgumentException) {
             FontVariant.HEADLINE
         }
     }
@@ -303,22 +302,15 @@ class SettingsRepository @Inject constructor(
     fun getVibrationIntensity(): Float {
         val storedValue = prefs.getFloat(KEY_VIBRATION_INTENSITY, DEFAULT_VIBRATION_INTENSITY)
         if (storedValue <= 1.0f) return storedValue
-
-        // Migration: Old format (1-255) to new (0.0-1.0)
         val converted = ((storedValue - 1f) / 254f).coerceIn(0.1f, 1.0f)
         saveVibrationIntensity(converted)
         return converted
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Misc
-    // ─────────────────────────────────────────────────────────────────────────
 
-    fun isOnboardingComplete(): Boolean =
-        prefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
-
-    fun setOnboardingComplete(complete: Boolean) =
-        prefs.edit { putBoolean(KEY_ONBOARDING_COMPLETE, complete) }
+    // ─────────────────────────────────────────────────────────────────────────
+    // Battery story
+    // ─────────────────────────────────────────────────────────────────────────
 
     fun saveBatteryStoryEnabled(enabled: Boolean) =
         prefs.edit { putBoolean(KEY_BATTERY_STORY_ENABLED, enabled) }
@@ -505,8 +497,7 @@ class SettingsRepository @Inject constructor(
             currentTimeInMinutes in startTimeInMinutes..endTimeInMinutes
         } else {
             // Overnight
-            currentTimeInMinutes >= startTimeInMinutes ||
-                    currentTimeInMinutes <= endTimeInMinutes
+            currentTimeInMinutes !in (endTimeInMinutes + 1)..<startTimeInMinutes
         }
     }
 

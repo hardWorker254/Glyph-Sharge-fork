@@ -8,7 +8,7 @@ import android.os.BatteryManager
 import android.util.Log
 import com.bleelblep.glyphsharge.data.repository.ChargingSessionRepository
 import com.bleelblep.glyphsharge.services.*
-import com.bleelblep.glyphsharge.ui.theme.SettingsRepository
+import com.bleelblep.glyphsharge.data.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import javax.inject.Inject

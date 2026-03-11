@@ -9,7 +9,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.glyph.GlyphFeatureCoordinator
-import com.bleelblep.glyphsharge.ui.theme.SettingsRepository
+import com.bleelblep.glyphsharge.data.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 

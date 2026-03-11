@@ -1,8 +1,6 @@
 package com.bleelblep.glyphsharge.glyph
 
 import android.content.Context
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import com.nothing.ketchum.Common
 import com.nothing.ketchum.GlyphFrame
@@ -10,11 +8,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.cancel
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.random.Random
-import com.bleelblep.glyphsharge.ui.theme.SettingsRepository
+import com.bleelblep.glyphsharge.data.SettingsRepository
 
 /**
  * Manager class for creating and running glyph animations.
@@ -26,17 +23,16 @@ class GlyphAnimationManager @Inject constructor(
     private val settingsRepository: SettingsRepository
 ) {
     private val TAG = "GlyphAnimationManager"
-    private val handler = Handler(Looper.getMainLooper())
     private var isAnimationRunning = false
     private val animationScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     private companion object {
         const val DEFAULT_MAX_BRIGHTNESS = 4000
         const val CLEANUP_DELAY = 100L
-        const val FRAME_BUILDER_DELAY = 50L
         const val PULSE_ON_DURATION = 300L
         const val PULSE_OFF_DURATION = 300L
         const val BATTERY_STEP_DELAY = 50L
+        const val BATTERY_FILL_STEP_DELAY = 50L
         const val WAVE_PHONE1_STEP = 150L
         const val WAVE_PHONE2_STEP = 100L
         const val WAVE_PHONE2A_STEP = 80L
@@ -64,11 +60,6 @@ class GlyphAnimationManager @Inject constructor(
     private val phone3aAllSegments by lazy {
         phone3aCSegments + phone3aASegments + phone3aBSegments
     }
-
-    /**
-     * Check if an animation is currently running
-     */
-    fun isAnimationActive(): Boolean = isAnimationRunning
 
     // Phone (1) segments
     private object Phone1 {
@@ -104,7 +95,7 @@ class GlyphAnimationManager @Inject constructor(
     /**
      * Reset all glyphs by turning them off
      */
-    private suspend fun resetGlyphs() {
+    private fun resetGlyphs() {
         try {
             glyphManager.mGM?.getGlyphFrameBuilder()?.build()?.let {
                 glyphManager.mGM?.toggle(it)
@@ -137,35 +128,6 @@ class GlyphAnimationManager @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "Error stopping animations: ${e.message}")
         }
-    }
-
-    /**
-     * Turn on all glyphs at maximum brightness for alert purposes
-     */
-    fun turnOnAllGlyphs() {
-        try {
-            glyphManager.turnOnAllGlyphs()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error turning on all glyphs: ${e.message}")
-        }
-    }
-
-    /**
-     * Turn off all glyphs
-     */
-    fun turnOffAll() {
-        try {
-            glyphManager.turnOffAll()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error turning off all glyphs: ${e.message}")
-        }
-    }
-
-    /**
-     * Stop any currently running animation
-     */
-    fun stopAnimation() {
-        isAnimationRunning = false
     }
 
     /**
@@ -577,240 +539,6 @@ class GlyphAnimationManager @Inject constructor(
     }
 
     /**
-     * Run breathing animation using D1 sequence for NP1, C1 sequence for NP2
-     */
-    suspend fun runBreathingAnimation(is478Pattern: Boolean, cycles: Int) {
-        if (!isGlyphServiceEnabled() || !glyphManager.isNothingPhone()) return
-
-        isAnimationRunning = true
-        try {
-            when {
-                Common.is20111() -> runPhone1D1BreathingAnimation(is478Pattern, cycles)
-                Common.is24111() -> runPhone3aBreathingAnimation(is478Pattern, cycles)
-                else -> runGenericBreathingAnimation(is478Pattern, cycles)
-            }
-        } finally {
-            ensureCleanup()
-        }
-    }
-
-    /**
-     * Generic breathing animation for unsupported devices
-     */
-    private suspend fun runGenericBreathingAnimation(is478Pattern: Boolean, cycles: Int) {
-        val inhale = if (is478Pattern) 4000L else 2000L
-        val hold = if (is478Pattern) 7000L else 0L
-        val exhale = if (is478Pattern) 8000L else 2000L
-
-        val segmentsToLight = when {
-            Common.is22111() -> aSegments + bSegments + eSegments
-            Common.is23111() || Common.is23113() -> listOf(Phone2a.A, Phone2a.B)
-            else -> emptyList()
-        }
-
-        if (segmentsToLight.isEmpty()) return
-
-        createFrameBuilder(segmentsToLight)?.let { frame ->
-            repeat(cycles) {
-                if (!isAnimationRunning) return@repeat
-                try {
-                    glyphManager.mGM?.toggle(frame.build())
-                    delay(inhale)
-                    if (hold > 0) delay(hold)
-                    glyphManager.mGM?.turnOff()
-                    delay(exhale)
-                } catch (e: Exception) {
-                    delay(exhale)
-                }
-            }
-        }
-    }
-
-    /**
-     * Phone 3a C-based breathing animation
-     */
-    private suspend fun runPhone3aBreathingAnimation(is478Pattern: Boolean, cycles: Int) {
-        val inhaleDuration = 4000L
-        val holdDuration = if (is478Pattern) 7000L else 4000L
-        val exhaleDuration = if (is478Pattern) 8000L else 4000L
-        val secondHoldDuration = if (is478Pattern) 0L else 4000L
-
-        repeat(cycles) { cycle ->
-            if (!isAnimationRunning) return@repeat
-
-            // PHASE 1: INHALE
-            runBreathingPhase(phone3aCSegments, inhaleDuration, true, phone3aASegments, phone3aBSegments)
-
-            // PHASE 2: HOLD
-            runBreathingHoldPhase(phone3aCSegments, phone3aASegments, phone3aBSegments, holdDuration)
-
-            // PHASE 3: EXHALE
-            runBreathingPhase(phone3aCSegments, exhaleDuration, false, phone3aASegments, phone3aBSegments)
-
-            // PHASE 4: SECOND HOLD (Box breathing only)
-            if (!is478Pattern && secondHoldDuration > 0) {
-                runBreathingSecondHoldPhase(phone3aCSegments, secondHoldDuration)
-            }
-
-            if (cycle < cycles - 1) delay(500L)
-        }
-    }
-
-    /**
-     * Helper method for breathing inhale/exhale phase
-     */
-    private suspend fun runBreathingPhase(
-        mainSegments: List<Int>,
-        duration: Long,
-        isInhale: Boolean,
-        aSegments: List<Int>,
-        bSegments: List<Int>
-    ) {
-        val steps = mainSegments.size
-        val stepDuration = duration / steps
-        val indices = if (isInhale) mainSegments.indices else mainSegments.indices.reversed()
-
-        for (i in indices) {
-            if (!isAnimationRunning) break
-            val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
-
-            val range = if (isInhale) 0..i else i downTo 0
-            for (j in range) {
-                builder.buildChannel(mainSegments[j], maxBrightness)
-            }
-
-            val progress = (i + 1) / mainSegments.size.toFloat()
-            val aBrightness = (maxBrightness * progress * 0.8f).toInt()
-            val bBrightness = (maxBrightness * progress * 0.6f).toInt()
-
-            aSegments.forEach { builder.buildChannel(it, aBrightness) }
-            bSegments.forEach { builder.buildChannel(it, bBrightness) }
-
-            try {
-                glyphManager.mGM?.toggle(builder.build())
-                delay(stepDuration)
-            } catch (e: Exception) {
-                delay(stepDuration)
-            }
-        }
-    }
-
-    /**
-     * Helper method for breathing hold phase
-     */
-    private suspend fun runBreathingHoldPhase(
-        cSegments: List<Int>,
-        aSegments: List<Int>,
-        bSegments: List<Int>,
-        duration: Long
-    ) {
-        val steps = (duration / 200L).toInt()
-        val stepDuration = duration / steps
-
-        repeat(steps) {
-            if (!isAnimationRunning) return@repeat
-            val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: return@repeat
-
-            cSegments.forEach { builder.buildChannel(it, maxBrightness) }
-            aSegments.forEach { builder.buildChannel(it, (maxBrightness * 0.8f).toInt()) }
-            bSegments.forEach { builder.buildChannel(it, (maxBrightness * 0.6f).toInt()) }
-
-            try {
-                glyphManager.mGM?.toggle(builder.build())
-                delay(stepDuration)
-            } catch (e: Exception) {
-                delay(stepDuration)
-            }
-        }
-    }
-
-    /**
-     * Helper method for breathing second hold phase
-     */
-    private suspend fun runBreathingSecondHoldPhase(cSegments: List<Int>, duration: Long) {
-        val steps = (duration / 200L).toInt()
-        val stepDuration = duration / steps
-        val minBrightness = (maxBrightness * 0.1f).toInt()
-
-        repeat(steps) {
-            if (!isAnimationRunning) return@repeat
-            val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: return@repeat
-
-            builder.buildChannel(cSegments[0], minBrightness)
-
-            try {
-                glyphManager.mGM?.toggle(builder.build())
-                delay(stepDuration)
-            } catch (e: Exception) {
-                delay(stepDuration)
-            }
-        }
-    }
-
-    /**
-     * Phone 1 D1-based breathing animation
-     */
-    private suspend fun runPhone1D1BreathingAnimation(is478Pattern: Boolean, cycles: Int) {
-        val d1Segments = listOf(7, 8, 9, 10, 11, 12, 13, 14)
-        val supportingSegments = listOf(0, 1, 2, 3, 4, 5, 6)
-
-        val inhaleDuration = 4000L
-        val holdDuration = if (is478Pattern) 7000L else 4000L
-        val exhaleDuration = 8000L
-        val secondHoldDuration = if (is478Pattern) 0L else 4000L
-
-        repeat(cycles) { cycle ->
-            if (!isAnimationRunning) return@repeat
-
-            // INHALE
-            runBreathingPhase(d1Segments, inhaleDuration, true, supportingSegments, emptyList())
-
-            // HOLD
-            runBreathingHoldPhase(d1Segments, supportingSegments, emptyList(), holdDuration)
-
-            // EXHALE
-            runBreathingPhase(d1Segments, exhaleDuration, false, supportingSegments, emptyList())
-
-            // SECOND HOLD
-            if (!is478Pattern && secondHoldDuration > 0) {
-                runBreathingSecondHoldPhase(d1Segments, secondHoldDuration)
-            }
-
-            if (cycle < cycles - 1) delay(500L)
-        }
-
-        glyphManager.turnOffAll()
-    }
-
-    /**
-     * Phone 2 C1-based breathing animation
-     */
-    private suspend fun runPhone2C1BreathingAnimation(is478Pattern: Boolean, cycles: Int) {
-        val inhaleDuration = 4000L
-        val holdDuration = if (is478Pattern) 7000L else 4000L
-        val exhaleDuration = 8000L
-        val secondHoldDuration = if (is478Pattern) 0L else 4000L
-
-        val allSupportingSegments = aSegments + bSegments + cOtherSegments + dSegments + eSegments
-
-        repeat(cycles) { cycle ->
-            if (!isAnimationRunning) return@repeat
-
-            runBreathingPhase(c1Segments, inhaleDuration, true, allSupportingSegments, emptyList())
-            runBreathingHoldPhase(c1Segments, allSupportingSegments, emptyList(), holdDuration)
-            runBreathingPhase(c1Segments, exhaleDuration, false, allSupportingSegments, emptyList())
-
-            if (!is478Pattern && secondHoldDuration > 0) {
-                runBreathingSecondHoldPhase(c1Segments, secondHoldDuration)
-            }
-
-            if (cycle < cycles - 1) delay(500L)
-        }
-
-        glyphManager.turnOffAll()
-    }
-
-    /**
      * Run a notification effect (quick flash pattern)
      */
     suspend fun runNotificationEffect() {
@@ -1123,14 +851,6 @@ class GlyphAnimationManager @Inject constructor(
     }
 
     /**
-     * Clean up resources when the manager is no longer needed
-     */
-    fun cleanup() {
-        isAnimationRunning = false
-        animationScope.cancel()
-    }
-
-    /**
      * Test all glyph zones sequentially
      */
     suspend fun testAllZones(bypassServiceCheck: Boolean = false) {
@@ -1371,75 +1091,6 @@ class GlyphAnimationManager @Inject constructor(
     }
 
     /**
-     * Run D1 sequential animation
-     */
-    suspend fun runD1SequentialAnimation() {
-        if (!glyphManager.isNothingPhone()) return
-
-        isAnimationRunning = true
-        try {
-            resetGlyphs()
-            when {
-                Common.is20111() -> runPhone1D1SequentialAnimation()
-                Common.is22111() -> runPhone2D1SequentialAnimation()
-            }
-        } finally {
-            ensureCleanup()
-        }
-    }
-
-    private suspend fun runPhone1D1SequentialAnimation() {
-        val d1Segments = listOf(7, 8, 9, 10, 11, 12, 13, 14)
-        val supportingSegments = listOf(0, 1, 2, 3, 4, 5, 6)
-        val stepDuration = 500L
-
-        runD1SequentialPhase(d1Segments, supportingSegments, stepDuration, forward = true)
-        delay(1000L)
-        runD1SequentialPhase(d1Segments, supportingSegments, stepDuration, forward = false)
-
-        glyphManager.turnOffAll()
-    }
-
-    private suspend fun runPhone2D1SequentialAnimation() {
-        val stepDuration = 250L
-        val allSupportingSegments = aSegments + bSegments + c1Segments + cOtherSegments + eSegments
-
-        runD1SequentialPhase(dSegments, allSupportingSegments, stepDuration, forward = true)
-        delay(1000L)
-        runD1SequentialPhase(dSegments, allSupportingSegments, stepDuration, forward = false)
-
-        glyphManager.turnOffAll()
-    }
-
-    /**
-     * Helper method for D1 sequential animation phases
-     */
-    private suspend fun runD1SequentialPhase(
-        mainSegments: List<Int>,
-        supportingSegments: List<Int>,
-        stepDuration: Long,
-        forward: Boolean
-    ) {
-        val indices = if (forward) mainSegments.indices else mainSegments.indices.reversed()
-
-        for (i in indices) {
-            if (!isAnimationRunning) break
-            val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
-
-            val range = if (forward) 0..i else i downTo 0
-            for (j in range) {
-                builder.buildChannel(mainSegments[j], maxBrightness)
-            }
-
-            val brightness = (maxBrightness * ((i + 1) / mainSegments.size.toFloat())).toInt()
-            supportingSegments.forEach { builder.buildChannel(it, brightness) }
-
-            glyphManager.mGM?.toggle(builder.build())
-            delay(stepDuration)
-        }
-    }
-
-    /**
      * Run battery percentage visualization
      */
     suspend fun playBatteryPercentageVisualization(
@@ -1492,6 +1143,9 @@ class GlyphAnimationManager @Inject constructor(
         val c1Segments = listOf(Phone1.C_START, Phone1.C_START + 1, Phone1.C_START + 2, Phone1.C_START + 3)
         var step = 0
 
+        val targetSegments = (batteryPercentage / 25f).toInt().coerceIn(0, c1Segments.size)
+        var currentSegments = 0
+
         while (isAnimationRunning) {
             val elapsedTime = System.currentTimeMillis() - startTime
             if (elapsedTime >= durationMillis) break
@@ -1501,25 +1155,36 @@ class GlyphAnimationManager @Inject constructor(
 
             try {
                 val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
-                val segmentsToLight = (batteryPercentage / 25f).toInt().coerceIn(0, c1Segments.size)
                 val baseBrightness = calculateBaseBrightness(batteryPercentage, isCharging)
 
-                for (i in 0 until segmentsToLight) {
+                // Если мы еще не достигли нужного процента, увеличиваем кол-во глифов и ждем 0.1 сек
+                val delayTime = if (currentSegments < targetSegments) {
+                    currentSegments++
+                    BATTERY_FILL_STEP_DELAY
+                } else {
+                    BATTERY_STEP_DELAY
+                }
+
+                for (i in 0 until currentSegments) {
                     val segmentBrightness = calculateSegmentBrightness(baseBrightness, isCharging, batteryPercentage, step, i)
                     builder.buildChannel(c1Segments[i], segmentBrightness.coerceIn(0, maxBrightness))
                 }
 
-                if (!isCharging && batteryPercentage >= 20) {
-                    addPlayfulGlow(builder, batteryPercentage, c1Segments.size, baseBrightness, step)
-                }
+                // Второстепенные эффекты включаем только когда шкала полностью заполнится
+                if (currentSegments == targetSegments) {
+                    val currentVirtualPercentage = if (c1Segments.isNotEmpty()) (currentSegments * 25) else 0
+                    if (!isCharging && batteryPercentage >= 20) {
+                        addPlayfulGlow(builder, currentVirtualPercentage, c1Segments.size, baseBrightness, step)
+                    }
 
-                if (batteryPercentage < 20) {
-                    val blinkBrightness = (maxBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.3f))).toInt()
-                    builder.buildChannel(c1Segments.last(), blinkBrightness)
+                    if (batteryPercentage < 20) {
+                        val blinkBrightness = (maxBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.3f))).toInt()
+                        builder.buildChannel(c1Segments.last(), blinkBrightness)
+                    }
                 }
 
                 glyphManager.mGM?.toggle(builder.build())
-                delay(BATTERY_STEP_DELAY)
+                delay(delayTime)
                 step++
             } catch (e: Exception) {
                 delay(BATTERY_STEP_DELAY)
@@ -1537,6 +1202,9 @@ class GlyphAnimationManager @Inject constructor(
         val startTime = System.currentTimeMillis()
         var step = 0
 
+        val targetSegments = (batteryPercentage / 100f * c1Segments.size).toInt().coerceIn(0, c1Segments.size)
+        var currentSegments = 0
+
         while (isAnimationRunning) {
             val elapsedTime = System.currentTimeMillis() - startTime
             if (elapsedTime >= durationMillis) break
@@ -1546,11 +1214,17 @@ class GlyphAnimationManager @Inject constructor(
 
             try {
                 val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
-                val segmentsToLight = (batteryPercentage / 100f * c1Segments.size).toInt().coerceIn(0, c1Segments.size)
                 val baseBrightness = calculateBaseBrightness(batteryPercentage, isCharging)
 
+                val delayTime = if (currentSegments < targetSegments) {
+                    currentSegments++
+                    BATTERY_FILL_STEP_DELAY
+                } else {
+                    BATTERY_STEP_DELAY
+                }
+
                 if (isCharging || batteryPercentage < 20) {
-                    for (i in 0 until segmentsToLight) {
+                    for (i in 0 until currentSegments) {
                         val segmentBrightness = if (isCharging) {
                             (baseBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.3f))).toInt()
                         } else {
@@ -1559,25 +1233,29 @@ class GlyphAnimationManager @Inject constructor(
                         builder.buildChannel(c1Segments[i], segmentBrightness.coerceIn(0, maxBrightness))
                     }
                 } else {
-                    addWaveAnimation(builder, c1Segments, batteryPercentage, baseBrightness, step)
+                    val currentVirtualPercentage = (currentSegments.toFloat() / c1Segments.size * 100).toInt()
+                    addWaveAnimation(builder, c1Segments, currentVirtualPercentage, baseBrightness, step)
                 }
 
-                if (batteryPercentage < 20) {
-                    val blinkBrightness = (maxBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.3f))).toInt()
-                    aSegments.forEach { builder.buildChannel(it, blinkBrightness) }
-                }
+                // Дополнительные лампочки и свечения включаем только после заполнения
+                if (currentSegments == targetSegments) {
+                    if (batteryPercentage < 20) {
+                        val blinkBrightness = (maxBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.3f))).toInt()
+                        aSegments.forEach { builder.buildChannel(it, blinkBrightness) }
+                    }
 
-                if (isCharging) {
-                    val chargeBrightness = (baseBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.3f))).toInt()
-                    bSegments.forEach { builder.buildChannel(it, chargeBrightness.coerceIn(0, maxBrightness)) }
-                }
+                    if (isCharging) {
+                        val chargeBrightness = (baseBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.3f))).toInt()
+                        bSegments.forEach { builder.buildChannel(it, chargeBrightness.coerceIn(0, maxBrightness)) }
+                    }
 
-                if (!isCharging && batteryPercentage >= 20) {
-                    addPlayfulGlowPhone2(builder, baseBrightness, step)
+                    if (!isCharging && batteryPercentage >= 20) {
+                        addPlayfulGlowPhone2(builder, baseBrightness, step)
+                    }
                 }
 
                 glyphManager.mGM?.toggle(builder.build())
-                delay(BATTERY_STEP_DELAY)
+                delay(delayTime)
                 step++
             } catch (e: Exception) {
                 delay(BATTERY_STEP_DELAY)
@@ -1595,6 +1273,9 @@ class GlyphAnimationManager @Inject constructor(
         val startTime = System.currentTimeMillis()
         var step = 0
 
+        val targetSegments = (batteryPercentage / 100f * 24).toInt().coerceIn(0, 24)
+        var currentSegments = 0
+
         while (isAnimationRunning) {
             val elapsedTime = System.currentTimeMillis() - startTime
             if (elapsedTime >= durationMillis) break
@@ -1604,11 +1285,17 @@ class GlyphAnimationManager @Inject constructor(
 
             try {
                 val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
-                val segmentsToLight = (batteryPercentage / 100f * 24).toInt().coerceIn(0, 24)
                 val baseBrightness = calculateBaseBrightness(batteryPercentage, isCharging)
 
+                val delayTime = if (currentSegments < targetSegments) {
+                    currentSegments++
+                    BATTERY_FILL_STEP_DELAY
+                } else {
+                    BATTERY_STEP_DELAY
+                }
+
                 if (isCharging || batteryPercentage < 20) {
-                    for (i in 0 until segmentsToLight) {
+                    for (i in 0 until currentSegments) {
                         val segmentBrightness = if (isCharging) {
                             (baseBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.3f))).toInt()
                         } else {
@@ -1618,18 +1305,20 @@ class GlyphAnimationManager @Inject constructor(
                     }
                 }
 
-                if (batteryPercentage < 20) {
-                    val blinkBrightness = (maxBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.3f))).toInt()
-                    builder.buildChannel(Phone2a.A, blinkBrightness)
-                }
+                if (currentSegments == targetSegments) {
+                    if (batteryPercentage < 20) {
+                        val blinkBrightness = (maxBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.3f))).toInt()
+                        builder.buildChannel(Phone2a.A, blinkBrightness)
+                    }
 
-                if (isCharging) {
-                    val chargeBrightness = (baseBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.35f))).toInt()
-                    builder.buildChannel(Phone2a.B, chargeBrightness.coerceIn(0, maxBrightness))
+                    if (isCharging) {
+                        val chargeBrightness = (baseBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.35f))).toInt()
+                        builder.buildChannel(Phone2a.B, chargeBrightness.coerceIn(0, maxBrightness))
+                    }
                 }
 
                 glyphManager.mGM?.toggle(builder.build())
-                delay(BATTERY_STEP_DELAY)
+                delay(delayTime)
                 step++
             } catch (e: Exception) {
                 delay(BATTERY_STEP_DELAY)
@@ -1647,6 +1336,9 @@ class GlyphAnimationManager @Inject constructor(
         val startTime = System.currentTimeMillis()
         var step = 0
 
+        val targetSegments = (batteryPercentage / 100f * phone3aCSegments.size).toInt().coerceIn(0, phone3aCSegments.size)
+        var currentSegments = 0
+
         while (isAnimationRunning) {
             val elapsedTime = System.currentTimeMillis() - startTime
             if (elapsedTime >= durationMillis) break
@@ -1657,9 +1349,15 @@ class GlyphAnimationManager @Inject constructor(
             try {
                 val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
                 val baseBrightness = calculateBaseBrightness(batteryPercentage, isCharging)
-                val cSegmentsToLight = (batteryPercentage / 100f * phone3aCSegments.size).toInt().coerceIn(0, phone3aCSegments.size)
 
-                for (i in 0 until cSegmentsToLight) {
+                val delayTime = if (currentSegments < targetSegments) {
+                    currentSegments++
+                    BATTERY_FILL_STEP_DELAY
+                } else {
+                    BATTERY_STEP_DELAY
+                }
+
+                for (i in 0 until currentSegments) {
                     val segmentBrightness = when {
                         isCharging -> {
                             val waveFactor = 0.8f + 0.2f * kotlin.math.sin((step + i) * 0.15f)
@@ -1674,7 +1372,7 @@ class GlyphAnimationManager @Inject constructor(
                 }
 
                 glyphManager.mGM?.toggle(builder.build())
-                delay(BATTERY_STEP_DELAY)
+                delay(delayTime)
                 step++
             } catch (e: Exception) {
                 delay(BATTERY_STEP_DELAY)
@@ -1692,6 +1390,9 @@ class GlyphAnimationManager @Inject constructor(
         val startTime = System.currentTimeMillis()
         var step = 0
 
+        val targetSegments = (batteryPercentage / 10f).toInt().coerceIn(0, 10)
+        var currentSegments = 0
+
         while (isAnimationRunning) {
             val elapsedTime = System.currentTimeMillis() - startTime
             if (elapsedTime >= durationMillis) break
@@ -1701,10 +1402,16 @@ class GlyphAnimationManager @Inject constructor(
 
             try {
                 val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
-                val segmentsToLight = (batteryPercentage / 10f).toInt().coerceIn(0, 10)
                 val baseBrightness = calculateBaseBrightness(batteryPercentage, isCharging)
 
-                for (i in 0 until segmentsToLight) {
+                val delayTime = if (currentSegments < targetSegments) {
+                    currentSegments++
+                    BATTERY_FILL_STEP_DELAY
+                } else {
+                    BATTERY_STEP_DELAY
+                }
+
+                for (i in 0 until currentSegments) {
                     val segmentBrightness = when {
                         isCharging -> (baseBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.1f + i * 0.5f))).toInt()
                         batteryPercentage < 20 -> baseBrightness
@@ -1714,7 +1421,7 @@ class GlyphAnimationManager @Inject constructor(
                 }
 
                 glyphManager.mGM?.toggle(builder.build())
-                delay(BATTERY_STEP_DELAY)
+                delay(delayTime)
                 step++
             } catch (e: Exception) {
                 delay(BATTERY_STEP_DELAY)
@@ -1928,17 +1635,6 @@ class GlyphAnimationManager @Inject constructor(
             Log.d(TAG, "Glyph service disabled – animation call ignored")
         }
         return enabled
-    }
-
-    /**
-     * Ensure a Glyph session is active
-     */
-    fun ensureSessionActive(): Boolean {
-        return if (glyphManager.isSessionActive) {
-            true
-        } else {
-            glyphManager.forceEnsureSession()
-        }
     }
 
     /**

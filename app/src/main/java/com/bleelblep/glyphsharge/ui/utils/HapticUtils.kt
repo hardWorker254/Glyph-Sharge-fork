@@ -7,7 +7,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import com.bleelblep.glyphsharge.ui.theme.SettingsRepository
+import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.di.AppModule
 import dagger.hilt.android.EntryPointAccessors
 

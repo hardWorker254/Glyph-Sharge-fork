@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.net.toUri
+import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
@@ -351,7 +352,7 @@ fun PulseLockEnableDialog(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = "⏱️ Animation Duration",
+                            text = "⏱️ Display Duration",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -362,18 +363,18 @@ fun PulseLockEnableDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text("Duration:", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            ThemedValueBadge("${(animationDuration / 1000f).toInt()}s")
+                            ThemedValueBadge("${(animationDuration / 1000L)}s")
                         }
 
                         Slider(
-                            value = animationDuration.toFloat(),
+                            value = (animationDuration / 1000f).coerceIn(1f, 10f),
                             onValueChange = {
                                 HapticUtils.triggerLightFeedback(haptic, context)
-                                animationDuration = it.toLong()
+                                animationDuration = (it * 1000).toLong()
                                 settingsRepository.savePulseLockDuration(animationDuration)
                             },
-                            valueRange = 1000f..10000f,
-                            steps = 17,
+                            valueRange = 1f..10f,
+                            steps = 8,
                             modifier = Modifier.fillMaxWidth(),
                             colors = SliderDefaults.colors(thumbColor = accent)
                         )
@@ -382,8 +383,8 @@ fun PulseLockEnableDialog(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Short (1s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("Long (10s)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("1s", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("10s", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
 
                         // Sync with sound duration
@@ -395,10 +396,15 @@ fun PulseLockEnableDialog(
                                         val mp = android.media.MediaPlayer()
                                         mp.setDataSource(context, Uri.parse(soundUri))
                                         mp.prepare()
-                                        val dur = mp.duration.toLong().coerceIn(1000L, 10000L)
+
+                                        // Округляем длительность аудио до ближайшей целой секунды (чтобы слайдер не съезжал с шагов)
+                                        val exactDur = mp.duration.toLong()
+                                        val roundedDurMs = Math.round(exactDur / 1000.0) * 1000L
+                                        val finalDur = roundedDurMs.coerceIn(1000L, 10000L)
+
                                         mp.release()
-                                        animationDuration = dur
-                                        settingsRepository.savePulseLockDuration(dur)
+                                        animationDuration = finalDur
+                                        settingsRepository.savePulseLockDuration(finalDur)
                                     } catch (e: Exception) {
                                         Log.e("PulseLock", "Error getting sound duration: ${e.message}")
                                     }

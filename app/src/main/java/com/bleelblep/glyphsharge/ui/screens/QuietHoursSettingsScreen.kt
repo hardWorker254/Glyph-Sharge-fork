@@ -26,7 +26,7 @@ import android.content.Context
 import android.text.format.DateFormat
 
 import com.bleelblep.glyphsharge.ui.components.*
-import com.bleelblep.glyphsharge.ui.theme.SettingsRepository
+import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject

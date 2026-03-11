@@ -10,6 +10,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.res.fontResource
 import com.bleelblep.glyphsharge.R
+import com.bleelblep.glyphsharge.data.SettingsRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 

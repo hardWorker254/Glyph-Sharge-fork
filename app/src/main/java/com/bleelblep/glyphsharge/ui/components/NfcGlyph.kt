@@ -16,6 +16,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
+import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
@@ -292,11 +293,11 @@ fun NfcGlyphConfigDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "⏱️ Duration",
+                                text = "⏱️ Display Duration",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            ThemedValueBadge("${"%.1f".format(duration / 1000f)}s")
+                            ThemedValueBadge("${(duration / 1000f).toInt()}s")
                         }
 
                         Text(
@@ -306,10 +307,13 @@ fun NfcGlyphConfigDialog(
                         )
 
                         Slider(
-                            value = duration,
-                            onValueChange = { duration = it },
-                            valueRange = 1000f..10000f,
-                            steps = 17,
+                            value = (duration / 1000f).coerceIn(1f, 10f),
+                            onValueChange = {
+                                HapticUtils.triggerLightFeedback(haptic, context)
+                                duration = it * 1000f
+                            },
+                            valueRange = 1f..10f,
+                            steps = 8,
                             modifier = Modifier.fillMaxWidth(),
                             colors = SliderDefaults.colors(thumbColor = accent)
                         )

@@ -33,6 +33,7 @@ import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import kotlin.math.roundToInt
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import com.bleelblep.glyphsharge.data.SettingsRepository
 
 /**
  * Settings screen for the GlyphZen app.

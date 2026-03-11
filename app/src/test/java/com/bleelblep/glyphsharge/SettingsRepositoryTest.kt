@@ -3,7 +3,7 @@ package com.bleelblep.glyphsharge
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.bleelblep.glyphsharge.ui.theme.FontVariant
-import com.bleelblep.glyphsharge.ui.theme.SettingsRepository
+import com.bleelblep.glyphsharge.data.SettingsRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test

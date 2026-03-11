@@ -45,6 +45,7 @@ import com.bleelblep.glyphsharge.utils.WatermarkHelper
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import javax.inject.Inject
+import com.bleelblep.glyphsharge.data.SettingsRepository
 
 
 @AndroidEntryPoint

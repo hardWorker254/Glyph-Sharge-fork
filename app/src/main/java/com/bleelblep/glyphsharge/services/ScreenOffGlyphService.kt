@@ -15,7 +15,7 @@ import androidx.core.content.ContextCompat
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.glyph.GlyphAnimationManager
 import com.bleelblep.glyphsharge.glyph.GlyphFeature
-import com.bleelblep.glyphsharge.ui.theme.SettingsRepository
+import com.bleelblep.glyphsharge.data.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

@@ -76,7 +76,6 @@ class ChargingSessionRepository @Inject constructor(
             return
         }
 
-        val now = System.currentTimeMillis()
         val newAvgTemp = (openSession.avgTemperatureC * openSession.sampleCount + temperature) / (openSession.sampleCount + 1)
 
         try {

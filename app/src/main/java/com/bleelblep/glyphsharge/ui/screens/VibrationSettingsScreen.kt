@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.bleelblep.glyphsharge.ui.components.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import com.bleelblep.glyphsharge.ui.utils.HapticType
-import com.bleelblep.glyphsharge.ui.theme.SettingsRepository
+import com.bleelblep.glyphsharge.data.SettingsRepository
 
 
 /**
