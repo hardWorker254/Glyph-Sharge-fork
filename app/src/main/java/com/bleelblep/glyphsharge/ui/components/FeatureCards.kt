@@ -400,3 +400,70 @@ fun BatteryStoryCard(
         iconSize = iconSize
     )
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  ChargingAnimationCard
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+fun ChargingAnimationCard(
+    icon: Painter,
+    onTestAnimation: () -> Unit,
+    onEnableAnimation: () -> Unit,
+    onDisableAnimation: () -> Unit,
+    settingsRepository: SettingsRepository,
+    modifier: Modifier = Modifier,
+    title: String = "Charging Animation",
+    description: String = "See your battery level when plugging in or unplugging.",
+    iconSize: Int = 32,
+    isServiceActive: Boolean = true
+) {
+    val context = LocalContext.current
+    var showDialog by remember { mutableStateOf(false) }
+    var isEnabled  by remember { mutableStateOf(settingsRepository.isChargingAnimationEnabled()) }
+
+    WideFeatureCardWithToggle(
+        title = title,
+        description = description,
+        icon = icon,
+        isServiceActive = isServiceActive,
+        isFeatureEnabled = isEnabled,
+        onFeatureToggle = { enabled ->
+            isEnabled = enabled
+            settingsRepository.saveChargingAnimationEnabled(enabled)
+            if (enabled) onEnableAnimation() else onDisableAnimation()
+        },
+        onCardClick = {
+            if (isServiceActive) {
+                showDialog = true
+            } else {
+                Toast.makeText(context, "Please enable the Glyph service first", Toast.LENGTH_SHORT).show()
+            }
+        },
+        modifier = modifier,
+        iconSize = iconSize
+    )
+
+    if (showDialog && isServiceActive) {
+        ChargingAnimationConfirmationDialog(
+            onTestAnimation = {
+                onTestAnimation()
+                showDialog = false
+            },
+            onEnableAnimation = {
+                onEnableAnimation()
+                isEnabled = true
+                settingsRepository.saveChargingAnimationEnabled(true)
+                showDialog = false
+            },
+            onDisableAnimation = {
+                onDisableAnimation()
+                isEnabled = false
+                settingsRepository.saveChargingAnimationEnabled(false)
+                showDialog = false
+            },
+            onDismiss = { showDialog = false },
+            settingsRepository = settingsRepository
+        )
+    }
+}

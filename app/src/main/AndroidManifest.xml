@@ -137,9 +137,20 @@
         </service>
 
 
-        <!-- Low Battery Alert foreground service -->
+        <!-- NFC foreground service -->
         <service
             android:name=".services.NfcGlyphService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse" >
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="This service monitors battery level and provides low battery alerts using glyph interface." />
+        </service>
+
+
+        <!-- Charging animation foreground service -->
+        <service
+            android:name=".services.ChargingAnimationService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="specialUse" >

@@ -93,12 +93,18 @@ class SettingsRepository @Inject constructor(
         private const val KEY_QUIET_HOURS_END_HOUR = "quiet_hours_end_hour"
         private const val KEY_QUIET_HOURS_END_MINUTE = "quiet_hours_end_minute"
 
+        // Battery Charging
+        private const val KEY_CHARGING_ANIMATION_ENABLED = "charging_animation_enabled"
+        private const val KEY_CHARGING_ANIMATION_ID = "charging_animation_id"
+        private const val KEY_CHARGING_ANIMATION_DURATION = "charging_animation_duration"
+
         // Defaults
         private const val DEFAULT_VIBRATION_INTENSITY = 0.66f
         private const val DEFAULT_PULSE_LOCK_DURATION = 5000L
         private const val DEFAULT_LOW_BATTERY_DURATION = 10000L
         private const val DEFAULT_SCREEN_OFF_DURATION = 3000L
         private const val DEFAULT_NFC_ANIMATION_DURATION = 3000L
+        private const val DEFAULT_CHARGING_ANIMATION_DURATION = 3000L
         private const val DEFAULT_LOW_BATTERY_THRESHOLD = 20
         private const val DEFAULT_QUIET_HOURS_START_HOUR = 22
         private const val DEFAULT_QUIET_HOURS_START_MINUTE = 0
@@ -123,6 +129,7 @@ class SettingsRepository @Inject constructor(
             putBoolean(KEY_LOW_BATTERY_ENABLED, false)
             putBoolean(KEY_SCREEN_OFF_ENABLED, false)
             putBoolean(KEY_NFC_FEATURE_ENABLED, false)
+            putBoolean(KEY_CHARGING_ANIMATION_ENABLED, false)
             putString(KEY_FONT_VARIANT, FontVariant.HEADLINE.name)
             putBoolean(KEY_USE_CUSTOM_FONTS, true)
             putFloat(KEY_FONT_SIZE_DISPLAY_SCALE, 1.0f)
@@ -175,6 +182,17 @@ class SettingsRepository @Inject constructor(
                 putInt(KEY_LAST_MIGRATED_VERSION, 111)
             }
             Log.i(TAG, "Migration to 111 applied")
+        }
+
+        // Charging migration
+        if (lastMigrated < 112) {
+            prefs.edit {
+                if (!prefs.contains(KEY_CHARGING_ANIMATION_ENABLED)) {
+                    putBoolean(KEY_CHARGING_ANIMATION_ENABLED, false)
+                }
+                putInt(KEY_LAST_MIGRATED_VERSION, 112)
+            }
+            Log.i(TAG, "Migration to 112 applied")
         }
     }
 
@@ -447,6 +465,28 @@ class SettingsRepository @Inject constructor(
 
     fun getNfcAnimationDuration(): Long =
         prefs.getLong(KEY_NFC_ANIMATION_DURATION, DEFAULT_NFC_ANIMATION_DURATION)
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Charging animation
+    // ─────────────────────────────────────────────────────────────────────────
+
+    fun saveChargingAnimationEnabled(enabled: Boolean) =
+        prefs.edit { putBoolean(KEY_CHARGING_ANIMATION_ENABLED, enabled) }
+
+    fun isChargingAnimationEnabled(): Boolean =
+        prefs.getBoolean(KEY_CHARGING_ANIMATION_ENABLED, false)
+
+    fun saveChargingAnimationId(id: String) =
+        prefs.edit { putString(KEY_CHARGING_ANIMATION_ID, id) }
+
+    fun getChargingAnimationId(): String =
+        prefs.getString(KEY_CHARGING_ANIMATION_ID, "C1") ?: "C1"
+
+    fun saveChargingAnimationDuration(durationMs: Long) =
+        prefs.edit { putLong(KEY_CHARGING_ANIMATION_DURATION, durationMs) }
+
+    fun getChargingAnimationDuration(): Long =
+        prefs.getLong(KEY_CHARGING_ANIMATION_DURATION, DEFAULT_CHARGING_ANIMATION_DURATION)
 
     // ─────────────────────────────────────────────────────────────────────────
     // Quiet Hours

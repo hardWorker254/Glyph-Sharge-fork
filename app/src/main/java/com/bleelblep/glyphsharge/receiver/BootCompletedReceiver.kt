@@ -84,6 +84,10 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 Log.d(TAG, "Tier 2 – Hfc")
                 context.startForegroundServiceCompat(NfcGlyphService::class.java)
             }
+            if (settingsRepository.isChargingAnimationEnabled()) {
+                Log.d(TAG, "Tier 2 – Charging Animation")
+                context.startForegroundServiceCompat(ChargingAnimationService::class.java)
+            }
         }
 
         // Quiet Hours has no Glyph dependency
