@@ -1506,9 +1506,15 @@ class GlyphAnimationManager @Inject constructor(
                 } else {
                     BATTERY_STEP_DELAY
                 }
-
                 for (i in 0 until currentSegments) {
-                    builder.buildChannel(cSegments[i], baseBrightness.coerceIn(0, maxBrightness))
+                    val brightness = if (isCharging) {
+                        val waveOffset = i * 0.5f
+                        val waveMultiplier = 0.6f + 0.4f * kotlin.math.sin(step * 0.2f - waveOffset)
+                        (baseBrightness * waveMultiplier).toInt()
+                    } else {
+                        baseBrightness
+                    }
+                    builder.buildChannel(cSegments[i], brightness.coerceIn(0, maxBrightness))
                 }
 
                 if (currentSegments == targetSegments) {
@@ -1517,7 +1523,7 @@ class GlyphAnimationManager @Inject constructor(
                             val endBlink = minOf(targetSegments + 2, cSegments.size)
                             for (j in targetSegments until endBlink) {
                                 val waveOffset = (j - targetSegments) * 0.8f
-                                val breatheBrightness = (baseBrightness * (0.2f + 0.8f * kotlin.math.abs(kotlin.math.sin(step * 0.15f - waveOffset)))).toInt()
+                                val breatheBrightness = (baseBrightness * (0.1f + 0.9f * kotlin.math.abs(kotlin.math.sin(step * 0.15f - waveOffset)))).toInt()
                                 builder.buildChannel(cSegments[j], breatheBrightness.coerceIn(0, maxBrightness))
                             }
                         }
@@ -1572,9 +1578,15 @@ class GlyphAnimationManager @Inject constructor(
                 } else {
                     BATTERY_STEP_DELAY
                 }
-
                 for (i in 0 until currentSegments) {
-                    builder.buildChannel(c1Segments[i], baseBrightness.coerceIn(0, maxBrightness))
+                    val brightness = if (isCharging) {
+                        val waveOffset = i * 0.3f
+                        val waveMultiplier = 0.6f + 0.4f * kotlin.math.sin(step * 0.2f - waveOffset)
+                        (baseBrightness * waveMultiplier).toInt()
+                    } else {
+                        baseBrightness
+                    }
+                    builder.buildChannel(c1Segments[i], brightness.coerceIn(0, maxBrightness))
                 }
 
                 if (currentSegments == targetSegments) {
@@ -1583,7 +1595,7 @@ class GlyphAnimationManager @Inject constructor(
                             val endBlink = minOf(targetSegments + 3, totalSegments)
                             for (j in targetSegments until endBlink) {
                                 val waveOffset = (j - targetSegments) * 0.5f
-                                val breatheBrightness = (baseBrightness * (0.2f + 0.8f * kotlin.math.abs(kotlin.math.sin(step * 0.15f - waveOffset)))).toInt()
+                                val breatheBrightness = (baseBrightness * (0.1f + 0.9f * kotlin.math.abs(kotlin.math.sin(step * 0.15f - waveOffset)))).toInt()
                                 builder.buildChannel(c1Segments[j], breatheBrightness.coerceIn(0, maxBrightness))
                             }
                         }
@@ -1641,9 +1653,15 @@ class GlyphAnimationManager @Inject constructor(
                 } else {
                     BATTERY_STEP_DELAY
                 }
-
                 for (i in 0 until currentSegments) {
-                    builder.buildChannel(Phone2a.C_START + i, baseBrightness.coerceIn(0, maxBrightness))
+                    val brightness = if (isCharging) {
+                        val waveOffset = i * 0.25f
+                        val waveMultiplier = 0.6f + 0.4f * kotlin.math.sin(step * 0.2f - waveOffset)
+                        (baseBrightness * waveMultiplier).toInt()
+                    } else {
+                        baseBrightness
+                    }
+                    builder.buildChannel(Phone2a.C_START + i, brightness.coerceIn(0, maxBrightness))
                 }
 
                 if (currentSegments == targetSegments) {
@@ -1652,7 +1670,7 @@ class GlyphAnimationManager @Inject constructor(
                             val endBlink = minOf(targetSegments + 3, totalSegments)
                             for (j in targetSegments until endBlink) {
                                 val waveOffset = (j - targetSegments) * 0.5f
-                                val breatheBrightness = (baseBrightness * (0.2f + 0.8f * kotlin.math.abs(kotlin.math.sin(step * 0.15f - waveOffset)))).toInt()
+                                val breatheBrightness = (baseBrightness * (0.1f + 0.9f * kotlin.math.abs(kotlin.math.sin(step * 0.15f - waveOffset)))).toInt()
                                 builder.buildChannel(Phone2a.C_START + j, breatheBrightness.coerceIn(0, maxBrightness))
                             }
                         }
@@ -1707,9 +1725,15 @@ class GlyphAnimationManager @Inject constructor(
                 } else {
                     BATTERY_STEP_DELAY
                 }
-
                 for (i in 0 until currentSegments) {
-                    builder.buildChannel(phone3aCSegments[i], baseBrightness.coerceIn(0, maxBrightness))
+                    val brightness = if (isCharging) {
+                        val waveOffset = i * 0.3f
+                        val waveMultiplier = 0.6f + 0.4f * kotlin.math.sin(step * 0.2f - waveOffset)
+                        (baseBrightness * waveMultiplier).toInt()
+                    } else {
+                        baseBrightness
+                    }
+                    builder.buildChannel(phone3aCSegments[i], brightness.coerceIn(0, maxBrightness))
                 }
 
                 if (currentSegments == targetSegments) {
@@ -1718,7 +1742,7 @@ class GlyphAnimationManager @Inject constructor(
                             val endBlink = minOf(targetSegments + 3, totalSegments)
                             for (j in targetSegments until endBlink) {
                                 val waveOffset = (j - targetSegments) * 0.5f
-                                val breatheBrightness = (baseBrightness * (0.2f + 0.8f * kotlin.math.abs(kotlin.math.sin(step * 0.15f - waveOffset)))).toInt()
+                                val breatheBrightness = (baseBrightness * (0.1f + 0.9f * kotlin.math.abs(kotlin.math.sin(step * 0.15f - waveOffset)))).toInt()
                                 builder.buildChannel(phone3aCSegments[j], breatheBrightness.coerceIn(0, maxBrightness))
                             }
                         }
@@ -1771,9 +1795,15 @@ class GlyphAnimationManager @Inject constructor(
                 } else {
                     BATTERY_STEP_DELAY
                 }
-
                 for (i in 0 until currentSegments) {
-                    builder.buildChannel(i, baseBrightness.coerceIn(0, maxBrightness))
+                    val brightness = if (isCharging) {
+                        val waveOffset = i * 0.4f
+                        val waveMultiplier = 0.6f + 0.4f * kotlin.math.sin(step * 0.2f - waveOffset)
+                        (baseBrightness * waveMultiplier).toInt()
+                    } else {
+                        baseBrightness
+                    }
+                    builder.buildChannel(i, brightness.coerceIn(0, maxBrightness))
                 }
 
                 if (currentSegments == targetSegments) {
@@ -1782,7 +1812,7 @@ class GlyphAnimationManager @Inject constructor(
                             val endBlink = minOf(targetSegments + 3, totalSegments)
                             for (j in targetSegments until endBlink) {
                                 val waveOffset = (j - targetSegments) * 0.5f
-                                val breatheBrightness = (baseBrightness * (0.2f + 0.8f * kotlin.math.abs(kotlin.math.sin(step * 0.15f - waveOffset)))).toInt()
+                                val breatheBrightness = (baseBrightness * (0.1f + 0.9f * kotlin.math.abs(kotlin.math.sin(step * 0.15f - waveOffset)))).toInt()
                                 builder.buildChannel(j, breatheBrightness.coerceIn(0, maxBrightness))
                             }
                         }
