@@ -4,9 +4,6 @@ import android.content.Context
 import android.util.Log
 import com.nothing.ketchum.Common
 import com.nothing.ketchum.GlyphFrame
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -24,7 +21,6 @@ class GlyphAnimationManager @Inject constructor(
 ) {
     private val TAG = "GlyphAnimationManager"
     private var isAnimationRunning = false
-    private val animationScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     private companion object {
         const val DEFAULT_MAX_BRIGHTNESS = 4000
@@ -1090,346 +1086,6 @@ class GlyphAnimationManager @Inject constructor(
         }
     }
 
-    /**
-     * Run battery percentage visualization
-     */
-    suspend fun playBatteryPercentageVisualization(
-        context: Context,
-        durationMillis: Long,
-        onProgressUpdate: (Float) -> Unit = {}
-    ) {
-        if (!isGlyphServiceEnabled() || !glyphManager.isNothingPhone()) return
-
-        isAnimationRunning = true
-        try {
-            resetGlyphs()
-
-            val intentFilter = android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)
-            val batteryIntent = context.registerReceiver(null, intentFilter)
-
-            if (batteryIntent != null) {
-                val batteryLevel = batteryIntent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1)
-                val batteryScale = batteryIntent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1)
-                val batteryStatus = batteryIntent.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1)
-                val isCharging = batteryStatus == android.os.BatteryManager.BATTERY_STATUS_CHARGING ||
-                        batteryStatus == android.os.BatteryManager.BATTERY_STATUS_FULL
-                val batteryPercentage = if (batteryLevel != -1 && batteryScale != -1) {
-                    (batteryLevel * 100 / batteryScale.toFloat()).toInt()
-                } else {
-                    50
-                }
-
-                when {
-                    Common.is20111() -> runPhone1BatteryVisualization(batteryPercentage, isCharging, durationMillis, onProgressUpdate)
-                    Common.is22111() -> runPhone2BatteryVisualization(batteryPercentage, isCharging, durationMillis, onProgressUpdate)
-                    Common.is23111() || Common.is23113() -> runPhone2aBatteryVisualization(batteryPercentage, isCharging, durationMillis, onProgressUpdate)
-                    Common.is24111() -> runPhone3aBatteryVisualization(batteryPercentage, isCharging, durationMillis, onProgressUpdate)
-                    else -> runDefaultBatteryVisualization(batteryPercentage, isCharging, durationMillis, onProgressUpdate)
-                }
-            }
-        } finally {
-            ensureCleanup()
-        }
-    }
-
-    // Battery visualization methods remain similar with optimized brightness calculations
-    private suspend fun runPhone1BatteryVisualization(
-        batteryPercentage: Int,
-        isCharging: Boolean,
-        durationMillis: Long,
-        onProgressUpdate: (Float) -> Unit
-    ) {
-        val startTime = System.currentTimeMillis()
-        val c1Segments = listOf(Phone1.C_START, Phone1.C_START + 1, Phone1.C_START + 2, Phone1.C_START + 3)
-        var step = 0
-
-        val targetSegments = (batteryPercentage / 25f).toInt().coerceIn(0, c1Segments.size)
-        var currentSegments = 0
-
-        while (isAnimationRunning) {
-            val elapsedTime = System.currentTimeMillis() - startTime
-            if (elapsedTime >= durationMillis) break
-
-            val progress = (elapsedTime / durationMillis.toFloat()).coerceIn(0f, 1f)
-            onProgressUpdate(progress)
-
-            try {
-                val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
-                val baseBrightness = calculateBaseBrightness(batteryPercentage, isCharging)
-
-                // Если мы еще не достигли нужного процента, увеличиваем кол-во глифов и ждем 0.1 сек
-                val delayTime = if (currentSegments < targetSegments) {
-                    currentSegments++
-                    BATTERY_FILL_STEP_DELAY
-                } else {
-                    BATTERY_STEP_DELAY
-                }
-
-                for (i in 0 until currentSegments) {
-                    val segmentBrightness = calculateSegmentBrightness(baseBrightness, isCharging, batteryPercentage, step, i)
-                    builder.buildChannel(c1Segments[i], segmentBrightness.coerceIn(0, maxBrightness))
-                }
-
-                // Второстепенные эффекты включаем только когда шкала полностью заполнится
-                if (currentSegments == targetSegments) {
-                    val currentVirtualPercentage = if (c1Segments.isNotEmpty()) (currentSegments * 25) else 0
-                    if (!isCharging && batteryPercentage >= 20) {
-                        addPlayfulGlow(builder, currentVirtualPercentage, c1Segments.size, baseBrightness, step)
-                    }
-
-                    if (batteryPercentage < 20) {
-                        val blinkBrightness = (maxBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.3f))).toInt()
-                        builder.buildChannel(c1Segments.last(), blinkBrightness)
-                    }
-                }
-
-                glyphManager.mGM?.toggle(builder.build())
-                delay(delayTime)
-                step++
-            } catch (e: Exception) {
-                delay(BATTERY_STEP_DELAY)
-                step++
-            }
-        }
-    }
-
-    private suspend fun runPhone2BatteryVisualization(
-        batteryPercentage: Int,
-        isCharging: Boolean,
-        durationMillis: Long,
-        onProgressUpdate: (Float) -> Unit
-    ) {
-        val startTime = System.currentTimeMillis()
-        var step = 0
-
-        val targetSegments = (batteryPercentage / 100f * c1Segments.size).toInt().coerceIn(0, c1Segments.size)
-        var currentSegments = 0
-
-        while (isAnimationRunning) {
-            val elapsedTime = System.currentTimeMillis() - startTime
-            if (elapsedTime >= durationMillis) break
-
-            val progress = (elapsedTime / durationMillis.toFloat()).coerceIn(0f, 1f)
-            onProgressUpdate(progress)
-
-            try {
-                val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
-                val baseBrightness = calculateBaseBrightness(batteryPercentage, isCharging)
-
-                val delayTime = if (currentSegments < targetSegments) {
-                    currentSegments++
-                    BATTERY_FILL_STEP_DELAY
-                } else {
-                    BATTERY_STEP_DELAY
-                }
-
-                if (isCharging || batteryPercentage < 20) {
-                    for (i in 0 until currentSegments) {
-                        val segmentBrightness = if (isCharging) {
-                            (baseBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.3f))).toInt()
-                        } else {
-                            baseBrightness
-                        }
-                        builder.buildChannel(c1Segments[i], segmentBrightness.coerceIn(0, maxBrightness))
-                    }
-                } else {
-                    val currentVirtualPercentage = (currentSegments.toFloat() / c1Segments.size * 100).toInt()
-                    addWaveAnimation(builder, c1Segments, currentVirtualPercentage, baseBrightness, step)
-                }
-
-                // Дополнительные лампочки и свечения включаем только после заполнения
-                if (currentSegments == targetSegments) {
-                    if (batteryPercentage < 20) {
-                        val blinkBrightness = (maxBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.3f))).toInt()
-                        aSegments.forEach { builder.buildChannel(it, blinkBrightness) }
-                    }
-
-                    if (isCharging) {
-                        val chargeBrightness = (baseBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.3f))).toInt()
-                        bSegments.forEach { builder.buildChannel(it, chargeBrightness.coerceIn(0, maxBrightness)) }
-                    }
-
-                    if (!isCharging && batteryPercentage >= 20) {
-                        addPlayfulGlowPhone2(builder, baseBrightness, step)
-                    }
-                }
-
-                glyphManager.mGM?.toggle(builder.build())
-                delay(delayTime)
-                step++
-            } catch (e: Exception) {
-                delay(BATTERY_STEP_DELAY)
-                step++
-            }
-        }
-    }
-
-    private suspend fun runPhone2aBatteryVisualization(
-        batteryPercentage: Int,
-        isCharging: Boolean,
-        durationMillis: Long,
-        onProgressUpdate: (Float) -> Unit
-    ) {
-        val startTime = System.currentTimeMillis()
-        var step = 0
-
-        val targetSegments = (batteryPercentage / 100f * 24).toInt().coerceIn(0, 24)
-        var currentSegments = 0
-
-        while (isAnimationRunning) {
-            val elapsedTime = System.currentTimeMillis() - startTime
-            if (elapsedTime >= durationMillis) break
-
-            val progress = (elapsedTime / durationMillis.toFloat()).coerceIn(0f, 1f)
-            onProgressUpdate(progress)
-
-            try {
-                val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
-                val baseBrightness = calculateBaseBrightness(batteryPercentage, isCharging)
-
-                val delayTime = if (currentSegments < targetSegments) {
-                    currentSegments++
-                    BATTERY_FILL_STEP_DELAY
-                } else {
-                    BATTERY_STEP_DELAY
-                }
-
-                if (isCharging || batteryPercentage < 20) {
-                    for (i in 0 until currentSegments) {
-                        val segmentBrightness = if (isCharging) {
-                            (baseBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.3f))).toInt()
-                        } else {
-                            baseBrightness
-                        }
-                        builder.buildChannel(Phone2a.C_START + i, segmentBrightness.coerceIn(0, maxBrightness))
-                    }
-                }
-
-                if (currentSegments == targetSegments) {
-                    if (batteryPercentage < 20) {
-                        val blinkBrightness = (maxBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.3f))).toInt()
-                        builder.buildChannel(Phone2a.A, blinkBrightness)
-                    }
-
-                    if (isCharging) {
-                        val chargeBrightness = (baseBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.35f))).toInt()
-                        builder.buildChannel(Phone2a.B, chargeBrightness.coerceIn(0, maxBrightness))
-                    }
-                }
-
-                glyphManager.mGM?.toggle(builder.build())
-                delay(delayTime)
-                step++
-            } catch (e: Exception) {
-                delay(BATTERY_STEP_DELAY)
-                step++
-            }
-        }
-    }
-
-    private suspend fun runPhone3aBatteryVisualization(
-        batteryPercentage: Int,
-        isCharging: Boolean,
-        durationMillis: Long,
-        onProgressUpdate: (Float) -> Unit
-    ) {
-        val startTime = System.currentTimeMillis()
-        var step = 0
-
-        val targetSegments = (batteryPercentage / 100f * phone3aCSegments.size).toInt().coerceIn(0, phone3aCSegments.size)
-        var currentSegments = 0
-
-        while (isAnimationRunning) {
-            val elapsedTime = System.currentTimeMillis() - startTime
-            if (elapsedTime >= durationMillis) break
-
-            val progress = (elapsedTime / durationMillis.toFloat()).coerceIn(0f, 1f)
-            onProgressUpdate(progress)
-
-            try {
-                val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
-                val baseBrightness = calculateBaseBrightness(batteryPercentage, isCharging)
-
-                val delayTime = if (currentSegments < targetSegments) {
-                    currentSegments++
-                    BATTERY_FILL_STEP_DELAY
-                } else {
-                    BATTERY_STEP_DELAY
-                }
-
-                for (i in 0 until currentSegments) {
-                    val segmentBrightness = when {
-                        isCharging -> {
-                            val waveFactor = 0.8f + 0.2f * kotlin.math.sin((step + i) * 0.15f)
-                            (baseBrightness * waveFactor).toInt()
-                        }
-                        batteryPercentage < 20 -> {
-                            (baseBrightness * (0.6f + 0.4f * kotlin.math.sin(step * 0.2f))).toInt()
-                        }
-                        else -> baseBrightness
-                    }.coerceIn(0, maxBrightness)
-                    builder.buildChannel(phone3aCSegments[i], segmentBrightness)
-                }
-
-                glyphManager.mGM?.toggle(builder.build())
-                delay(delayTime)
-                step++
-            } catch (e: Exception) {
-                delay(BATTERY_STEP_DELAY)
-                step++
-            }
-        }
-    }
-
-    private suspend fun runDefaultBatteryVisualization(
-        batteryPercentage: Int,
-        isCharging: Boolean,
-        durationMillis: Long,
-        onProgressUpdate: (Float) -> Unit
-    ) {
-        val startTime = System.currentTimeMillis()
-        var step = 0
-
-        val targetSegments = (batteryPercentage / 10f).toInt().coerceIn(0, 10)
-        var currentSegments = 0
-
-        while (isAnimationRunning) {
-            val elapsedTime = System.currentTimeMillis() - startTime
-            if (elapsedTime >= durationMillis) break
-
-            val progress = (elapsedTime / durationMillis.toFloat()).coerceIn(0f, 1f)
-            onProgressUpdate(progress)
-
-            try {
-                val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
-                val baseBrightness = calculateBaseBrightness(batteryPercentage, isCharging)
-
-                val delayTime = if (currentSegments < targetSegments) {
-                    currentSegments++
-                    BATTERY_FILL_STEP_DELAY
-                } else {
-                    BATTERY_STEP_DELAY
-                }
-
-                for (i in 0..currentSegments) {
-                    val segmentBrightness = when {
-                        isCharging -> (baseBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.1f + i * 0.5f))).toInt()
-                        batteryPercentage < 20 -> baseBrightness
-                        else -> (baseBrightness * (0.7f + 0.3f * kotlin.math.sin(step * 0.1f))).toInt()
-                    }
-                    builder.buildChannel(i, segmentBrightness.coerceIn(0, maxBrightness))
-                }
-
-                glyphManager.mGM?.toggle(builder.build())
-                delay(delayTime)
-                step++
-            } catch (e: Exception) {
-                delay(BATTERY_STEP_DELAY)
-                step++
-            }
-        }
-    }
-
 
     /**
      * Run battery percentage visualization
@@ -1452,8 +1108,12 @@ class GlyphAnimationManager @Inject constructor(
                 val batteryLevel = batteryIntent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1)
                 val batteryScale = batteryIntent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1)
                 val batteryStatus = batteryIntent.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1)
+                val pluggedType = batteryIntent.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, -1)
 
-                val isCharging = batteryStatus == android.os.BatteryManager.BATTERY_STATUS_CHARGING ||
+                val isPluggedIn = pluggedType == android.os.BatteryManager.BATTERY_PLUGGED_AC ||
+                        pluggedType == android.os.BatteryManager.BATTERY_PLUGGED_USB
+                val isCharging = isPluggedIn ||
+                        batteryStatus == android.os.BatteryManager.BATTERY_STATUS_CHARGING ||
                         batteryStatus == android.os.BatteryManager.BATTERY_STATUS_FULL
 
                 val batteryPercentage = if (batteryLevel != -1 && batteryScale != -1) {
@@ -1462,6 +1122,8 @@ class GlyphAnimationManager @Inject constructor(
                     50
                 }
 
+                Log.d(TAG, "Battery: $batteryPercentage%, Plugged: $isPluggedIn, Status: $batteryStatus, Final isCharging: $isCharging")
+
                 when {
                     Common.is20111() -> animatePhone1BatteryStatus(batteryPercentage, isCharging, durationMillis, onProgressUpdate)
                     Common.is22111() -> animatePhone2BatteryStatus(batteryPercentage, isCharging, durationMillis, onProgressUpdate)
@@ -1469,6 +1131,9 @@ class GlyphAnimationManager @Inject constructor(
                     Common.is24111() -> animatePhone3aBatteryStatus(batteryPercentage, isCharging, durationMillis, onProgressUpdate)
                     else -> animateGenericBatteryStatus(batteryPercentage, isCharging, durationMillis, onProgressUpdate)
                 }
+            } else {
+                Log.w(TAG, "Battery intent is null. Running fallback with 50%.")
+                animateGenericBatteryStatus(50, false, durationMillis, onProgressUpdate)
             }
         } finally {
             ensureCleanup()
@@ -1846,23 +1511,6 @@ class GlyphAnimationManager @Inject constructor(
     }
 
     /**
-     * Helper method to calculate segment brightness
-     */
-    private fun calculateSegmentBrightness(
-        baseBrightness: Int,
-        isCharging: Boolean,
-        batteryPercentage: Int,
-        step: Int,
-        index: Int
-    ): Int {
-        return when {
-            isCharging -> (baseBrightness * (0.5f + 0.5f * kotlin.math.sin(step * 0.1f))).toInt()
-            batteryPercentage < 20 -> baseBrightness
-            else -> (baseBrightness * (0.7f + 0.3f * kotlin.math.sin(step * 0.1f))).toInt()
-        }
-    }
-
-    /**
      * Helper method to add playful glow for Phone 1
      */
     private fun addPlayfulGlow(
@@ -2163,7 +1811,6 @@ class GlyphAnimationManager @Inject constructor(
      * Helper method for spiral animation
      */
     private suspend fun runSpiralAnimationForSegments(segments: List<Int>, stepDuration: Long, centerSegment: Int) {
-        // Phase 1: Spiral outward
         for (i in segments.indices) {
             if (!isAnimationRunning) break
             val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
@@ -2175,13 +1822,11 @@ class GlyphAnimationManager @Inject constructor(
             delay(stepDuration)
         }
 
-        // Phase 2: Full brightness flash
         createFrameBuilder(segments)?.let {
             glyphManager.mGM?.toggle(it.build())
             delay(250L)
         }
 
-        // Phase 3: Spiral inward
         for (i in segments.indices.reversed()) {
             if (!isAnimationRunning) break
             val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
@@ -2193,7 +1838,6 @@ class GlyphAnimationManager @Inject constructor(
             delay(stepDuration)
         }
 
-        // Phase 4: Final center pulse
         createFrameBuilder(listOf(centerSegment))?.let {
             glyphManager.mGM?.toggle(it.build())
             delay(200L)

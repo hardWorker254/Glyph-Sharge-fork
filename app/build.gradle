@@ -14,8 +14,8 @@ android {
         applicationId "com.bleelblep.glyphsharge"
         minSdk 34  // Android 14+ only
         targetSdk 34
-        versionCode 1026
-        versionName "1.0.28-Charging"
+        versionCode 1029
+        versionName "1.0.29"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

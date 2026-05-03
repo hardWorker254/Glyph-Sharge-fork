@@ -240,7 +240,7 @@ class PowerPeekService : Service(), SensorEventListener {
 
             try {
                 val animJob = launch(Dispatchers.Default) {
-                    glyphAnimationManager.playBatteryPercentageVisualization(
+                    glyphAnimationManager.playBatteryStatusAnimation(
                         this@PowerPeekService,
                         duration
                     )
