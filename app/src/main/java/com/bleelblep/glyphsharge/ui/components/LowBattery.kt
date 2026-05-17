@@ -46,67 +46,6 @@ data class LowBatteryAlertConfig(
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Private theme helpers – eliminate repeated `when (themeStyle)` blocks
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Card container tinted with a feature-specific accent (e.g. [NothingRed]). */
-@Composable
-private fun accentCardColor(accent: Color): Color {
-    val ts = LocalThemeState.current
-    return when (ts.themeStyle) {
-        AppThemeStyle.AMOLED -> accent
-        AppThemeStyle.CLASSIC ->
-            if (ts.isDarkTheme) MaterialTheme.colorScheme.surfaceContainer
-            else NothingWhite
-        else -> MaterialTheme.colorScheme.surfaceContainer
-    }
-}
-
-/** Colors for secondary / test action buttons. */
-@Composable
-private fun secondaryButtonColors(): ButtonColors {
-    val ts = LocalThemeState.current
-    return ButtonDefaults.buttonColors(
-        containerColor = when (ts.themeStyle) {
-            AppThemeStyle.AMOLED  -> NothingGray
-            AppThemeStyle.CLASSIC -> NothingWhite
-            else -> MaterialTheme.colorScheme.surfaceVariant
-        },
-        contentColor = when (ts.themeStyle) {
-            AppThemeStyle.AMOLED  -> NothingWhite
-            AppThemeStyle.CLASSIC -> NothingViolate
-            else -> MaterialTheme.colorScheme.onSurfaceVariant
-        }
-    )
-}
-
-/** Themed badge / pill showing a value (threshold %, duration, etc.). */
-@Composable
-private fun ValueBadge(text: String) {
-    val ts = LocalThemeState.current
-    Surface(
-        color = when (ts.themeStyle) {
-            AppThemeStyle.AMOLED  -> NothingGray
-            AppThemeStyle.CLASSIC -> NothingWhite
-            else -> MaterialTheme.colorScheme.primaryContainer
-        },
-        shape = RoundedCornerShape(8.dp)
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.Bold,
-            color = when (ts.themeStyle) {
-                AppThemeStyle.AMOLED  -> NothingWhite
-                AppThemeStyle.CLASSIC -> NothingViolate
-                else -> MaterialTheme.colorScheme.onPrimaryContainer
-            }
-        )
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 //  Confirmation Dialog
 //
 //  Uses FeatureConfirmationButtons from UnifiedFeatureCards.
@@ -242,10 +181,10 @@ fun LowBatteryAlertEnableDialog(
         mutableLongStateOf(settingsRepository.getLowBatteryDuration().coerceIn(1000L, 10000L))
     }
 
-    // Pre-resolve themed values
-    val accentCard     = accentCardColor(NothingRed)
-    val secBtnColors   = secondaryButtonColors()
-    val accent         = themePrimaryActionColor()
+    // Pre-resolve themed values using shared theme helpers
+    val cardColor    = themeCardContainerColor()
+    val secBtnColors = themeSecondaryButtonColors()
+    val accent       = themePrimaryActionColor()
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -279,7 +218,7 @@ fun LowBatteryAlertEnableDialog(
                 // ── Battery Threshold ────────────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = accentCard),
+                    colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
@@ -302,7 +241,7 @@ fun LowBatteryAlertEnableDialog(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            ValueBadge("${threshold.toInt()}%")
+                            ThemedValueBadge("${threshold.toInt()}%")
                         }
 
                         Slider(
@@ -336,7 +275,7 @@ fun LowBatteryAlertEnableDialog(
                 // ── Animation Picker ─────────────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = accentCard),
+                    colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
@@ -393,7 +332,6 @@ fun LowBatteryAlertEnableDialog(
                                             else        -> glyphAnimationManager.playLowBatteryAnimation(selectedAnim.id)
                                         }
                                     } catch (e: Exception) {
-                                        // I can't localize this
                                         Log.e("LowBatteryAlert", "Error testing animation: ${e.message}")
                                     }
                                 }
@@ -414,7 +352,7 @@ fun LowBatteryAlertEnableDialog(
                 // ── Animation Duration ───────────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = accentCard),
+                    colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
@@ -436,7 +374,7 @@ fun LowBatteryAlertEnableDialog(
                                 stringResource(id = R.string.low_battery_alert_duration_label),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            ValueBadge("${(animationDuration / 1000f).toInt()}" + stringResource(id = R.string.glyph_seconds))
+                            ThemedValueBadge("${(animationDuration / 1000f).toInt()}" + stringResource(id = R.string.glyph_seconds))
                         }
 
                         Slider(
@@ -447,7 +385,7 @@ fun LowBatteryAlertEnableDialog(
                                 settingsRepository.saveLowBatteryDuration(animationDuration)
                             },
                             valueRange = 1000f..10000f,
-                            steps = 17, // 0.5s increments between 1s and 10s
+                            steps = 17,
                             modifier = Modifier.fillMaxWidth(),
                             colors = SliderDefaults.colors(thumbColor = accent)
                         )
