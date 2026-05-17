@@ -33,6 +33,8 @@ import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import kotlin.math.roundToInt
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.stringResource
+import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
 
 /**
@@ -48,6 +50,7 @@ fun SettingsScreen(
     onFontSettingsClick: () -> Unit = {},
     onVibrationSettingsClick: () -> Unit = {},
     onQuietHoursSettingsClick: () -> Unit = {},
+    onLanguageSettingsClick: () -> Unit = {},
     settingsRepository: SettingsRepository
 ) {
     val fontState = LocalFontState.current
@@ -66,7 +69,7 @@ fun SettingsScreen(
             LargeTopAppBar(
                 title = { 
                     Text(
-                        "Settings",
+                        stringResource(id = R.string.settings_title),
                         style = MaterialTheme.typography.headlineLarge.copy(
                             fontSize = 42.sp
                         )
@@ -79,7 +82,7 @@ fun SettingsScreen(
                     }) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back"
+                            stringResource(id = R.string.settings_back_content_description)
                         )
                     }
                 },
@@ -210,21 +213,9 @@ fun SettingsScreen(
                             verticalArrangement = Arrangement.Center
                         ) {
                             Text(
-                                text = "Typography",
+                                text = stringResource(id = R.string.settings_card_typography),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.SemiBold
-                            )
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            Text(
-                                text = fontState.getFontDescription() + if (!fontState.useCustomFonts) 
-                                    " • Custom sizing" 
-                                else if (fontState.fontSizeSettings != FontSizeSettings())
-                                    " • Custom sizing"
-                                else "",
-                                style = MaterialTheme.typography.bodyMedium,
-                                letterSpacing = 0.5.sp
                             )
                         }
 
@@ -339,7 +330,7 @@ fun SettingsScreen(
                             verticalArrangement = Arrangement.Center
                         ) {
                             Text(
-                                text = "Theme",
+                                text = stringResource(id = R.string.settings_card_theme),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -347,7 +338,10 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.height(4.dp))
 
                             Text(
-                                text = if (themeState.isDarkTheme) "Dark Mode" else "Light Mode",
+                                text = if (themeState.isDarkTheme)
+                                        stringResource(id = R.string.settings_theme_status_dark)
+                                    else
+                                    stringResource(id = R.string.settings_theme_status_light),
                                 style = MaterialTheme.typography.bodyMedium,
                                 letterSpacing = 0.5.sp
                             )
@@ -478,7 +472,7 @@ fun SettingsScreen(
                             verticalArrangement = Arrangement.Center
                         ) {
                             Text(
-                                text = "Quiet Hours",
+                                text = stringResource(id = R.string.settings_card_quiet_hours),
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -486,7 +480,10 @@ fun SettingsScreen(
                             Spacer(modifier = Modifier.height(4.dp))
 
                             Text(
-                                text = if (quietHoursEnabled) "Glyphs will be quiet during set hours" else "Choose your Glyph lights schedule",
+                                text = if (quietHoursEnabled)
+                                            stringResource(id = R.string.settings_quiet_hours_status_on)
+                                       else
+                                            stringResource(id = R.string.settings_quiet_hours_status_off),
                                 style = MaterialTheme.typography.bodyMedium,
                                 letterSpacing = 0.5.sp
                             )
@@ -515,10 +512,136 @@ fun SettingsScreen(
                 }
             }
 
+            // Language Settings Card (draggable)
+            item {
+                var offsetX by remember { mutableFloatStateOf(0f) }
+                val configuration = LocalConfiguration.current
+                val density = LocalDensity.current
+
+                // Get current language display name
+                val currentLanguageName = remember {
+                    val code = settingsRepository.getAppLanguageCode()
+                    when (code) {
+                        "system" -> "System Default"
+                        "en" -> "English"
+                        "ru" -> "Русский"
+                        else -> "System Default"
+                    }
+                }
+
+                // Calculate half screen width as threshold
+                val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+                val dragThreshold = screenWidthPx / 2f
+
+                // Track if threshold was met
+                var thresholdMet by remember { mutableStateOf(false) }
+
+                // Animate the offset back to center when released
+                val animatedOffsetX by animateFloatAsState(
+                    targetValue = offsetX,
+                    animationSpec = if (thresholdMet) {
+                        tween(durationMillis = 200, easing = FastOutLinearInEasing)
+                    } else {
+                        spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessLow
+                        )
+                    },
+                    label = "languageDragOffset",
+                    finishedListener = { finalValue ->
+                        if (thresholdMet && finalValue == 0f) {
+                            HapticUtils.triggerMediumFeedback(haptic, context)
+                            onLanguageSettingsClick()
+                            thresholdMet = false
+                        }
+                    }
+                )
+
+                // Calculate progress based on drag distance
+                val dragProgress = (kotlin.math.abs(animatedOffsetX) / dragThreshold).coerceIn(0f, 1f)
+
+                // Animate background color
+                val backgroundColor by animateColorAsState(
+                    targetValue = lerp(
+                        MaterialTheme.colorScheme.surface,
+                        MaterialTheme.colorScheme.primaryContainer,
+                        dragProgress
+                    ),
+                    animationSpec = tween(300),
+                    label = "languageBackgroundColor"
+                )
+
+                // Animate elevation
+                val animatedElevation by animateDpAsState(
+                    targetValue = (1 + dragProgress * 8).dp,
+                    animationSpec = tween(300),
+                    label = "languageElevation"
+                )
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp)
+                        .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
+                        .pointerInput(Unit) {
+                            detectDragGestures(
+                                onDragStart = { _ ->
+                                    HapticUtils.triggerLightFeedback(haptic, context)
+                                },
+                                onDragEnd = {
+                                    thresholdMet = kotlin.math.abs(offsetX) >= dragThreshold
+                                    offsetX = 0f
+                                }
+                            ) { _, dragAmount ->
+                                offsetX += dragAmount.x
+                            }
+                        },
+                    colors = CardDefaults.cardColors(containerColor = backgroundColor),
+                    elevation = CardDefaults.cardElevation(defaultElevation = animatedElevation),
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(20.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = stringResource(id = R.string.language_selector_title),
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            Text(
+                                text = currentLanguageName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                letterSpacing = 0.5.sp,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
+                            )
+                        }
+
+                        // Language icon / indicator
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = stringResource(id = R.string.language_selector_desc),
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+            }
+
             // App Info Section Header
             item {
                 HomeSectionHeader(
-                    title = "App Information",
+                    title = stringResource(id = R.string.settings_section_app_info),
                     modifier = Modifier.padding(start = 4.dp, top = 8.dp)
                 )
             }

@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.rememberTopAppBarState
+import androidx.compose.ui.res.stringResource
 
 /**
  * Theme-specific feature card that bypasses service checks and dialogs
@@ -165,7 +166,7 @@ fun ThemeSettingsScreen(
             LargeTopAppBar(
                 title = {
                     Text(
-                        text = "Theme",
+                        text = stringResource(id = R.string.theme_settings_title),
                         style = MaterialTheme.typography.headlineLarge.copy(
                             fontSize = 42.sp
                         )
@@ -178,7 +179,7 @@ fun ThemeSettingsScreen(
                     }) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(id = R.string.settings_back_content_description)
                         )
                     }
                 },
@@ -210,8 +211,8 @@ fun ThemeSettingsScreen(
         ) {
             // Theme Mode Section Header
             item {
-                            Text(
-                    text = "Theme Mode",
+                Text(
+                    text = stringResource(id = R.string.theme_section_mode),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(start = 8.dp, bottom = 8.dp, top = 8.dp)
@@ -223,8 +224,8 @@ fun ThemeSettingsScreen(
                 FeatureGrid {
                     // Light Theme Card
                     ThemeFeatureCard(
-                        title = "Light Theme",
-                        description = "Clean and bright interface for daytime use",
+                        title = stringResource(id = R.string.theme_mode_light_title),
+                        description = stringResource(id = R.string.theme_mode_light_desc),
                         icon = painterResource(id = R.drawable.light_mode_24px),
                         onClick = { 
                             HapticUtils.triggerMediumFeedback(haptic, context)
@@ -236,8 +237,8 @@ fun ThemeSettingsScreen(
 
                     // Dark Theme Card
                     ThemeFeatureCard(
-                        title = "Dark Theme",
-                        description = "Easy on the eyes for low-light environments",
+                        title = stringResource(id = R.string.theme_mode_dark_title),
+                        description = stringResource(id = R.string.theme_mode_dark_desc),
                         icon = painterResource(id = R.drawable.dark_mode_24px),
                         onClick = { 
                             HapticUtils.triggerMediumFeedback(haptic, context)
@@ -252,7 +253,7 @@ fun ThemeSettingsScreen(
             // Theme Style Section Header
             item {
                 Text(
-                    text = "Theme Styles",
+                    text = stringResource(id = R.string.theme_section_styles),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(start = 8.dp, bottom = 8.dp, top = 8.dp)
@@ -264,8 +265,8 @@ fun ThemeSettingsScreen(
                 FeatureGrid {
                     // Y2K Theme Card
                     ThemeFeatureCard(
-                        title = "Y2K",
-                        description = "Chrome and cyber aesthetics with futuristic colors",
+                        title = stringResource(id = R.string.theme_style_y2k),
+                        description = stringResource(id = R.string.theme_style_y2k_desc),
                         icon = painterResource(id = R.drawable.palette_24px),
                         onClick = { 
                             HapticUtils.triggerMediumFeedback(haptic, context)
@@ -277,8 +278,8 @@ fun ThemeSettingsScreen(
 
                     // Neon Theme Card
                     ThemeFeatureCard(
-                        title = "Neon",
-                        description = "Electric colors inspired by cyberpunk aesthetics",
+                        title = stringResource(id = R.string.theme_style_neon),
+                        description = stringResource(id = R.string.theme_style_neon_desc),
                         icon = painterResource(id = R.drawable.invert_colors_24px),
                         onClick = { 
                             HapticUtils.triggerMediumFeedback(haptic, context)
@@ -295,8 +296,8 @@ fun ThemeSettingsScreen(
                 FeatureGrid {
                     // AMOLED Theme Card
                     ThemeFeatureCard(
-                        title = "NOTHING",
-                        description = "True black OLED theme with Nothing accents",
+                        title = stringResource(id = R.string.theme_style_nothing),
+                        description = stringResource(id = R.string.theme_style_nothing_desc),
                         icon = painterResource(id = R.drawable.dark_mode_24px),
                         onClick = { 
                             HapticUtils.triggerMediumFeedback(haptic, context)
@@ -308,8 +309,8 @@ fun ThemeSettingsScreen(
 
                     // Pastel Theme Card
                     ThemeFeatureCard(
-                        title = "Pastel",
-                        description = "Soft and soothing colors for a gentle experience",
+                        title = stringResource(id = R.string.theme_style_pastel),
+                        description = stringResource(id = R.string.theme_style_pastel_desc),
                         icon = painterResource(id = R.drawable.light_mode_24px),
                         onClick = { 
                             HapticUtils.triggerMediumFeedback(haptic, context)
@@ -326,8 +327,8 @@ fun ThemeSettingsScreen(
                 FeatureGrid {
                     // Classic Theme Card
                     ThemeFeatureCard(
-                        title = "Classic",
-                        description = "Original Nothing Phone colors and design",
+                        title = stringResource(id = R.string.theme_style_classic),
+                        description = stringResource(id = R.string.theme_style_classic_desc),
                         icon = painterResource(id = R.drawable.palette_24px),
                         onClick = { 
                             HapticUtils.triggerMediumFeedback(haptic, context)
@@ -339,8 +340,8 @@ fun ThemeSettingsScreen(
 
                     // Expressive Theme Card
                     ThemeFeatureCard(
-                        title = "Expressive",
-                        description = "Material 3 expressive shapes & colors",
+                        title = stringResource(id = R.string.theme_style_expressive),
+                        description = stringResource(id = R.string.theme_style_expressive_desc),
                         icon = painterResource(id = R.drawable.extension_24px),
                         onClick = { 
                             HapticUtils.triggerMediumFeedback(haptic, context)
@@ -355,8 +356,8 @@ fun ThemeSettingsScreen(
             // Feature Card Section
             item {
                 ThemeResetCard(
-                    title = "Reset to Default",
-                    description = "Restore the original Classic theme with light mode settings to get back to the stock appearance.",
+                    title = stringResource(id = R.string.theme_button_reset),
+                    description = stringResource(id = R.string.theme_reset_desc),
                     icon = painterResource(id = R.drawable.palette_24px),
                     onClick = { 
                         HapticUtils.triggerMediumFeedback(haptic, context)
@@ -370,7 +371,7 @@ fun ThemeSettingsScreen(
             // Additional Feature Cards Section Header
             item {
                 Text(
-                    text = "Additional Options",
+                    text = stringResource(id = R.string.theme_section_additional),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(start = 8.dp, bottom = 8.dp, top = 8.dp)
@@ -382,8 +383,8 @@ fun ThemeSettingsScreen(
                 FeatureGrid {
                     // First Additional Card
                     SquareFeatureCard(
-                        title = "Color Scheme",
-                        description = "Advanced color customization options for power users",
+                        title = stringResource(id = R.string.theme_option_color_scheme),
+                        description = stringResource(id = R.string.theme_option_color_scheme_desc),
                         icon = painterResource(id = R.drawable.palette_24px),
                         onClick = { },
                         modifier = Modifier.weight(1f),
@@ -392,8 +393,8 @@ fun ThemeSettingsScreen(
 
                     // Second Additional Card
                     SquareFeatureCard(
-                        title = "Accent Colors",
-                        description = "Fine-tune accent and highlight colors throughout the app",
+                        title = stringResource(id = R.string.theme_option_accent_colors),
+                        description = stringResource(id = R.string.theme_option_accent_colors_desc),
                         icon = painterResource(id = R.drawable.invert_colors_24px),
                         onClick = { },
                         modifier = Modifier.weight(1f),

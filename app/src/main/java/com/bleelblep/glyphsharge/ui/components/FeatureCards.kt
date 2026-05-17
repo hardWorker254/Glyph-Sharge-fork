@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
 import com.bleelblep.glyphsharge.R
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import com.bleelblep.glyphsharge.data.SettingsRepository
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -26,14 +26,15 @@ fun PowerPeekCard(
     onDisablePowerPeek: () -> Unit,
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
-    title: String = "Power Peek",
-    description: String = "Peek at your battery life with a quick shake.",
+    title: String = stringResource(id = R.string.power_peek_title),
+    description: String = stringResource(id = R.string.power_peek_description),
     iconSize: Int = 32,
     isServiceActive: Boolean = true
 ) {
     val context = LocalContext.current
     var showDialog    by remember { mutableStateOf(false) }
     var isEnabled     by remember { mutableStateOf(settingsRepository.isPowerPeekEnabled()) }
+    val toastText = stringResource(id = R.string.power_peek_toast)
 
     WideFeatureCardWithToggle(
         title = title,
@@ -48,7 +49,7 @@ fun PowerPeekCard(
         },
         onCardClick = {
             if (isServiceActive) showDialog = true
-            else Toast.makeText(context, "Please enable the Glyph service first", Toast.LENGTH_SHORT).show()
+            else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
         },
         modifier = modifier,
         iconSize = iconSize
@@ -77,14 +78,15 @@ fun PulseLockCard(
     onDisablePulseLock: () -> Unit,
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
-    title: String = "Glow Gate",
-    description: String = "Light up your unlock with stunning glyph animations.",
+    title: String = stringResource(id = R.string.pulse_lock_title),
+    description: String = stringResource(id = R.string.pulse_lock_description),
     iconSize: Int = 32,
     isServiceActive: Boolean = true
 ) {
     val context = LocalContext.current
     var showDialog  by remember { mutableStateOf(false) }
     var isEnabled   by remember { mutableStateOf(settingsRepository.isPulseLockEnabled()) }
+    val toastText = stringResource(id = R.string.pulse_lock_toast)
 
     WideFeatureCardWithToggle(
         title = title,
@@ -99,7 +101,7 @@ fun PulseLockCard(
         },
         onCardClick = {
             if (isServiceActive) showDialog = true
-            else Toast.makeText(context, "Please enable the Glyph service first", Toast.LENGTH_SHORT).show()
+            else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
         },
         modifier = modifier,
         iconSize = iconSize
@@ -125,8 +127,8 @@ fun LowBatteryAlertCard(
     onTestAlert: () -> Unit,
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
-    title: String = "Low Battery Alert",
-    description: String = "Get notified with glyphs when your battery runs low.",
+    title: String = stringResource(id = R.string.low_battery_alert_title),
+    description: String = stringResource(id = R.string.low_battery_alert_description),
     icon: Painter = rememberVectorPainter(Icons.Default.BatteryAlert),
     iconSize: Int = 32,
     isServiceActive: Boolean = true
@@ -135,6 +137,7 @@ fun LowBatteryAlertCard(
     var showDialog         by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     var isEnabled          by remember { mutableStateOf(settingsRepository.isLowBatteryEnabled()) }
+    val toastText = stringResource(id = R.string.low_battery_alert_toast)
 
     WideFeatureCardWithToggle(
         title = title,
@@ -148,7 +151,7 @@ fun LowBatteryAlertCard(
         },
         onCardClick = {
             if (isServiceActive) showDialog = true
-            else Toast.makeText(context, "Please enable the Glyph service first", Toast.LENGTH_SHORT).show()
+            else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
         },
         modifier = modifier,
         iconSize = iconSize
@@ -168,9 +171,6 @@ fun LowBatteryAlertCard(
                 settingsRepository.saveLowBatteryEnabled(config.isEnabled)
                 settingsRepository.saveLowBatteryThreshold(config.threshold)
                 settingsRepository.saveLowBatteryAnimationId(config.animationId)
-                settingsRepository.saveLowBatteryAudioEnabled(config.audioEnabled)
-                config.audioUri?.let { settingsRepository.saveLowBatteryAudioUri(it) }
-                settingsRepository.saveLowBatteryAudioOffset(config.audioOffset)
                 isEnabled = config.isEnabled
                 showDialog = false
             },
@@ -184,9 +184,6 @@ fun LowBatteryAlertCard(
                 settingsRepository.saveLowBatteryEnabled(config.isEnabled)
                 settingsRepository.saveLowBatteryThreshold(config.threshold)
                 settingsRepository.saveLowBatteryAnimationId(config.animationId)
-                settingsRepository.saveLowBatteryAudioEnabled(config.audioEnabled)
-                config.audioUri?.let { settingsRepository.saveLowBatteryAudioUri(it) }
-                settingsRepository.saveLowBatteryAudioOffset(config.audioOffset)
                 isEnabled = config.isEnabled
                 showSettingsDialog = false
             },
@@ -215,16 +212,18 @@ fun ScreenOffCard(
     modifier: Modifier = Modifier,
     onEnableScreenOff: () -> Unit,
     onDisableScreenOff: () -> Unit,
-    title: String = "Screen Off Animation",
-    description: String = "Play a beautiful glyph sequence when turning off the screen.",
+    title: String = stringResource(id = R.string.screen_off_title),
+    description: String = stringResource(id = R.string.screen_off_description),
     icon: Painter = rememberVectorPainter(Icons.Default.PowerSettingsNew),
     iconSize: Int = 32,
     isServiceActive: Boolean = true
 ) {
     val context = LocalContext.current
+    var showDialog         by remember { mutableStateOf(false) }
     var showConfirmDialog  by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     var isEnabled          by remember { mutableStateOf(settingsRepository.isScreenOffFeatureEnabled()) }
+    val toastText = stringResource(id = R.string.screen_off_toast)
 
     WideFeatureCardWithToggle(
         title = title,
@@ -238,7 +237,7 @@ fun ScreenOffCard(
         },
         onCardClick = {
             if (isServiceActive) showConfirmDialog = true
-            else Toast.makeText(context, "Please enable the Glyph service first", Toast.LENGTH_SHORT).show()
+            else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
         },
         modifier = modifier,
         iconSize = iconSize
@@ -247,8 +246,13 @@ fun ScreenOffCard(
     if (showConfirmDialog && isServiceActive) {
         ScreenOffConfirmationDialog(
             onTest = { onTestScreenOff(); showConfirmDialog = false },
-            onSettings = { showConfirmDialog = false; showSettingsDialog = true },
             onDismiss = { showConfirmDialog = false },
+            onEnable = { showDialog = false; showSettingsDialog = true },
+            onDisable = {
+                isEnabled = false
+                settingsRepository.saveLowBatteryEnabled(false)
+                showDialog = false
+            },
             settingsRepository = settingsRepository
         )
     }
@@ -285,8 +289,8 @@ fun NfcGlyphCard(
     onDisableNfc: () -> Unit,
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
-    title: String = "NFC Glyph",
-    description: String = "Play a Glyph animation on NFC tap or contactless payment.",
+    title: String = stringResource(id = R.string.nfc_glyph_title),
+    description: String = stringResource(id = R.string.nfc_glyph_description),
     icon: Painter = rememberVectorPainter(Icons.Default.Nfc),
     iconSize: Int = 32,
     isServiceActive: Boolean = true
@@ -295,6 +299,7 @@ fun NfcGlyphCard(
     var showConfirmDialog  by remember { mutableStateOf(false) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     var isEnabled          by remember { mutableStateOf(settingsRepository.isNfcFeatureEnabled()) }
+    val toastText = stringResource(id = R.string.nfc_glyph_toast)
 
     WideFeatureCardWithToggle(
         title = title,
@@ -309,7 +314,7 @@ fun NfcGlyphCard(
         },
         onCardClick = {
             if (isServiceActive) showConfirmDialog = true
-            else Toast.makeText(context, "Please enable the Glyph service first", Toast.LENGTH_SHORT).show()
+            else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
         },
         modifier = modifier,
         iconSize = iconSize
@@ -358,50 +363,6 @@ fun NfcGlyphCard(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  BatteryStoryCard
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-fun BatteryStoryCard(
-    onOpen: () -> Unit,
-    settingsRepository: SettingsRepository,
-    modifier: Modifier = Modifier,
-    title: String = "Battery Story",
-    description: String = "Track your device's charging patterns and battery health.",
-    icon: Painter = painterResource(R.drawable.resource__),
-    iconSize: Int = 32,
-    isServiceActive: Boolean = true
-) {
-    val context = LocalContext.current
-    var isEnabled by remember { mutableStateOf(settingsRepository.isBatteryStoryEnabled()) }
-
-    WideFeatureCardWithToggle(
-        title = title,
-        description = description,
-        icon = icon,
-        isServiceActive = isServiceActive,
-        isFeatureEnabled = isEnabled,
-        onFeatureToggle = { enabled ->
-            isEnabled = enabled
-            settingsRepository.saveBatteryStoryEnabled(enabled)
-        },
-        onCardClick = {
-            when {
-                !isServiceActive -> Toast.makeText(
-                    context, "Please enable the Glyph service first", Toast.LENGTH_SHORT
-                ).show()
-                isEnabled -> onOpen()
-                else -> Toast.makeText(
-                    context, "Please enable Battery Story first", Toast.LENGTH_SHORT
-                ).show()
-            }
-        },
-        modifier = modifier,
-        iconSize = iconSize
-    )
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 //  ChargingAnimationCard
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -413,14 +374,15 @@ fun ChargingAnimationCard(
     onDisableAnimation: () -> Unit,
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
-    title: String = "Charging Animation",
-    description: String = "See your battery level when plugging in or unplugging.",
+    title: String = stringResource(id = R.string.charging_animation_title),
+    description: String = stringResource(id = R.string.charging_animation_description),
     iconSize: Int = 32,
     isServiceActive: Boolean = true
 ) {
     val context = LocalContext.current
     var showDialog by remember { mutableStateOf(false) }
     var isEnabled  by remember { mutableStateOf(settingsRepository.isChargingAnimationEnabled()) }
+    val toastText = stringResource(id = R.string.charging_animation_toast)
 
     WideFeatureCardWithToggle(
         title = title,
@@ -437,7 +399,7 @@ fun ChargingAnimationCard(
             if (isServiceActive) {
                 showDialog = true
             } else {
-                Toast.makeText(context, "Please enable the Glyph service first", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
             }
         },
         modifier = modifier,

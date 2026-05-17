@@ -8,6 +8,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -16,6 +17,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
+import com.bleelblep.glyphsharge.R
 
 data class ChargingAnimationConfig(
     val isEnabled: Boolean = false,
@@ -50,13 +52,13 @@ fun ChargingAnimationConfirmationDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "🔌 Charging Animation",
+                        text = stringResource(id = R.string.charging_animation_title),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        text = "Glyphs on plug & unplug",
+                        text = stringResource(id = R.string.charging_animation_description),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -76,14 +78,12 @@ fun ChargingAnimationConfirmationDialog(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "📱 How it works:",
+                            text = stringResource(id = R.string.charging_animation_how_it_works_title),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "• Shows battery level when charger is connected\n" +
-                                    "• The next segment smoothly breathes while charging\n" +
-                                    "• Shows current level when charger is disconnected",
+                            text = stringResource(id = R.string.charging_animation_how_it_works_description),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 20.sp
@@ -93,7 +93,7 @@ fun ChargingAnimationConfirmationDialog(
             },
             confirmButton = {
                 FeatureConfirmationButtons(
-                    primaryLabel = "🧪 Test Animation",
+                    primaryLabel = stringResource(id = R.string.charging_animation_button_test),
                     onPrimary = onTestAnimation,
                     onSettings = { showEnableDialog = true },
                     onCancel = onDismiss
@@ -156,13 +156,13 @@ fun ChargingAnimationEnableDialog(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Configure",
+                    text = stringResource(id = R.string.charging_animation_configure_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = "Customize charging display",
+                    text = stringResource(id = R.string.charging_animation_configure_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -190,11 +190,11 @@ fun ChargingAnimationEnableDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "⏱️ Display Duration",
+                                text = stringResource(id = R.string.charging_animation_duration_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            ThemedValueBadge("${displayDuration.toInt()}s")
+                            ThemedValueBadge("${displayDuration.toInt()}" + stringResource(id = R.string.glyph_seconds))
                         }
 
                         Slider(
@@ -216,8 +216,12 @@ fun ChargingAnimationEnableDialog(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("2s", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("10s", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(id = R.string.charging_animation_duration_min),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(id = R.string.charging_animation_duration_max),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -227,7 +231,7 @@ fun ChargingAnimationEnableDialog(
             FeatureSaveButtons(
                 isSaving = isSaving,
                 isCurrentlyEnabled = currentlyEnabled,
-                enableLabel = "✅ Enable Animation",
+                enableLabel = stringResource(id = R.string.charging_animation_button_enable),
                 onSave = {
                     isSaving = true
                     val newDuration = (displayDuration * 1000).toLong()

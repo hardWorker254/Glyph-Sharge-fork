@@ -17,6 +17,8 @@ import com.bleelblep.glyphsharge.ui.components.*
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import androidx.compose.material3.rememberTopAppBarState
+import androidx.compose.ui.res.stringResource
+import com.bleelblep.glyphsharge.R
 
 /**
  * Font Settings Screen with comprehensive customization options
@@ -40,7 +42,7 @@ fun FontSettingsScreen(
             LargeTopAppBar(
                 title = {
                     Text(
-                        text = "Typography",
+                        text = stringResource(id = R.string.settings_card_typography),
                         style = MaterialTheme.typography.headlineLarge.copy(
                             fontSize = 42.sp
                         )
@@ -53,7 +55,7 @@ fun FontSettingsScreen(
                     }) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(id = R.string.settings_back_content_description)
                         )
                     }
                 },
@@ -85,13 +87,16 @@ fun FontSettingsScreen(
             // Custom Fonts Toggle Card
             item {
                 ToggleCard(
-                    title = "Custom Fonts",
+                    title = stringResource(id = R.string.font_settings_toggle_custom_fonts),
                     checked = fontState.useCustomFonts,
                     onCheckedChange = {
                         HapticUtils.triggerLightFeedback(haptic, context)
                         fontState.toggleCustomFonts()
                     },
-                    statusText = { if (it) "Enabled" else "System Default" }
+                    statusText = { if (it)
+                                        stringResource(id = R.string.font_settings_toggle_status_on)
+                                    else
+                                        stringResource(id = R.string.font_settings_toggle_status_off) }
                 )
             }
 
@@ -99,7 +104,7 @@ fun FontSettingsScreen(
             if (fontState.useCustomFonts) {
                 item {
                     HomeSectionHeader(
-                        title = "Font Family",
+                        title = stringResource(id = R.string.font_settings_section_family),
                         modifier = Modifier.padding(start = 4.dp, top = 8.dp)
                     )
                 }
@@ -118,7 +123,7 @@ fun FontSettingsScreen(
             // Font Size Section Header
             item {
                 HomeSectionHeader(
-                    title = "Font Size Settings",
+                    title = stringResource(id = R.string.font_settings_section_size),
                     modifier = Modifier.padding(start = 4.dp, top = 8.dp)
                 )
             }
@@ -141,7 +146,7 @@ fun FontSettingsScreen(
             // Preview Section Header
             item {
                 HomeSectionHeader(
-                    title = "Preview",
+                    title = stringResource(id = R.string.font_settings_section_preview),
                     modifier = Modifier.padding(start = 4.dp, top = 8.dp)
                 )
             }

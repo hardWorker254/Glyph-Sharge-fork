@@ -1,3 +1,221 @@
 <resources>
     <string name="app_name">Glyph Sharge</string>
+
+
+    <!-- Charging Animation -->
+    <string name="charging_animation_title">Charging Animation</string>
+    <string name="charging_animation_description">Glyphs on plug &amp; unplug</string>
+    <string name="charging_animation_how_it_works_title">How it works:</string>
+    <string name="charging_animation_how_it_works_description">• Shows battery level when charger is connected\n• The next segment smoothly breathes while charging\n• Shows current level when charger is disconnected</string>
+    <string name="charging_animation_button_test">Test Animation</string>
+    <string name="charging_animation_configure_title">Configure</string>
+    <string name="charging_animation_configure_subtitle">Customize charging display</string>
+    <string name="charging_animation_duration_title">Display Duration</string>
+    <string name="charging_animation_duration_min">2s</string>
+    <string name="charging_animation_duration_max">10s</string>
+    <string name="charging_animation_button_enable">Enable</string>
+    <string name="charging_animation_toast">Please enable the Glyph service first</string>
+
+    <!-- Power Peek -->
+    <string name="power_peek_title">Power Peek</string>
+    <string name="power_peek_description">Peek at your battery life with a quick shake.</string>
+    <string name="power_peek_toast">Please enable the Glyph service first</string>
+    <string name="power_peek_dialog_title">PowerPeek</string>
+    <string name="power_peek_dialog_subtitle">Battery peek on shake</string>
+    <string name="power_peek_how_it_works_title">How it works:</string>
+    <string name="power_peek_how_it_works_description">• Shake your device to view battery percentage\n• Works even when screen is off\n• Customizable sensitivity and display duration</string>
+    <string name="power_peek_button_test">Test Power Peek</string>
+    <string name="power_peek_configure_title">Configure</string>
+    <string name="power_peek_configure_subtitle">Customize your shake detection</string>
+    <string name="power_peek_sensitivity_title">Shake Sensitivity</string>
+    <string name="power_peek_sensitivity_soft">Soft</string>
+    <string name="power_peek_sensitivity_easy">Easy</string>
+    <string name="power_peek_sensitivity_medium">Medium</string>
+    <string name="power_peek_sensitivity_hard">Hard</string>
+    <string name="power_peek_sensitivity_hardest">Harder</string>
+    <string name="power_peek_duration_title">Display Duration</string>
+    <string name="power_peek_duration_value">%d s</string>
+    <string name="power_peek_duration_min">2s</string>
+    <string name="power_peek_duration_max">10s</string>
+    <string name="power_peek_button_enable">Enable</string>
+
+    <!-- Glow Gate (PulseLock) -->
+    <string name="pulse_lock_title">Glow Gate</string>
+    <string name="pulse_lock_description">Light up your unlock with stunning glyph animations.</string>
+    <string name="pulse_lock_toast">Please enable the Glyph service first</string>
+    <string name="pulse_lock_dialog_subtitle">Unlock animation</string>
+    <string name="pulse_lock_how_it_works_title">How it works:</string>
+    <string name="pulse_lock_how_it_works_description">• Plays the selected Glyph animation after unlock\n• Optional sound with adjustable delay</string>
+    <string name="pulse_lock_button_test">Test Glow Gate</string>
+    <string name="pulse_lock_configure_title">Configure</string>
+    <string name="pulse_lock_configure_subtitle">Customize unlock animation</string>
+    <string name="pulse_lock_animation_title">Animation</string>
+    <string name="pulse_lock_animation_test">Test </string>
+    <string name="pulse_lock_duration_title">Display Duration</string>
+    <string name="pulse_lock_duration_label">Duration:</string>
+    <string name="pulse_lock_duration_min">1s</string>
+    <string name="pulse_lock_duration_max">10s</string>
+    <string name="pulse_lock_button_enable">Enable</string>
+
+    <!-- Low Battery Alert -->
+    <string name="low_battery_alert_title">Low Battery Alert</string>
+    <string name="low_battery_alert_description">Get notified with glyphs when your battery runs low.</string>
+    <string name="low_battery_alert_toast">Please enable the Glyph service first</string>
+    <string name="low_battery_alert_how_it_works_title">How it works:</string>
+    <string name="low_battery_alert_how_it_works_description">• Monitors battery level continuously\n• Triggers glyph animation when level drops below threshold\n• Works even when screen is off\n• Customizable threshold and animation</string>
+    <string name="low_battery_alert_button_test">Test Low Alert</string>
+    <string name="low_battery_alert_configure_title">Configure</string>
+    <string name="low_battery_alert_configure_subtitle">Customize low battery alert</string>
+    <string name="low_battery_alert_threshold_title">Battery Threshold</string>
+    <string name="low_battery_alert_threshold_label">Alert when battery drops to:</string>
+    <string name="low_battery_alert_threshold_min">Low (5%)</string>
+    <string name="low_battery_alert_threshold_max">High (50%)</string>
+    <string name="low_battery_alert_animation_title">Animation</string>
+    <string name="low_battery_alert_animation_test">Test </string>
+    <string name="low_battery_alert_duration_title">Display Duration</string>
+    <string name="low_battery_alert_duration_label">Duration:</string>
+    <string name="low_battery_alert_duration_min">1s</string>
+    <string name="low_battery_alert_duration_max">10s</string>
+    <string name="low_battery_alert_button_enable">Enable</string>
+
+    <!-- Screen Off Animation -->
+    <string name="screen_off_title">Screen Off Animation</string>
+    <string name="screen_off_description">Play a beautiful glyph sequence when turning off the screen.</string>
+    <string name="screen_off_toast">Please enable the Glyph service first</string>
+    <string name="screen_off_button_test">Test Screen Off</string>
+    <string name="screen_off_dialog_subtitle">Light up when locking</string>
+    <string name="screen_off_how_it_works_title">How it works:</string>
+    <string name="screen_off_how_it_works_description">• Triggers every time the screen turns off.\n• Plays your selected animation.\n• Automatically suppressed during Quiet Hours.</string>
+    <string name="screen_off_configure_title">Configure</string>
+    <string name="screen_off_configure_subtitle">Customize Screen Off behavior</string>
+    <string name="screen_off_animation_title">Select Animation</string>
+    <string name="screen_off_animation_test">Test </string>
+    <string name="screen_off_duration_title">Display Duration</string>
+    <string name="screen_off_duration_min">1s</string>
+    <string name="screen_off_duration_max">10s</string>
+    <string name="screen_off_button_enable">Enable</string>
+
+    <!-- NFC Glyph -->
+    <string name="nfc_glyph_title">NFC Glyph</string>
+    <string name="nfc_glyph_description">Animate glyphs on NFC events</string>
+    <string name="nfc_glyph_toast">Please enable the Glyph service first</string>
+    <string name="nfc_glyph_how_it_works_title">How it works:</string>
+    <string name="nfc_glyph_how_it_works_description">• Triggers when you tap to pay (Google Pay, etc.)\n• Triggers when an NFC tag is scanned\n• Plays a chosen glyph animation\n• Respects Quiet Hours if enabled</string>
+    <string name="nfc_glyph_configure_title">Configure</string>
+    <string name="nfc_glyph_configure_subtitle">Customize NFC glyph animation</string>
+    <string name="nfc_glyph_button_test">Test NFC Glyph</string>
+    <string name="nfc_glyph_animation_title">Animation</string>
+    <string name="nfc_glyph_animation_test">Test </string>
+    <string name="nfc_glyph_duration_title">Display Duration</string>
+    <string name="nfc_glyph_duration_min">1s</string>
+    <string name="nfc_glyph_duration_max">10s</string>
+    <string name="nfc_glyph_duration_description">How long the animation plays after an NFC event</string>
+    <string name="nfc_glyph_note_title">Note</string>
+    <string name="nfc_glyph_note_description">• NFC must be enabled in system settings\n• Works with Google Pay, tag scans, etc.\n• HCE payment detection is automatic\n• Tag detection requires the app in foreground</string>
+    <string name="nfc_glyph_button_enable">Enable</string>
+
+    <!-- Common toasts -->
+    <string name="toast_service_required">Please enable the Glyph service first</string>
+
+    <!-- Common action buttons -->
+    <string name="action_cancel">Cancel</string>
+    <string name="action_save">Save</string>
+    <string name="action_disable">Disable</string>
+    <string name="action_settings">Settings</string>
+    <string name="glyph_service_inactive">Service is Inactive</string>
+    <string name="glyph_service_active">Service is Active</string>
+    <string name="glyph_service_start">Glyph service enabled</string>
+    <string name="glyph_service_stop">Glyph service disabled</string>
+    <string name="glyph_service_fstart">Failed to enable</string>
+    <string name="glyph_service_fstop">Failed to disable</string>
+    <string name="glyph_seconds">s</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_back_content_description">Back</string>
+    <string name="settings_card_typography">Typography</string>
+    <string name="settings_card_theme">Theme</string>
+    <string name="settings_card_quiet_hours">Quiet Hours</string>
+    <string name="settings_section_app_info">App Information</string>
+    <string name="settings_card_about">About</string>
+    <string name="settings_about_version">v%1$s (%2$d)</string>
+    <string name="settings_about_beta_notice">🧪 You\'re using a public release build. Expect occasional quirks and bugs.</string>
+    <string name="settings_about_beta_alt">Special thanks to beedah for the countless installs and quick beta testing.</string>
+    <string name="settings_about_requires">Requires Android 14+</string>
+    <string name="settings_theme_status_light">Light Mode</string>
+    <string name="settings_theme_status_dark">Dark Mode</string>
+    <string name="settings_quiet_hours_status_on">Glyphs will be quiet during set hours</string>
+    <string name="settings_quiet_hours_status_off">Choose your Glyph lights schedule</string>
+
+    <!-- Font Settings Screen -->
+    <string name="font_settings_title">Typography</string>
+    <string name="font_settings_toggle_custom_fonts">Custom Fonts</string>
+    <string name="font_settings_toggle_status_on">Enabled</string>
+    <string name="font_settings_toggle_status_off">System Default</string>
+    <string name="font_settings_section_family">Font Family</string>
+    <string name="font_settings_section_size">Font Size Settings</string>
+    <string name="font_settings_section_preview">Preview</string>
+    <string name="font_settings_button_reset">Reset Sizes</string>
+
+    <!-- Quiet Hours Settings Screen -->
+    <string name="quiet_hours_title">Quiet Hours</string>
+    <string name="quiet_hours_status_enabled">Quiet Hours Enabled</string>
+    <string name="quiet_hours_status_disabled">Quiet Hours Disabled</string>
+    <string name="quiet_hours_configure_text">Configure your quiet hours schedule below</string>
+    <string name="quiet_hours_enable_hint">Enable quiet hours from the main Settings screen</string>
+    <string name="quiet_hours_label_start">Start Time</string>
+    <string name="quiet_hours_label_end">End Time</string>
+    <string name="quiet_hours_current_status">Current Status</string>
+    <string name="quiet_hours_status_active">Quiet hours are currently active - glyph animations are disabled</string>
+    <string name="quiet_hours_status_inactive">Outside quiet hours - glyph animations are enabled</string>
+    <string name="quiet_hours_schedule_label">Quiet hours:</string>
+    <string name="quiet_hours_how_it_works">How it works</string>
+    <string name="quiet_hours_description">During quiet hours, all glyph animations will be automatically disabled. This includes:\n\n• PowerPeek animations\n• Glow Gate effects\n• Low battery alerts\n• Glyph Guard alerts\n• Charging animations</string>
+    <string name="quiet_hours_background_note">The service runs in the background and will automatically re-enable glyphs when quiet hours end.</string>
+    <string name="quiet_hours_picker_title">Select Time</string>
+    <string name="quiet_hours_picker_subtitle">Choose your quiet hours time</string>
+    <string name="quiet_hours_button_cancel">Cancel</string>
+    <string name="quiet_hours_button_confirm">Set Time</string>
+
+    <!-- Theme Settings Screen -->
+    <string name="theme_settings_title">Theme</string>
+    <string name="theme_section_mode">Theme Mode</string>
+    <string name="theme_mode_light_title">Light Theme</string>
+    <string name="theme_mode_light_desc">Clean and bright interface for daytime use</string>
+    <string name="theme_mode_dark_title">Dark Theme</string>
+    <string name="theme_mode_dark_desc">Easy on the eyes for low-light environments</string>
+    <string name="theme_section_styles">Theme Styles</string>
+    <string name="theme_style_y2k">Y2K</string>
+    <string name="theme_style_y2k_desc">Chrome and cyber aesthetics with futuristic colors</string>
+    <string name="theme_style_neon">Neon</string>
+    <string name="theme_style_neon_desc">Electric colors inspired by cyberpunk aesthetics</string>
+    <string name="theme_style_nothing">NOTHING</string>
+    <string name="theme_style_nothing_desc">True black OLED theme with Nothing accents</string>
+    <string name="theme_style_pastel">Pastel</string>
+    <string name="theme_style_pastel_desc">Soft and soothing colors for a gentle experience</string>
+    <string name="theme_style_classic">Classic</string>
+    <string name="theme_style_classic_desc">Original Nothing Phone colors and design</string>
+    <string name="theme_style_expressive">Expressive</string>
+    <string name="theme_style_expressive_desc">Material 3 expressive shapes &amp; colors</string>
+    <string name="theme_button_reset">Reset to Default</string>
+    <string name="theme_reset_desc">Restore the original Classic theme with light mode settings to get back to the stock appearance.</string>
+    <string name="theme_section_additional">Additional Options</string>
+    <string name="theme_option_color_scheme">Color Scheme</string>
+    <string name="theme_option_color_scheme_desc">Advanced color customization options for power users</string>
+    <string name="theme_option_accent_colors">Accent Colors</string>
+    <string name="theme_option_accent_colors_desc">Fine-tune accent and highlight colors throughout the app</string>
+
+    <!-- Language Selector -->
+    <string name="language_selector_title">Language</string>
+    <string name="language_selector_desc">Select your preferred interface language</string>
+    <string name="language_option_system">System Default</string>
+    <string name="language_settings_current_label">Current Language</string>
+    <string name="language_settings_select_label">Select Language</string>
+    <string name="language_option_en">English</string>
+    <string name="language_option_ru">Русский</string>
+    <string name="language_restart_required">Restart required</string>
+    <string name="language_settings_note">• System Default follows your device language settings\n• Some features may require app restart</string>
+    <string name="language_settings_restart_note">ℹ️ Note</string>
+    <string name="language_restart_message">Please restart the app to apply language changes.</string>
+
 </resources>

@@ -48,7 +48,6 @@ class PulseLockService : Service() {
     @Inject lateinit var featureCoordinator: com.bleelblep.glyphsharge.glyph.GlyphFeatureCoordinator
 
     // AtomicReference ensures thread-safe MediaPlayer swap without heavy synchronization
-    private val mediaPlayerRef = AtomicReference<MediaPlayer?>(null)
 
     private val serviceJob = Job()
     private val scope = CoroutineScope(Dispatchers.Main + serviceJob)
@@ -95,7 +94,6 @@ class PulseLockService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(unlockReceiver)
-        stopAudio()
         stopForegroundCompat()
         serviceJob.cancel()
         Log.d(TAG, "PulseLockService destroyed")
@@ -140,12 +138,9 @@ class PulseLockService : Service() {
             }
 
             val animationId  = settingsRepository.getPulseLockAnimationId()
-            val audioEnabled = settingsRepository.isPulseLockAudioEnabled()
-            val audioUriStr  = settingsRepository.getPulseLockAudioUri()
-            val audioOffset  = settingsRepository.getPulseLockAudioOffset()
             val duration     = settingsRepository.getPulseLockDuration()
 
-            Log.d(TAG, "Sequence start – anim=$animationId audio=$audioEnabled uri=$audioUriStr offset=${audioOffset}ms duration=${duration}ms")
+            Log.d(TAG, "Sequence start – anim=$animationId duration=${duration}ms")
 
             // Promote to foreground for the duration of the sequence
             startForeground(NOTIF_ID, buildNotification())
@@ -161,36 +156,6 @@ class PulseLockService : Service() {
                     Log.d(TAG, "Duration limit reached – stopping animation & audio")
                     animJob.cancelAndJoin()          // cancel, then wait for cleanup
                     glyphAnimationManager.stopAnimations()
-                    stopAudio()
-                }
-
-                // Handle audio with offset
-                val effectiveUri = audioUriStr?.takeIf { audioEnabled && it.isNotEmpty() }
-                if (effectiveUri != null && isUriAccessible(effectiveUri)) {
-                    when {
-                        audioOffset < 0 -> {
-                            Log.d(TAG, "Audio leads animation by ${-audioOffset}ms")
-                            playAudio(effectiveUri)
-                            delay(-audioOffset)
-                            animJob.join()
-                        }
-                        audioOffset > 0 -> {
-                            Log.d(TAG, "Audio delayed by ${audioOffset}ms after animation start")
-                            delay(audioOffset)
-                            playAudio(effectiveUri)
-                            animJob.join()
-                        }
-                        else -> {
-                            Log.d(TAG, "Audio & animation simultaneous")
-                            playAudio(effectiveUri)
-                            animJob.join()
-                        }
-                    }
-                } else {
-                    if (effectiveUri != null) {
-                        Log.w(TAG, "Audio URI not accessible – playing animation only: $effectiveUri")
-                    }
-                    animJob.join()
                 }
 
                 // Animation finished naturally before the watchdog fired – cancel it
@@ -200,77 +165,12 @@ class PulseLockService : Service() {
                 Log.e(TAG, "Error in Glow Gate sequence", e)
             } finally {
                 featureCoordinator.release(GlyphFeature.PULSE_LOCK)
-                stopAudio()
                 // Demote from foreground but keep service alive for future unlocks
                 stopForegroundCompat()
             }
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Audio helpers
-    // ──────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Checks URI accessibility with a lightweight query instead of opening a full stream.
-     */
-    private fun isUriAccessible(uriStr: String): Boolean {
-        return try {
-            val uri = uriStr.toUri()
-            applicationContext.contentResolver.query(uri, arrayOf("_id"), null, null, null)
-                ?.use { it.count >= 0 } ?: false
-        } catch (e: Exception) {
-            Log.w(TAG, "URI not accessible: $uriStr", e)
-            false
-        }
-    }
-
-    private fun playAudio(uriStr: String) {
-        stopAudio() // Release any previous player
-
-        val uri = uriStr.toUri()
-        Log.d(TAG, "Starting audio playback: $uri")
-
-        try {
-            val player = MediaPlayer().apply {
-                // AudioAttributes replaces deprecated setAudioStreamType()
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build()
-                )
-                setDataSource(applicationContext, uri)
-                setOnPreparedListener { mp ->
-                    Log.d(TAG, "Audio prepared – starting playback")
-                    mp.start()
-                }
-                setOnCompletionListener {
-                    Log.d(TAG, "Audio playback completed")
-                    stopAudio()
-                }
-                setOnErrorListener { _, what, extra ->
-                    Log.e(TAG, "MediaPlayer error: what=$what extra=$extra")
-                    stopAudio()
-                    true // handled
-                }
-                prepareAsync()
-            }
-            // Atomically swap the reference; release any player that squeezed in concurrently
-            mediaPlayerRef.getAndSet(player)?.releaseQuietly()
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to create MediaPlayer for: $uriStr", e)
-        }
-    }
-
-    private fun stopAudio() {
-        mediaPlayerRef.getAndSet(null)?.releaseQuietly()
-    }
-
-    private fun MediaPlayer.releaseQuietly() {
-        try { stop() } catch (_: Exception) {}
-        try { release() } catch (_: Exception) {}
-    }
 
     // ──────────────────────────────────────────────────────────────────────────
     // Notification helpers
@@ -298,7 +198,6 @@ class PulseLockService : Service() {
     // ──────────────────────────────────────────────────────────────────────────
 
     private fun shutDown() {
-        stopAudio()
         stopForegroundCompat()
         stopSelf()
     }

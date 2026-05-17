@@ -1,6 +1,7 @@
 package com.bleelblep.glyphsharge.ui.components
 
 import android.content.Intent
+import android.media.MediaPlayer
 import android.media.RingtoneManager
 import android.net.Uri
 import android.util.Log
@@ -18,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -25,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.net.toUri
+import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.theme.*
@@ -39,10 +42,7 @@ import kotlinx.coroutines.launch
 data class LowBatteryAlertConfig(
     val isEnabled: Boolean = false,
     val threshold: Int = 20,
-    val animationId: String = "PULSE",
-    val audioEnabled: Boolean = false,
-    val audioUri: String? = null,
-    val audioOffset: Long = 0L
+    val animationId: String = "PULSE"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -138,13 +138,13 @@ fun LowBatteryAlertConfirmationDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "🔋 Low Battery Alert",
+                        text = stringResource(id = R.string.low_battery_alert_title),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        text = "Alert when battery is low",
+                        text = stringResource(id = R.string.low_battery_alert_description),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -164,15 +164,12 @@ fun LowBatteryAlertConfirmationDialog(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "📱 How it works:",
+                            text = stringResource(id = R.string.low_battery_alert_how_it_works_title),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "• Monitors battery level continuously\n" +
-                                    "• Triggers glyph animation when level drops below threshold\n" +
-                                    "• Works even when screen is off\n" +
-                                    "• Customizable threshold and animation",
+                            text = stringResource(id = R.string.low_battery_alert_how_it_works_description),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 20.sp
@@ -182,7 +179,7 @@ fun LowBatteryAlertConfirmationDialog(
             },
             confirmButton = {
                 FeatureConfirmationButtons(
-                    primaryLabel = "🧪 Test Low Alert",
+                    primaryLabel = stringResource(id = R.string.low_battery_alert_button_test),
                     onPrimary = onTestAlert,
                     onSettings = { showEnableDialog = true },
                     onCancel = onDismiss
@@ -241,66 +238,8 @@ fun LowBatteryAlertEnableDialog(
     var selectedAnim by remember {
         mutableStateOf(GlyphAnimations.getById(settingsRepository.getLowBatteryAnimationId()))
     }
-    var soundEnabled by remember {
-        mutableStateOf(settingsRepository.isLowBatteryAudioEnabled())
-    }
-    var soundUri by remember {
-        mutableStateOf(settingsRepository.getLowBatteryAudioUri())
-    }
-    var soundOffset by remember {
-        mutableFloatStateOf(maxOf(0f, settingsRepository.getLowBatteryAudioOffset().toFloat()))
-    }
     var animationDuration by remember {
         mutableLongStateOf(settingsRepository.getLowBatteryDuration().coerceIn(1000L, 10000L))
-    }
-
-    // Derived sound display name
-    val soundName = remember(soundUri) {
-        soundUri?.let { uriString ->
-            try {
-                val uri = uriString.toUri()
-                RingtoneManager.getRingtone(context, uri)?.getTitle(context)
-                    ?: uri.lastPathSegment
-                        ?.substringBeforeLast('.')
-                        ?.replace("%20", " ")
-                    ?: "Custom audio file"
-            } catch (e: Exception) {
-                Log.w("LowBatteryAlert", "Error getting sound name", e)
-                "Custom audio file"
-            }
-        } ?: "No sound selected"
-    }
-
-    // Pickers
-    val ringtonePickerLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == ComponentActivity.RESULT_OK) {
-            soundUri = result.data
-                ?.getParcelableExtra<Uri>(RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
-                ?.toString()
-        }
-    }
-
-    val customFilePickerLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri ?: return@rememberLauncherForActivityResult
-        try {
-            val internalUri = copyFileToInternalStorage(context, uri, "lowbattery_custom_audio")
-            if (internalUri != null) {
-                soundUri = internalUri.toString()
-            } else {
-                runCatching {
-                    context.contentResolver.takePersistableUriPermission(
-                        uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
-                }
-                soundUri = uri.toString()
-            }
-        } catch (e: Exception) {
-            Log.e("LowBatteryAlert", "Error processing custom file", e)
-        }
     }
 
     // Pre-resolve themed values
@@ -316,13 +255,13 @@ fun LowBatteryAlertEnableDialog(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Configure",
+                    text = stringResource(id = R.string.low_battery_alert_configure_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = "Customize low battery alert",
+                    text = stringResource(id = R.string.low_battery_alert_configure_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -348,7 +287,7 @@ fun LowBatteryAlertEnableDialog(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = "🔋 Battery Threshold",
+                            text = stringResource(id = R.string.low_battery_alert_threshold_title),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -359,7 +298,7 @@ fun LowBatteryAlertEnableDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Alert when battery drops to:",
+                                text = stringResource(id = R.string.low_battery_alert_threshold_label),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -382,8 +321,14 @@ fun LowBatteryAlertEnableDialog(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Low (5%)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("High (50%)", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                stringResource(id = R.string.low_battery_alert_threshold_min),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                stringResource(id = R.string.low_battery_alert_threshold_max),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -407,7 +352,7 @@ fun LowBatteryAlertEnableDialog(
                         val scope = rememberCoroutineScope()
 
                         Text(
-                            text = "🎞️ Animation",
+                            text = stringResource(id = R.string.low_battery_alert_animation_title),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -448,6 +393,7 @@ fun LowBatteryAlertEnableDialog(
                                             else        -> glyphAnimationManager.playLowBatteryAnimation(selectedAnim.id)
                                         }
                                     } catch (e: Exception) {
+                                        // I can't localize this
                                         Log.e("LowBatteryAlert", "Error testing animation: ${e.message}")
                                     }
                                 }
@@ -457,7 +403,7 @@ fun LowBatteryAlertEnableDialog(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                text = "🧪 Test \"${selectedAnim.displayName}\"",
+                                text = stringResource(id = R.string.low_battery_alert_animation_test) + selectedAnim.displayName,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -476,7 +422,7 @@ fun LowBatteryAlertEnableDialog(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            text = "⏱️ Display Duration",
+                            text = stringResource(id = R.string.low_battery_alert_duration_title),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -486,8 +432,11 @@ fun LowBatteryAlertEnableDialog(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Duration:", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            ValueBadge("${(animationDuration / 1000f).toInt()}s")
+                            Text(
+                                stringResource(id = R.string.low_battery_alert_duration_label),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            ValueBadge("${(animationDuration / 1000f).toInt()}" + stringResource(id = R.string.glyph_seconds))
                         }
 
                         Slider(
@@ -507,164 +456,14 @@ fun LowBatteryAlertEnableDialog(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("1s", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("10s", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-
-                        // Sync with sound duration (only when sound is enabled + selected)
-                        if (soundEnabled && soundUri != null) {
-                            Button(
-                                onClick = {
-                                    HapticUtils.triggerMediumFeedback(haptic, context)
-                                    try {
-                                        val mp = android.media.MediaPlayer()
-                                        mp.setDataSource(context, Uri.parse(soundUri))
-                                        mp.prepare()
-                                        val dur = mp.duration.toLong().coerceIn(1000L, 10000L)
-                                        mp.release()
-                                        animationDuration = dur
-                                        settingsRepository.saveLowBatteryDuration(dur)
-                                    } catch (e: Exception) {
-                                        Log.e("LowBatteryAlert", "Error getting sound duration: ${e.message}")
-                                    }
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = secBtnColors,
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text(
-                                    text = "🎵 Sync with Sound Duration",
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // ── Sound Alerts ─────────────────────────────────────────────
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = themeCardContainerColor()
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        // Toggle
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
                             Text(
-                                text = "🔊 Sound Alerts",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Switch(
-                                checked = soundEnabled,
-                                onCheckedChange = {
-                                    HapticUtils.triggerLightFeedback(haptic, context)
-                                    soundEnabled = it
-                                },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = accent,
-                                    checkedTrackColor = accent.copy(alpha = 0.5f)
-                                )
-                            )
-                        }
-
-                        if (soundEnabled) {
-                            // Current sound name
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Selected Sound:",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Surface(
-                                    color = MaterialTheme.colorScheme.primaryContainer,
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text(
-                                        text = soundName,
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
-
-                            // Sound picker buttons
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Button(
-                                    onClick = {
-                                        HapticUtils.triggerLightFeedback(haptic, context)
-                                        ringtonePickerLauncher.launch(
-                                            Intent(RingtoneManager.ACTION_RINGTONE_PICKER).apply {
-                                                putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_ALL)
-                                                putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Select Alert Sound")
-                                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true)
-                                                putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
-                                                soundUri?.let {
-                                                    putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(it))
-                                                }
-                                            }
-                                        )
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    colors = secBtnColors,
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Text("🎵 System", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                                }
-
-                                Button(
-                                    onClick = {
-                                        HapticUtils.triggerLightFeedback(haptic, context)
-                                        customFilePickerLauncher.launch("audio/*")
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    colors = secBtnColors,
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Text("📁 Custom", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                }
-                            }
-
-                            // Audio offset slider
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text("Audio Offset:")
-                                Text("${soundOffset.toInt()}ms")
-                            }
-                            Slider(
-                                value = soundOffset,
-                                onValueChange = {
-                                    HapticUtils.triggerLightFeedback(haptic, context)
-                                    soundOffset = it
-                                },
-                                valueRange = 0f..1500f,
-                                steps = 29,
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = SliderDefaults.colors(thumbColor = accent)
-                            )
+                                stringResource(id = R.string.low_battery_alert_duration_min),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                stringResource(id = R.string.low_battery_alert_duration_max),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -674,17 +473,14 @@ fun LowBatteryAlertEnableDialog(
             FeatureSaveButtons(
                 isSaving = isSaving,
                 isCurrentlyEnabled = currentlyEnabled,
-                enableLabel = "⚡ Enable Low Alert",
+                enableLabel = stringResource(id = R.string.low_battery_alert_button_enable),
                 onSave = {
                     isSaving = true
                     onConfirm(
                         LowBatteryAlertConfig(
                             isEnabled = true,
                             threshold = threshold.toInt(),
-                            animationId = selectedAnim.id,
-                            audioEnabled = soundEnabled,
-                            audioUri = soundUri,
-                            audioOffset = soundOffset.toLong()
+                            animationId = selectedAnim.id
                         )
                     )
                 },

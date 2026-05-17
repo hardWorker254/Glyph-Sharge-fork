@@ -32,6 +32,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import java.util.Calendar
 import androidx.compose.material3.rememberTopAppBarState
+import androidx.compose.ui.res.stringResource
+import com.bleelblep.glyphsharge.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,7 +85,7 @@ fun QuietHoursSettingsScreen(
             LargeTopAppBar(
                 title = {
                     Text(
-                        text = "Quiet Hours",
+                        text = stringResource(id = R.string.settings_card_quiet_hours),
                         style = MaterialTheme.typography.headlineLarge.copy(
                             fontSize = 42.sp
                         )
@@ -96,7 +98,7 @@ fun QuietHoursSettingsScreen(
                     }) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
-                            contentDescription = "Back"
+                            contentDescription = stringResource(id = R.string.settings_back_content_description)
                         )
                     }
                 },
@@ -155,16 +157,19 @@ fun QuietHoursSettingsScreen(
                         
                         Column {
                             Text(
-                                text = if (quietHoursEnabled) "Quiet Hours Enabled" else "Quiet Hours Disabled",
+                                text = if (quietHoursEnabled)
+                                           stringResource(id = R.string.quiet_hours_status_enabled)
+                                       else
+                                           stringResource(id = R.string.quiet_hours_status_disabled),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
                             
                             Text(
-                                text = if (quietHoursEnabled) 
-                                    "Configure your quiet hours schedule below" 
-                                else 
-                                    "Enable quiet hours from the main Settings screen",
+                                text = if (quietHoursEnabled)
+                                           stringResource(id = R.string.quiet_hours_configure_text)
+                                       else
+                                           stringResource(id = R.string.quiet_hours_enable_hint),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
                             )
@@ -183,7 +188,7 @@ fun QuietHoursSettingsScreen(
                     ) {
                         // Start Time Card
                         TimeSettingCard(
-                            title = "Start Time",
+                            title = stringResource(id = R.string.quiet_hours_label_start),
                             hour = startHour,
                             minute = startMinute,
                             onTimeSelected = { hour, minute ->
@@ -196,7 +201,7 @@ fun QuietHoursSettingsScreen(
                         
                         // End Time Card
                         TimeSettingCard(
-                            title = "End Time",
+                            title = stringResource(id = R.string.quiet_hours_label_end),
                             hour = endHour,
                             minute = endMinute,
                             onTimeSelected = { hour, minute ->
@@ -237,7 +242,7 @@ fun QuietHoursSettingsScreen(
                                 Spacer(modifier = Modifier.width(12.dp))
 
                                 Text(
-                                    text = "Current Status",
+                                    text = stringResource(id = R.string.quiet_hours_current_status),
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -246,10 +251,10 @@ fun QuietHoursSettingsScreen(
                             Spacer(modifier = Modifier.height(8.dp))
 
                             Text(
-                                text = if (isCurrentlyInQuietHours) 
-                                    "Quiet hours are currently active - glyph animations are disabled" 
-                                else 
-                                    "Outside quiet hours - glyph animations are enabled",
+                                text = if (isCurrentlyInQuietHours)
+                                           stringResource(id = R.string.quiet_hours_status_active)
+                                       else
+                                           stringResource(id = R.string.quiet_hours_status_inactive),
                                 style = MaterialTheme.typography.bodyMedium,
                                 letterSpacing = 0.5.sp
                             )
@@ -257,7 +262,7 @@ fun QuietHoursSettingsScreen(
                             Spacer(modifier = Modifier.height(8.dp))
 
                             Text(
-                                text = "Quiet hours: ${formatTime(context, startHour, startMinute)} - ${formatTime(context, endHour, endMinute)}",
+                                text = stringResource(id = R.string.quiet_hours_schedule_label) + "${formatTime(context, startHour, startMinute)} - ${formatTime(context, endHour, endMinute)}",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                             )
@@ -291,7 +296,7 @@ fun QuietHoursSettingsScreen(
                                 Spacer(modifier = Modifier.width(12.dp))
 
                                 Text(
-                                    text = "How it works",
+                                    text = stringResource(id = R.string.quiet_hours_how_it_works),
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -300,7 +305,7 @@ fun QuietHoursSettingsScreen(
                             Spacer(modifier = Modifier.height(12.dp))
 
                             Text(
-                                text = "During quiet hours, all glyph animations will be automatically disabled. This includes:\n\n• PowerPeek animations\n• Glow Gate effects\n• Low battery alerts\n• Glyph Guard alerts\n• Charging animations",
+                                text = stringResource(id = R.string.quiet_hours_description),
                                 style = MaterialTheme.typography.bodyMedium,
                                 lineHeight = 20.sp
                             )
@@ -308,7 +313,7 @@ fun QuietHoursSettingsScreen(
                             Spacer(modifier = Modifier.height(8.dp))
 
                             Text(
-                                text = "The service runs in the background and will automatically re-enable glyphs when quiet hours end.",
+                                text = stringResource(id = R.string.quiet_hours_background_note),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                             )
@@ -422,13 +427,13 @@ private fun TimePickerDialog(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "🕐 Select Time",
+                    text = stringResource(id = R.string.quiet_hours_picker_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = "Choose your quiet hours time",
+                    text = stringResource(id = R.string.quiet_hours_picker_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -487,7 +492,7 @@ private fun TimePickerDialog(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = "✕ Cancel",
+                        text = stringResource(id = R.string.quiet_hours_button_cancel),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Medium
                     )
@@ -506,7 +511,7 @@ private fun TimePickerDialog(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = "✓ Set Time",
+                        text = stringResource(id = R.string.quiet_hours_button_confirm),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )

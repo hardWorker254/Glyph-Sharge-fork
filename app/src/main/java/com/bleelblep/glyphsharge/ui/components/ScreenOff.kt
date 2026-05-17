@@ -11,11 +11,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
+import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.theme.*
@@ -30,77 +32,98 @@ import kotlinx.coroutines.launch
 @Composable
 fun ScreenOffConfirmationDialog(
     onTest: () -> Unit,
-    onSettings: () -> Unit,
+    onEnable: () -> Unit,
+    onDisable: () -> Unit,
     onDismiss: () -> Unit,
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            dismissOnBackPress = true,
-            dismissOnClickOutside = true
-        ),
-        title = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = "✨ Screen Off Anim",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = "Light up when locking",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-            }
-        },
-        text = {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = themeCardContainerColor()
-                )
-            ) {
+    var showConfigDialog by remember { mutableStateOf(false) }
+
+    if (!showConfigDialog) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            properties = DialogProperties(
+                dismissOnBackPress = true,
+                dismissOnClickOutside = true
+            ),
+            title = {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "✨ How it works:",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
+                        text = stringResource(id = R.string.screen_off_title),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
                     )
                     Text(
-                        text = "• Triggers every time the screen turns off.\n" +
-                                "• Plays your selected animation.\n" +
-                                "• Automatically suppressed during Quiet Hours.",
+                        text = stringResource(id = R.string.screen_off_dialog_subtitle),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        lineHeight = 20.sp
+                        textAlign = TextAlign.Center
                     )
                 }
-            }
-        },
-        confirmButton = {
-            FeatureConfirmationButtons(
-                primaryLabel = "🧪 Test Animation",
-                onPrimary = onTest,
-                onSettings = onSettings,
-                onCancel = onDismiss
-            )
-        },
-        dismissButton = {},
-        containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(24.dp),
-        modifier = modifier
-    )
+            },
+            text = {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = themeCardContainerColor()
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.screen_off_how_it_works_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = stringResource(id = R.string.screen_off_how_it_works_description),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 20.sp
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                FeatureConfirmationButtons(
+                    primaryLabel = stringResource(id = R.string.screen_off_button_test),
+                    onPrimary = onTest,
+                    onSettings = { showConfigDialog = true },
+                    onCancel = onDismiss
+                )
+            },
+            dismissButton = {},
+            containerColor = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(24.dp),
+            modifier = modifier
+        )
+    }
+
+    if (showConfigDialog) {
+        ScreenOffConfigDialog(
+            onDismiss = { showConfigDialog = false },
+            onEnable = {
+                onEnable()
+                showConfigDialog = false
+                onDismiss()
+            },
+            onDisable = {
+                onDisable()
+                showConfigDialog = false
+                onDismiss()
+            },
+            settingsRepository = settingsRepository,
+            modifier = modifier
+        )
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -150,13 +173,13 @@ fun ScreenOffConfigDialog(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Configure",
+                    text = stringResource(id = R.string.screen_off_configure_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = "Customize Screen Off behavior",
+                    text = stringResource(id = R.string.screen_off_configure_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -182,7 +205,7 @@ fun ScreenOffConfigDialog(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            "🎞️ Select Animation",
+                            stringResource(id = R.string.screen_off_animation_title),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -225,7 +248,7 @@ fun ScreenOffConfigDialog(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                text = "🧪 Preview \"${selectedAnim.displayName}\"",
+                                text = stringResource(id = R.string.screen_off_animation_test) + selectedAnim.displayName,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -249,11 +272,11 @@ fun ScreenOffConfigDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "⏱️ Display Duration",
+                                text = stringResource(id = R.string.screen_off_duration_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            ThemedValueBadge("${(durationMs / 1000f).toInt()}s")
+                            ThemedValueBadge("${(durationMs / 1000f).toInt()}" + stringResource(id = R.string.glyph_seconds))
                         }
 
                         Slider(
@@ -273,8 +296,12 @@ fun ScreenOffConfigDialog(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("1s", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("10s", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(id = R.string.screen_off_duration_min),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(id = R.string.screen_off_duration_max),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -284,20 +311,15 @@ fun ScreenOffConfigDialog(
             FeatureSaveButtons(
                 isSaving = isSaving,
                 isCurrentlyEnabled = currentlyEnabled,
-                enableLabel = "⚡ Enable Screen Off",
+                enableLabel = stringResource(id = R.string.screen_off_button_enable),
                 onSave = {
                     isSaving = true
                     settingsRepository.saveScreenOffAnimationId(selectedAnim.id)
                     settingsRepository.saveScreenOffDuration(durationMs.toLong())
                     settingsRepository.saveScreenOffFeatureEnabled(true)
                     onEnable()
-                    onDismiss()
                 },
-                onDisable = {
-                    settingsRepository.saveScreenOffFeatureEnabled(false)
-                    onDisable()
-                    onDismiss()
-                },
+                onDisable = onDisable,
                 onCancel = onDismiss
             )
         },

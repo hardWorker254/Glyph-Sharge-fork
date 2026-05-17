@@ -8,6 +8,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -17,6 +18,7 @@ import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import kotlin.math.roundToInt
+import com.bleelblep.glyphsharge.R
 
 data class PowerPeekConfig(
     val isEnabled: Boolean = false,
@@ -53,13 +55,13 @@ fun PowerPeekConfirmationDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "⚡ PowerPeek",
+                        text = stringResource(R.string.power_peek_title),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        text = "Battery peek on shake",
+                        text = stringResource(R.string.power_peek_description),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -79,14 +81,12 @@ fun PowerPeekConfirmationDialog(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "📱 How it works:",
+                            text = stringResource(R.string.power_peek_how_it_works_title),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "• Shake your device to view battery percentage\n" +
-                                    "• Works even when screen is off\n" +
-                                    "• Customizable sensitivity and display duration",
+                            text = stringResource(R.string.power_peek_how_it_works_description),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 20.sp
@@ -96,7 +96,7 @@ fun PowerPeekConfirmationDialog(
             },
             confirmButton = {
                 FeatureConfirmationButtons(
-                    primaryLabel = "🧪 Test Power Peek",
+                    primaryLabel = stringResource(R.string.power_peek_button_test),
                     onPrimary = onTestPowerPeek,
                     onSettings = { showEnableDialog = true },
                     onCancel = onDismiss
@@ -160,13 +160,13 @@ fun PowerPeekEnableDialog(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Configure",
+                    text = stringResource(R.string.power_peek_configure_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = "Customize your shake detection",
+                    text = stringResource(R.string.power_peek_configure_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -194,7 +194,7 @@ fun PowerPeekEnableDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "📳 Shake Sensitivity",
+                                text = stringResource(R.string.power_peek_sensitivity_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -207,7 +207,11 @@ fun PowerPeekEnableDialog(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            listOf("Soft", "Easy", "Medium", "Hard", "Harder").forEach { label ->
+                            listOf(stringResource(R.string.power_peek_sensitivity_soft),
+                                stringResource(R.string.power_peek_sensitivity_easy),
+                                stringResource(R.string.power_peek_sensitivity_medium),
+                                stringResource(R.string.power_peek_sensitivity_hard),
+                                stringResource(R.string.power_peek_sensitivity_hardest)).forEach { label ->
                                 Text(
                                     text = label,
                                     style = MaterialTheme.typography.bodySmall,
@@ -274,11 +278,11 @@ fun PowerPeekEnableDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "⏱️ Display Duration",
+                                text = stringResource(R.string.power_peek_duration_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            ThemedValueBadge("${displayDuration.toInt()}s")
+                            ThemedValueBadge("${displayDuration.toInt()}" + stringResource(id = R.string.glyph_seconds))
                         }
 
                         Slider(
@@ -297,8 +301,12 @@ fun PowerPeekEnableDialog(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("2s", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("10s", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.power_peek_duration_min),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.power_peek_duration_max),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -308,7 +316,7 @@ fun PowerPeekEnableDialog(
             FeatureSaveButtons(
                 isSaving = isSaving,
                 isCurrentlyEnabled = currentlyEnabled,
-                enableLabel = "✅ Enable Power Peek",
+                enableLabel = stringResource(R.string.power_peek_button_enable),
                 onSave = {
                     isSaving = true
                     val newDuration = (displayDuration * 1000).toLong()

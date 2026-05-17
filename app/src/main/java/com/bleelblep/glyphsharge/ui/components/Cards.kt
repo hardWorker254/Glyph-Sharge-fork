@@ -28,6 +28,7 @@ import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
+import com.bleelblep.glyphsharge.R
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.*
 
@@ -46,7 +47,7 @@ fun ToggleCard(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
-    statusText: (Boolean) -> String = { if (it) "Enabled" else "Disabled" },
+    statusText: @Composable (Boolean) -> String = { if (it) "Enabled" else "Disabled" },
     customContent: (@Composable ColumnScope.() -> Unit)? = null,
     @DrawableRes illustrationRes: Int? = null
 ) {
@@ -534,7 +535,8 @@ fun GlyphControlCard(
         ) {
             // Service status text - top left
             Text(
-                text = "Service is ${if (enabled) "Active" else "Inactive"}",
+                text = if (enabled) stringResource(id = R.string.glyph_service_active)
+                    else stringResource(id = R.string.glyph_service_inactive),
                 style = MaterialTheme.typography.headlineSmall,
                 color = textColor,
                 fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,

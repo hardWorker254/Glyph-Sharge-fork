@@ -19,6 +19,8 @@ import androidx.compose.ui.unit.dp
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
+import com.bleelblep.glyphsharge.R
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  WideFeatureCardWithToggle
@@ -161,7 +163,7 @@ fun FeatureConfirmationButtons(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = "⚙️ Settings",
+                    text = stringResource(id = R.string.action_settings),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
@@ -182,7 +184,7 @@ fun FeatureConfirmationButtons(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = "✕ Cancel",
+                    text = stringResource(id = R.string.action_cancel),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium
                 )
@@ -241,7 +243,8 @@ fun FeatureSaveButtons(
                 )
             } else {
                 Text(
-                    text = if (isCurrentlyEnabled) "💾 Save Settings" else enableLabel,
+                    text = if (isCurrentlyEnabled) stringResource(id = R.string.action_save)
+                        else enableLabel,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -265,7 +268,7 @@ fun FeatureSaveButtons(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = "✖️ Disable",
+                    text = stringResource(id = R.string.action_disable),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -284,7 +287,7 @@ fun FeatureSaveButtons(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text(
-                    text = "✕ Cancel",
+                    text = stringResource(id = R.string.action_cancel),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium
                 )

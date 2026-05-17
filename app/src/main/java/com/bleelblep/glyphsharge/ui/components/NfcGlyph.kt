@@ -11,11 +11,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
+import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.theme.*
@@ -74,13 +76,13 @@ fun NfcGlyphConfirmationDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "📡 NFC Glyph",
+                        text = stringResource(R.string.nfc_glyph_title),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        text = "Animate glyphs on NFC events",
+                        text = stringResource(R.string.nfc_glyph_description),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -100,15 +102,12 @@ fun NfcGlyphConfirmationDialog(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "✨ How it works:",
+                            text = stringResource(R.string.nfc_glyph_how_it_works_title),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "• Triggers when you tap to pay (Google Pay, etc.)\n" +
-                                    "• Triggers when an NFC tag is scanned\n" +
-                                    "• Plays a chosen glyph animation\n" +
-                                    "• Respects Quiet Hours if enabled",
+                            text = stringResource(R.string.nfc_glyph_how_it_works_description),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 20.sp
@@ -118,7 +117,7 @@ fun NfcGlyphConfirmationDialog(
             },
             confirmButton = {
                 FeatureConfirmationButtons(
-                    primaryLabel = "🧪 Test Animation",
+                    primaryLabel = stringResource(R.string.nfc_glyph_button_test),
                     onPrimary = onTest,
                     onSettings = { showSettings = true },
                     onCancel = onDismiss
@@ -196,13 +195,13 @@ fun NfcGlyphConfigDialog(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Configure",
+                    text = stringResource(R.string.nfc_glyph_configure_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = "Customize NFC glyph animation",
+                    text = stringResource(R.string.nfc_glyph_configure_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
@@ -228,7 +227,7 @@ fun NfcGlyphConfigDialog(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Text(
-                            "🎞️ Animation",
+                            stringResource(R.string.nfc_glyph_animation_title),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -269,7 +268,7 @@ fun NfcGlyphConfigDialog(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                text = "🧪 Test \"${selectedAnim.displayName}\"",
+                                text = stringResource(R.string.nfc_glyph_animation_test) + selectedAnim.displayName,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -293,15 +292,15 @@ fun NfcGlyphConfigDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "⏱️ Display Duration",
+                                text = stringResource(R.string.nfc_glyph_duration_title),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            ThemedValueBadge("${(duration / 1000f).toInt()}s")
+                            ThemedValueBadge("${(duration / 1000f).toInt()}" + stringResource(id = R.string.glyph_seconds))
                         }
 
                         Text(
-                            text = "How long the animation plays after an NFC event.",
+                            text = stringResource(R.string.nfc_glyph_duration_description),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -322,8 +321,14 @@ fun NfcGlyphConfigDialog(
                             Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("1s", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("10s", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                stringResource(R.string.nfc_glyph_duration_min),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                stringResource(R.string.nfc_glyph_duration_max),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -339,15 +344,12 @@ fun NfcGlyphConfigDialog(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = "ℹ️ Note",
+                            text = stringResource(R.string.nfc_glyph_note_title),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "• NFC must be enabled in system settings\n" +
-                                    "• Works with Google Pay, tag scans, etc.\n" +
-                                    "• HCE payment detection is automatic\n" +
-                                    "• Tag detection requires the app in foreground",
+                            text = stringResource(R.string.nfc_glyph_note_description),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 18.sp
@@ -360,7 +362,7 @@ fun NfcGlyphConfigDialog(
             FeatureSaveButtons(
                 isSaving = isSaving,
                 isCurrentlyEnabled = currentlyEnabled,
-                enableLabel = "⚡ Enable NFC Glyph",
+                enableLabel = stringResource(R.string.nfc_glyph_button_enable),
                 onSave = {
                     isSaving = true
                     settingsRepository.saveNfcAnimationId(selectedAnim.id)

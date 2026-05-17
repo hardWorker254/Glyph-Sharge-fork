@@ -3,6 +3,7 @@ package com.bleelblep.glyphsharge
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.nfc.NfcAdapter
@@ -36,6 +37,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.*
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.stringResource
 import com.bleelblep.glyphsharge.glyph.*
 import com.bleelblep.glyphsharge.services.*
 import com.bleelblep.glyphsharge.ui.components.*
@@ -62,7 +64,6 @@ class MainActivity : ComponentActivity() {
     private var isGlyphDemoRunning = false
     private var wasServiceEnabled = false
     private var restoreSessionJob: Job? = null
-    private var pendingLogText: String? = null
 
     private val _glyphServiceState = mutableStateOf(false)
     val glyphServiceState: State<Boolean> = _glyphServiceState
@@ -72,12 +73,21 @@ class MainActivity : ComponentActivity() {
     private var nfcAdapter: NfcAdapter? = null
     private var nfcPendingIntent: PendingIntent? = null
 
+    override fun attachBaseContext(newBase: Context) {
+        val prefs = newBase.getSharedPreferences("glyphzen_settings", MODE_PRIVATE)
+        val lang = prefs.getString("language", "system") ?: "system"
+
+        val contextWithLocale = newBase.applyLocale(lang)
+        super.attachBaseContext(contextWithLocale)
+    }
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         Log.d(TAG, "=== App startup - checking settings persistence ===")
         settingsRepository.dumpAllSettings()
+
 
         requestNotificationPermission()
 
@@ -333,11 +343,15 @@ class MainActivity : ComponentActivity() {
             if (success) {
                 _glyphServiceState.value = newState
                 settingsRepository.saveGlyphServiceEnabled(newState)
-                showToast(if (newState) "Glyph service enabled" else "Glyph service disabled")
+                // I can't make this function Composable -> context.getString(...)
+                showToast(if (newState) applicationContext.getString(R.string.glyph_service_start)
+                    else applicationContext.getString(R.string.glyph_service_stop))
                 syncServicesAfterToggle(newState)
             } else {
                 _glyphServiceState.value = glyphManager.isSessionActive
-                showToast("Failed to ${if (enabled) "enable" else "disable"} glyph service")
+                // The same situation
+                showToast(if (enabled) applicationContext.getString(R.string.glyph_service_fstart)
+                    else applicationContext.getString(R.string.glyph_service_fstop))
                 if (!enabled) settingsRepository.saveGlyphServiceEnabled(true) // roll back
             }
         } catch (e: Exception) {
@@ -676,8 +690,6 @@ fun MainScreen(
 
                     item {
                         ChargingAnimationCard(
-                            title = "Charging Animation",
-                            description = "See your battery level when plugging in or unplugging.",
                             icon = rememberVectorPainter(image = Icons.Default.BatteryChargingFull),
                             modifier = Modifier.fillMaxWidth(),
                             iconSize = 32,
@@ -691,8 +703,6 @@ fun MainScreen(
 
                     item {
                         PowerPeekCard(
-                            title = "Power Peek",
-                            description = "Peek at your battery life with a quick shake.",
                             icon = painterResource(id = R.drawable._44),
                             onTestPowerPeek = { requireGlyphService(onTestPowerPeek) },
                             onEnablePowerPeek = {
@@ -712,8 +722,6 @@ fun MainScreen(
                     }
                     item {
                         PulseLockCard(
-                            title = "Glow Gate",
-                            description = "Light up your unlock with stunning glyph animations.",
                             icon = rememberVectorPainter(image = Icons.Default.Lock),
                             modifier = Modifier.fillMaxWidth(),
                             iconSize = 32,
@@ -724,23 +732,9 @@ fun MainScreen(
                             settingsRepository = settingsRepository
                         )
                     }
-                    item {
-                        BatteryStoryCard(
-                            title = "Battery Story",
-                            description = "Track your device's charging patterns and battery health.",
-                            icon = rememberVectorPainter(image = Icons.Default.BatteryChargingFull),
-                            onOpen = { navController.navigate("battery_story") },
-                            modifier = Modifier.fillMaxWidth(),
-                            iconSize = 32,
-                            isServiceActive = glyphServiceEnabled,
-                            settingsRepository = settingsRepository
-                        )
-                    }
 
                     item {
                         ScreenOffCard(
-                            title = "Screen Off",
-                            description = "Play a Glyph animation when the screen turns off.",
                             icon = rememberVectorPainter(image = Icons.Default.PowerSettingsNew),
                             modifier = Modifier.fillMaxWidth(),
                             iconSize = 32,
@@ -754,8 +748,6 @@ fun MainScreen(
 
                     item {
                         NfcGlyphCard(
-                            title = "NFC Glyph",
-                            description = "Play a Glyph animation on NFC tap or contactless payment.",
                             icon = rememberVectorPainter(image = Icons.Default.Nfc),
                             modifier = Modifier.fillMaxWidth(),
                             iconSize = 32,
@@ -788,13 +780,30 @@ fun MainScreen(
                 onFontSettingsClick       = { navController.navigate("font_settings") },
                 onVibrationSettingsClick  = { navController.navigate("vibration_settings") },
                 onQuietHoursSettingsClick = { navController.navigate("quiet_hours_settings") },
+                onLanguageSettingsClick   = { navController.navigate("language_settings") },
                 settingsRepository = settingsRepository
             )
         }
         composable("theme_settings")   { ThemeSettingsScreen(onBackClick = { navController.popBackStack() }) }
         composable("font_settings")    { FontSettingsScreen(fontState = LocalFontState.current, onNavigateBack = { navController.popBackStack() }) }
         composable("quiet_hours_settings") { QuietHoursSettingsScreen(onBackClick = { navController.popBackStack() }, settingsRepository = settingsRepository) }
-        composable("battery_story") { BatteryStoryScreen(onBackClick = { navController.popBackStack() }) }
+        composable("language_settings") {
+            LanguageSettingsScreen(
+                onBackClick = { navController.popBackStack() },
+                settingsRepository = settingsRepository,
+                onLanguageChanged = {
+                    // Перезапускаем активность для применения новой локали
+                    // Передаём флаг, чтобы не терять навигационный стек
+                    (context as? ComponentActivity)?.let { activity ->
+                        activity.intent.apply {
+                            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        activity.startActivity(activity.intent)
+                        activity.finish()
+                    }
+                }
+            )
+        }
     }
 }
 

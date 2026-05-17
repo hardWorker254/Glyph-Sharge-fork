@@ -27,7 +27,6 @@ class SettingsRepository @Inject constructor(
     )
 
     private val _vibrationIntensityFlow = MutableStateFlow(getVibrationIntensity())
-    val vibrationIntensityFlow: StateFlow<Float> = _vibrationIntensityFlow.asStateFlow()
 
     init {
         applyFirstRunDefaults()
@@ -37,6 +36,7 @@ class SettingsRepository @Inject constructor(
     companion object {
         private const val TAG = "SettingsRepository"
         private const val PREFS_NAME = "glyphzen_settings"
+        private const val LANGUAGE = "language"
 
         // Keys
         private const val KEY_FIRST_RUN_COMPLETED = "first_run_completed"
@@ -62,18 +62,12 @@ class SettingsRepository @Inject constructor(
         // Pulse Lock keys
         private const val KEY_PULSE_LOCK_ENABLED = "pulse_lock_enabled"
         private const val KEY_PULSE_LOCK_ANIMATION_ID = "pulse_lock_animation_id"
-        private const val KEY_PULSE_LOCK_AUDIO_URI = "pulse_lock_audio_uri"
-        private const val KEY_PULSE_LOCK_AUDIO_ENABLED = "pulse_lock_audio_enabled"
-        private const val KEY_PULSE_LOCK_AUDIO_OFFSET = "pulse_lock_audio_offset"
         private const val KEY_PULSE_LOCK_DURATION = "pulse_lock_duration"
 
         // Low Battery keys
         private const val KEY_LOW_BATTERY_ENABLED = "low_battery_enabled"
         private const val KEY_LOW_BATTERY_THRESHOLD = "low_battery_threshold"
         private const val KEY_LOW_BATTERY_ANIMATION_ID = "low_battery_animation_id"
-        private const val KEY_LOW_BATTERY_AUDIO_URI = "low_battery_audio_uri"
-        private const val KEY_LOW_BATTERY_AUDIO_ENABLED = "low_battery_audio_enabled"
-        private const val KEY_LOW_BATTERY_AUDIO_OFFSET = "low_battery_audio_offset"
         private const val KEY_LOW_BATTERY_DURATION = "low_battery_duration"
 
         // Screen Off keys
@@ -352,24 +346,6 @@ class SettingsRepository @Inject constructor(
     fun getPulseLockAnimationId(): String =
         prefs.getString(KEY_PULSE_LOCK_ANIMATION_ID, "C1") ?: "C1"
 
-    fun savePulseLockAudioUri(uri: String?) =
-        prefs.edit { putString(KEY_PULSE_LOCK_AUDIO_URI, uri) }
-
-    fun getPulseLockAudioUri(): String? =
-        prefs.getString(KEY_PULSE_LOCK_AUDIO_URI, null)
-
-    fun savePulseLockAudioEnabled(enabled: Boolean) =
-        prefs.edit { putBoolean(KEY_PULSE_LOCK_AUDIO_ENABLED, enabled) }
-
-    fun isPulseLockAudioEnabled(): Boolean =
-        prefs.getBoolean(KEY_PULSE_LOCK_AUDIO_ENABLED, false)
-
-    fun savePulseLockAudioOffset(offsetMs: Long) =
-        prefs.edit { putLong(KEY_PULSE_LOCK_AUDIO_OFFSET, offsetMs) }
-
-    fun getPulseLockAudioOffset(): Long =
-        prefs.getLong(KEY_PULSE_LOCK_AUDIO_OFFSET, 0L)
-
     fun savePulseLockDuration(durationMs: Long) =
         prefs.edit { putLong(KEY_PULSE_LOCK_DURATION, durationMs) }
 
@@ -397,24 +373,6 @@ class SettingsRepository @Inject constructor(
 
     fun getLowBatteryAnimationId(): String =
         prefs.getString(KEY_LOW_BATTERY_ANIMATION_ID, "C1") ?: "C1"
-
-    fun saveLowBatteryAudioUri(uri: String?) =
-        prefs.edit { putString(KEY_LOW_BATTERY_AUDIO_URI, uri) }
-
-    fun getLowBatteryAudioUri(): String? =
-        prefs.getString(KEY_LOW_BATTERY_AUDIO_URI, null)
-
-    fun saveLowBatteryAudioEnabled(enabled: Boolean) =
-        prefs.edit { putBoolean(KEY_LOW_BATTERY_AUDIO_ENABLED, enabled) }
-
-    fun isLowBatteryAudioEnabled(): Boolean =
-        prefs.getBoolean(KEY_LOW_BATTERY_AUDIO_ENABLED, false)
-
-    fun saveLowBatteryAudioOffset(offsetMs: Long) =
-        prefs.edit { putLong(KEY_LOW_BATTERY_AUDIO_OFFSET, offsetMs) }
-
-    fun getLowBatteryAudioOffset(): Long =
-        prefs.getLong(KEY_LOW_BATTERY_AUDIO_OFFSET, 0L)
 
     fun saveLowBatteryDuration(durationMs: Long) =
         prefs.edit { putLong(KEY_LOW_BATTERY_DURATION, durationMs) }
@@ -540,6 +498,12 @@ class SettingsRepository @Inject constructor(
             currentTimeInMinutes !in (endTimeInMinutes + 1)..<startTimeInMinutes
         }
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Language Settings
+    // ─────────────────────────────────────────────────────────────────────────
+    fun getAppLanguageCode(): String = prefs.getString(LANGUAGE, "system") ?: "system"
+    fun saveAppLanguageCode(code: String) = prefs.edit { putString(LANGUAGE, code) }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Debug

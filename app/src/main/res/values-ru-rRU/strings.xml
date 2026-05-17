@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Glyph Sharge</string>
+
+
+    <!-- Charging Animation -->
+    <string name="charging_animation_title">Анимация зарядки</string>
+    <string name="charging_animation_description">Индикация при подключении и отключении</string>
+    <string name="charging_animation_how_it_works_title">Как это работает:</string>
+    <string name="charging_animation_how_it_works_description">• Отображает уровень заряда при подключении зарядного устройства\n• Следующий сегмент плавно «дышит» во время зарядки\n• Показывает текущий уровень при отключении зарядного устройства</string>
+    <string name="charging_animation_button_test">Протестировать</string>
+    <string name="charging_animation_configure_title">Настройка</string>
+    <string name="charging_animation_configure_subtitle">Настройте отображение при зарядке</string>
+    <string name="charging_animation_duration_title">Длительность отображения</string>
+    <string name="charging_animation_duration_min">2 с</string>
+    <string name="charging_animation_duration_max">10 с</string>
+    <string name="charging_animation_button_enable">Включить</string>
+    <string name="charging_animation_toast">Сначала включите Glyph-сервис</string>
+
+    <!-- Power Peek -->
+    <string name="power_peek_title">Power Peek</string>
+    <string name="power_peek_description">Взгляд на заряд батареи одним встряхиванием.</string>
+    <string name="power_peek_toast">Сначала включите Glyph-сервис</string>
+    <string name="power_peek_dialog_title">PowerPeek</string>
+    <string name="power_peek_dialog_subtitle">Просмотр заряда встряхиванием</string>
+    <string name="power_peek_how_it_works_title">Как это работает:</string>
+    <string name="power_peek_how_it_works_description">• Встряхните устройство для просмотра уровня заряда\n• Работает даже при выключенном экране\n• Настраиваемая чувствительность и длительность отображения</string>
+    <string name="power_peek_button_test">Протестировать</string>
+    <string name="power_peek_configure_title">Настройка</string>
+    <string name="power_peek_configure_subtitle">Настройте обнаружение встряхивания</string>
+    <string name="power_peek_sensitivity_title">Чувствительность</string>
+    <string name="power_peek_sensitivity_soft">Мягко</string>
+    <string name="power_peek_sensitivity_easy">Легко</string>
+    <string name="power_peek_sensitivity_medium">Средне</string>
+    <string name="power_peek_sensitivity_hard">Сильно</string>
+    <string name="power_peek_sensitivity_hardest">Очень сильно</string>
+    <string name="power_peek_duration_title">Длительность отображения</string>
+    <string name="power_peek_duration_value">с</string>
+    <string name="power_peek_duration_min">2с</string>
+    <string name="power_peek_duration_max">10с</string>
+    <string name="power_peek_button_enable">Включить</string>
+
+    <!-- Glow Gate (PulseLock) -->
+    <string name="pulse_lock_title">Glow Gate</string>
+    <string name="pulse_lock_description">Эффектная анимация Glyph при разблокировке.</string>
+    <string name="pulse_lock_toast">Сначала включите Glyph-сервис</string>
+    <string name="pulse_lock_dialog_subtitle">Анимация при разблокировке</string>
+    <string name="pulse_lock_how_it_works_title">Как это работает:</string>
+    <string name="pulse_lock_how_it_works_description">• Воспроизводит выбранную анимацию Glyph после разблокировки\n• Опциональный звук с настраиваемой задержкой</string>
+    <string name="pulse_lock_button_test">Протестировать</string>
+    <string name="pulse_lock_configure_title">Настройка</string>
+    <string name="pulse_lock_configure_subtitle">Настройте анимацию разблокировки</string>
+    <string name="pulse_lock_animation_title">Анимация</string>
+    <string name="pulse_lock_animation_test">Тест: </string>
+    <string name="pulse_lock_duration_title">Длительность отображения</string>
+    <string name="pulse_lock_duration_label">Длительность:</string>
+    <string name="pulse_lock_duration_min">1с</string>
+    <string name="pulse_lock_duration_max">10с</string>
+    <string name="pulse_lock_button_enable">Включить</string>
+
+    <!-- Low Battery Alert -->
+    <string name="low_battery_alert_title">Низкий заряд</string>
+    <string name="low_battery_alert_description">Получайте уведомление через Glyph при низком заряде.</string>
+    <string name="low_battery_alert_toast">Сначала включите Glyph-сервис</string>
+    <string name="low_battery_alert_how_it_works_title">Как это работает:</string>
+    <string name="low_battery_alert_how_it_works_description">• Непрерывно отслеживает уровень заряда\n• Запускает анимацию Glyph при падении ниже порога\n• Работает даже при выключенном экране\n• Настраиваемый порог и анимация</string>
+    <string name="low_battery_alert_button_test">Протестировать</string>
+    <string name="low_battery_alert_configure_title">Настройка</string>
+    <string name="low_battery_alert_configure_subtitle">Настройте уведомление о низком заряде</string>
+    <string name="low_battery_alert_threshold_title">Порог заряда</string>
+    <string name="low_battery_alert_threshold_label">Уведомлять при падении до:</string>
+    <string name="low_battery_alert_threshold_min">Низкий (5%)</string>
+    <string name="low_battery_alert_threshold_max">Высокий (50%)</string>
+    <string name="low_battery_alert_animation_title">Анимация</string>
+    <string name="low_battery_alert_animation_test">Тест: </string>
+    <string name="low_battery_alert_duration_title">Длительность отображения</string>
+    <string name="low_battery_alert_duration_label">Длительность:</string>
+    <string name="low_battery_alert_duration_min">1с</string>
+    <string name="low_battery_alert_duration_max">10с</string>
+    <string name="low_battery_alert_button_enable">Включить</string>
+
+    <!-- Screen Off Animation -->
+    <string name="screen_off_title">Анимация выключения</string>
+    <string name="screen_off_description">Красивая последовательность Glyph при выключении экрана.</string>
+    <string name="screen_off_toast">Сначала включите Glyph-сервис</string>
+    <string name="screen_off_dialog_subtitle">Подсветка при блокировке</string>
+    <string name="screen_off_button_test">Протестировать</string>
+    <string name="screen_off_how_it_works_title">Как это работает:</string>
+    <string name="screen_off_how_it_works_description">• Срабатывает при каждом выключении экрана.\n• Воспроизводит выбранную анимацию.\n• Автоматически отключается в режиме «Тишина».</string>
+    <string name="screen_off_configure_title">Настройка</string>
+    <string name="screen_off_configure_subtitle">Настройте поведение при выключении</string>
+    <string name="screen_off_animation_title">Выберите анимацию</string>
+    <string name="screen_off_animation_test">Тест: </string>
+    <string name="screen_off_duration_title">Длительность отображения</string>
+    <string name="screen_off_duration_min">1с</string>
+    <string name="screen_off_duration_max">10с</string>
+    <string name="screen_off_button_enable">Включить</string>
+
+    <!-- NFC Glyph -->
+    <string name="nfc_glyph_title">NFC Glyph</string>
+    <string name="nfc_glyph_description">Анимация Glyph при NFC событии</string>
+    <string name="nfc_glyph_toast">Сначала включите Glyph-сервис</string>
+    <string name="nfc_glyph_how_it_works_title">Как это работает:</string>
+    <string name="nfc_glyph_how_it_works_description">• Срабатывает при оплате (Google Pay и др.)\n• Срабатывает при сканировании NFC-метки\n• Воспроизводит выбранную анимацию Glyph\n• Учитывает режим «Тишина», если включён</string>
+    <string name="nfc_glyph_configure_title">Настройка</string>
+    <string name="nfc_glyph_configure_subtitle">Настройте анимацию для NFC</string>
+    <string name="nfc_glyph_button_test">Протестировать</string>
+    <string name="nfc_glyph_animation_title">Анимация</string>
+    <string name="nfc_glyph_animation_test">Тест: </string>
+    <string name="nfc_glyph_duration_title">Длительность отображения</string>
+    <string name="nfc_glyph_duration_min">1с</string>
+    <string name="nfc_glyph_duration_max">10с</string>
+    <string name="nfc_glyph_duration_description">Как долго воспроизводится анимация после NFC-события</string>
+    <string name="nfc_glyph_note_title">Примечание</string>
+    <string name="nfc_glyph_note_description">• NFC должен быть включён в настройках системы\n• Работает с Google Pay, сканированием меток и др.\n• Обнаружение платежей HCE — автоматическое\n• Обнаружение меток требует, чтобы приложение было на переднем плане</string>
+    <string name="nfc_glyph_button_enable">Включить</string>
+
+    <!-- Common toasts -->
+    <string name="toast_service_required">Сначала включите сервис Glyph</string>
+
+    <!-- Common -->
+    <string name="action_cancel">Отмена</string>
+    <string name="action_save">Сохранить</string>
+    <string name="action_disable">Отключить</string>
+    <string name="action_settings">Настройки</string>
+    <string name="glyph_service_inactive">Сервис остановлен</string>
+    <string name="glyph_service_active">Сервис запущен</string>
+    <string name="glyph_service_start">Сервис включен</string>
+    <string name="glyph_service_stop">Сервис выключен</string>
+    <string name="glyph_service_fstart">Не удалось включить</string>
+    <string name="glyph_service_fstop">Не удалось выключить</string>
+    <string name="glyph_seconds">с</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_title">Настройки</string>
+    <string name="settings_back_content_description">Назад</string>
+    <string name="settings_card_typography">Шрифты</string>
+    <string name="settings_card_theme">Тема</string>
+    <string name="settings_card_quiet_hours">Тихие часы</string>
+    <string name="settings_section_app_info">О приложении</string>
+    <string name="settings_card_about">О программе</string>
+    <string name="settings_about_version">v%1$s (%2$d)</string>
+    <string name="settings_about_beta_notice">🧪 Вы используете публичную сборку. Возможны ошибки и нестабильная работа.</string>
+    <string name="settings_about_beta_alt">Отдельная благодарность beedah за многочисленные установки и быстрое тестирование бета-версий.</string>
+    <string name="settings_about_requires">Требуется Android 14+</string>
+    <string name="settings_theme_status_light">Светлая тема</string>
+    <string name="settings_theme_status_dark">Тёмная тема</string>
+    <string name="settings_quiet_hours_status_on">Glyph-анимации будут отключены в заданное время</string>
+    <string name="settings_quiet_hours_status_off">Настройте расписание Glyph-подсветки</string>
+
+    <!-- Font Settings Screen -->
+    <string name="font_settings_title">Шрифты</string>
+    <string name="font_settings_toggle_custom_fonts">Пользовательские шрифты</string>
+    <string name="font_settings_toggle_status_on">Включено</string>
+    <string name="font_settings_toggle_status_off">Системные</string>
+    <string name="font_settings_section_family">Семейство шрифтов</string>
+    <string name="font_settings_section_size">Размер шрифта</string>
+    <string name="font_settings_section_preview">Предпросмотр</string>
+    <string name="font_settings_button_reset">Сбросить размеры</string>
+
+    <!-- Quiet Hours Settings Screen -->
+    <string name="quiet_hours_title">Тихие часы</string>
+    <string name="quiet_hours_status_enabled">Тихие часы включены</string>
+    <string name="quiet_hours_status_disabled">Тихие часы выключены</string>
+    <string name="quiet_hours_configure_text">Настройте расписание тихих часов ниже</string>
+    <string name="quiet_hours_enable_hint">Включите тихие часы в основных настройках</string>
+    <string name="quiet_hours_label_start">Начало</string>
+    <string name="quiet_hours_label_end">Конец</string>
+    <string name="quiet_hours_current_status">Текущий статус</string>
+    <string name="quiet_hours_status_active">Сейчас действуют тихие часы — анимации Glyph отключены</string>
+    <string name="quiet_hours_status_inactive">Вне тихих часов — анимации Glyph включены</string>
+    <string name="quiet_hours_schedule_label">Тихие часы:</string>
+    <string name="quiet_hours_how_it_works">Как это работает</string>
+    <string name="quiet_hours_description">Во время тихих часов все анимации Glyph автоматически отключаются. Это включает:\n\n• Анимации PowerPeek\n• Эффекты Glow Gate\n• Уведомления о низком заряде\n• Оповещения Glyph Guard\n• Анимации зарядки</string>
+    <string name="quiet_hours_background_note">Сервис работает в фоновом режиме и автоматически включит Glyph, когда тихие часы закончатся.</string>
+    <string name="quiet_hours_picker_title">Выберите время</string>
+    <string name="quiet_hours_picker_subtitle">Укажите время для тихих часов</string>
+    <string name="quiet_hours_button_cancel">Отмена</string>
+    <string name="quiet_hours_button_confirm">Установить</string>
+
+    <!-- Theme Settings Screen -->
+    <string name="theme_settings_title">Тема</string>
+    <string name="theme_section_mode">Режим темы</string>
+    <string name="theme_mode_light_title">Светлая тема</string>
+    <string name="theme_mode_light_desc">Чистый и яркий интерфейс для дневного использования</string>
+    <string name="theme_mode_dark_title">Тёмная тема</string>
+    <string name="theme_mode_dark_desc">Комфорт для глаз при слабом освещении</string>
+    <string name="theme_section_styles">Стили темы</string>
+    <string name="theme_style_y2k">Y2K</string>
+    <string name="theme_style_y2k_desc">Хром и кибер-эстетика с футуристичными цветами</string>
+    <string name="theme_style_neon">Neon</string>
+    <string name="theme_style_neon_desc">Электрические цвета в стиле киберпанк</string>
+    <string name="theme_style_nothing">NOTHING</string>
+    <string name="theme_style_nothing_desc">Истинно чёрная OLED-тема с акцентами Nothing</string>
+    <string name="theme_style_pastel">Pastel</string>
+    <string name="theme_style_pastel_desc">Мягкие и успокаивающие цвета для комфортного опыта</string>
+    <string name="theme_style_classic">Classic</string>
+    <string name="theme_style_classic_desc">Оригинальные цвета и дизайн Nothing Phone</string>
+    <string name="theme_style_expressive">Expressive</string>
+    <string name="theme_style_expressive_desc">Выразительные формы и цвета Material 3</string>
+    <string name="theme_button_reset">Сбросить тему</string>
+    <string name="theme_reset_desc">Восстановить оригинальную тему Classic со светлым режимом для возврата к стандартному виду.</string>
+    <string name="theme_section_additional">Дополнительно</string>
+    <string name="theme_option_color_scheme">Цветовая схема</string>
+    <string name="theme_option_color_scheme_desc">Расширенные настройки цвета для опытных пользователей</string>
+    <string name="theme_option_accent_colors">Акцентные цвета</string>
+    <string name="theme_option_accent_colors_desc">Точная настройка акцентных и выделенных цветов во всём приложении</string>
+
+    <!-- Language Selector -->
+    <string name="language_selector_title">Язык</string>
+    <string name="language_selector_desc">Выберите предпочтительный язык интерфейса</string>
+    <string name="language_option_system">Как в системе</string>
+    <string name="language_option_en">English</string>
+    <string name="language_settings_current_label">Текущий язык</string>
+    <string name="language_settings_select_label">Выберите язык</string>
+    <string name="language_option_ru">Русский</string>
+    <string name="language_restart_required">Требуется перезапуск</string>
+    <string name="language_settings_note">• «Как в системе» использует язык вашего устройства\n• Для полного применения может потребоваться перезапуск</string>
+    <string name="language_settings_restart_note">ℹ️ Примечание</string>
+    <string name="language_restart_message">Перезапустите приложение, чтобы применить изменения языка.</string>
+
+
+</resources>
