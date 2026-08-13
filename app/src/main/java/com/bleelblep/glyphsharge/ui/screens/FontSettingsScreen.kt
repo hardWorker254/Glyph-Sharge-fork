@@ -93,10 +93,12 @@ fun FontSettingsScreen(
                         HapticUtils.triggerLightFeedback(haptic, context)
                         fontState.toggleCustomFonts()
                     },
-                    statusText = { if (it)
-                                        stringResource(id = R.string.font_settings_toggle_status_on)
-                                    else
-                                        stringResource(id = R.string.font_settings_toggle_status_off) }
+                    statusText = { isChecked ->
+                        if (isChecked)
+                            stringResource(id = R.string.font_settings_toggle_status_on)
+                        else
+                            stringResource(id = R.string.font_settings_toggle_status_off)
+                    }
                 )
             }
 

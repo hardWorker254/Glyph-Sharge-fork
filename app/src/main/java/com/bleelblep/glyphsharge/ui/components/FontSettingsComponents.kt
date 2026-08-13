@@ -21,6 +21,66 @@ import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import kotlin.math.roundToInt
 import androidx.compose.animation.core.animateDpAsState
 
+
+/**
+ * Toggle card with status text for font settings
+ */
+@Composable
+fun ToggleCard(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    statusText: @Composable (Boolean) -> String = { "" }
+) {
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = statusText(checked),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Switch(
+                checked = checked,
+                onCheckedChange = {
+                    HapticUtils.triggerLightFeedback(haptic, context)
+                    onCheckedChange(it)
+                },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = NothingViolate,
+                    checkedTrackColor = NothingViolate.copy(alpha = 0.5f)
+                )
+            )
+        }
+    }
+}
+
 /**
  * Three-state morphing toggle for font family selection
  * Each state has a distinct shape, color, and visual representation

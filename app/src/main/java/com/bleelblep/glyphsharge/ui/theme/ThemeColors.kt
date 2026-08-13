@@ -5,17 +5,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Theme color helpers
-//
-//  Читаем LocalThemeState внутри каждой функции напрямую — не нужно знать
-//  точное имя класса состояния темы.
-//
-//  Использование:
-//    containerColor = themeCardContainerColor()
-//    containerColor = themePrimaryActionColor()
-// ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 fun themeCardContainerColor(): Color {
     val t = LocalThemeState.current
