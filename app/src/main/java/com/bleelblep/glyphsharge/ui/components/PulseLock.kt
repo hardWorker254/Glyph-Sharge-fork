@@ -309,7 +309,7 @@ fun PulseLockEnableDialog(
                             Text(stringResource(R.string.pulse_lock_duration_label),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            ThemedValueBadge("${(animationDuration / 1000L)}" + stringResource(R.string.glyph_seconds))
+                            ThemedValueBadge(stringResource(R.string.pulse_lock_duration_value, (animationDuration / 1000L).toInt()))
                         }
 
                         Slider(

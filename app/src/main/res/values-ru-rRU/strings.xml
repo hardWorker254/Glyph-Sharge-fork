@@ -54,6 +54,7 @@
     <string name="pulse_lock_animation_test">Тест: </string>
     <string name="pulse_lock_duration_title">Длительность отображения</string>
     <string name="pulse_lock_duration_label">Длительность:</string>
+    <string name="pulse_lock_duration_value">%d с</string>
     <string name="pulse_lock_duration_min">1с</string>
     <string name="pulse_lock_duration_max">10с</string>
     <string name="pulse_lock_button_enable">Включить</string>
@@ -92,6 +93,7 @@
     <string name="screen_off_animation_title">Выберите анимацию</string>
     <string name="screen_off_animation_test">Тест: </string>
     <string name="screen_off_duration_title">Длительность отображения</string>
+    <string name="screen_off_duration_value">%d с</string>
     <string name="screen_off_duration_min">1с</string>
     <string name="screen_off_duration_max">10с</string>
     <string name="screen_off_button_enable">Включить</string>

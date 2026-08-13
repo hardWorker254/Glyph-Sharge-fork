@@ -276,7 +276,7 @@ fun ScreenOffConfigDialog(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            ThemedValueBadge("${(durationMs / 1000f).toInt()}" + stringResource(id = R.string.glyph_seconds))
+                            ThemedValueBadge(stringResource(id = R.string.screen_off_duration_value, (durationMs / 1000f).toInt()))
                         }
 
                         Slider(

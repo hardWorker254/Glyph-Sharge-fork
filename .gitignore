@@ -1,66 +1,40 @@
 ```
-# Compiled and build artifacts
+# Build artifacts
+build/
+.gradle/
+*.apk
+*.aar
+*.jar
 *.class
-*.o
-*.obj
-*.out
-*.dll
-*.so
-*.a
-*.exe
 
 # Dependencies
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-pip-log.txt
-pip-delete-this-directory.txt
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.log
-.gradle/
-build/
-target/
+.libs/
+jniLibs/
 
-# Logs
+# IDE files
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# Temp files
+*.tmp
+*.temp
 *.log
 
-# Environment specific
+# Local configuration
+local.properties
+gradle.properties
+*.keystore
+*.jks
+
+# Environment
 .env
 .env.local
-.env.*
-
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
+*.env.*
 
 # OS generated files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
-
-# Testing
-.mypy_cache/
-.pytest_cache/
-coverage/
-htmlcov/
-
-# Distribution / packaging
-.pybuild/
 ```
