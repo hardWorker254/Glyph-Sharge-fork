@@ -97,43 +97,11 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 action = QuietHoursService.ACTION_START_QUIET_HOURS
             }
         }
-
-        // ── Tier 3: heavy IO – delay so the system isn't stressed at boot ───────
-        if (settingsRepository.isBatteryStoryEnabled()) {
-            delay(TIER3_DELAY_MS)
-            Log.d(TAG, "Tier 3 – starting ChargeTrackerService")
-            context.startForegroundServiceCompat(ChargeTrackerService::class.java)
-            maybeRestoreChargingSession(context)
-        }
-    }
-
-    /** Open a charging session if the phone was already plugged in at boot. */
-    private suspend fun maybeRestoreChargingSession(context: Context) {
-        val battery = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-            ?: return
-
-        val status  = battery.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-        val plugged = battery.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
-        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                status == BatteryManager.BATTERY_STATUS_FULL
-        if (!isCharging || plugged == 0) {
-            Log.d(TAG, "Not charging at boot – skipping session restore")
-            return
-        }
-
-        val level    = battery.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-        val scale    = battery.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-        val pct      = if (level >= 0 && scale > 0) level * 100 / scale else 0
-        val tempC    = battery.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10f
-
-        Log.d(TAG, "Opening charging session at boot: $pct% $tempC°C")
-        repository.startSession(pct, tempC)
     }
 
     companion object {
         private const val TAG            = "BootReceiver"
         private const val TIER2_DELAY_MS = 100L
-        private const val TIER3_DELAY_MS = 3_000L
     }
 }
 

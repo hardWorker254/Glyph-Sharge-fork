@@ -91,13 +91,6 @@
                 android:value="This service uses the accelerometer to provide the PowerPeek feature when the screen is off." />
         </service>
 
-        <!-- Foreground service that samples battery data while charging -->
-        <service
-            android:name=".services.ChargeTrackerService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="dataSync" />
-
         <!-- Pulse Lock foreground service -->
         <service
             android:name=".services.PulseLockService"

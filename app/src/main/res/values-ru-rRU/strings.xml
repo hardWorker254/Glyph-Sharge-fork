@@ -4,14 +4,14 @@
 
 
     <!-- Charging Animation -->
-    <string name="charging_animation_title">Анимация зарядки</string>
+    <string name="charging_animation_title">Charging Animation</string>
     <string name="charging_animation_description">Индикация при подключении и отключении</string>
     <string name="charging_animation_how_it_works_title">Как это работает:</string>
     <string name="charging_animation_how_it_works_description">• Отображает уровень заряда при подключении зарядного устройства\n• Следующий сегмент плавно «дышит» во время зарядки\n• Показывает текущий уровень при отключении зарядного устройства</string>
     <string name="charging_animation_button_test">Протестировать</string>
     <string name="charging_animation_configure_title">Настройка</string>
     <string name="charging_animation_configure_subtitle">Настройте отображение при зарядке</string>
-    <string name="charging_animation_duration_title">Длительность отображения</string>
+    <string name="charging_animation_duration_title">Длительность</string>
     <string name="charging_animation_duration_min">2 с</string>
     <string name="charging_animation_duration_max">10 с</string>
     <string name="charging_animation_button_enable">Включить</string>
@@ -34,7 +34,7 @@
     <string name="power_peek_sensitivity_medium">Средне</string>
     <string name="power_peek_sensitivity_hard">Сильно</string>
     <string name="power_peek_sensitivity_hardest">Очень сильно</string>
-    <string name="power_peek_duration_title">Длительность отображения</string>
+    <string name="power_peek_duration_title">Длительность</string>
     <string name="power_peek_duration_value">с</string>
     <string name="power_peek_duration_min">2с</string>
     <string name="power_peek_duration_max">10с</string>
@@ -52,8 +52,7 @@
     <string name="pulse_lock_configure_subtitle">Настройте анимацию разблокировки</string>
     <string name="pulse_lock_animation_title">Анимация</string>
     <string name="pulse_lock_animation_test">Тест: </string>
-    <string name="pulse_lock_duration_title">Длительность отображения</string>
-    <string name="pulse_lock_duration_label">Длительность:</string>
+    <string name="pulse_lock_duration_title">Длительность</string>
     <string name="pulse_lock_duration_value">%d с</string>
     <string name="pulse_lock_duration_min">1с</string>
     <string name="pulse_lock_duration_max">10с</string>
@@ -74,14 +73,13 @@
     <string name="low_battery_alert_threshold_max">Высокий (50%)</string>
     <string name="low_battery_alert_animation_title">Анимация</string>
     <string name="low_battery_alert_animation_test">Тест: </string>
-    <string name="low_battery_alert_duration_title">Длительность отображения</string>
-    <string name="low_battery_alert_duration_label">Длительность:</string>
+    <string name="low_battery_alert_duration_title">Длительность</string>
     <string name="low_battery_alert_duration_min">1с</string>
     <string name="low_battery_alert_duration_max">10с</string>
     <string name="low_battery_alert_button_enable">Включить</string>
 
     <!-- Screen Off Animation -->
-    <string name="screen_off_title">Анимация выключения</string>
+    <string name="screen_off_title">Screen Off Animation</string>
     <string name="screen_off_description">Красивая последовательность Glyph при выключении экрана.</string>
     <string name="screen_off_toast">Сначала включите Glyph-сервис</string>
     <string name="screen_off_dialog_subtitle">Подсветка при блокировке</string>
@@ -92,7 +90,7 @@
     <string name="screen_off_configure_subtitle">Настройте поведение при выключении</string>
     <string name="screen_off_animation_title">Выберите анимацию</string>
     <string name="screen_off_animation_test">Тест: </string>
-    <string name="screen_off_duration_title">Длительность отображения</string>
+    <string name="screen_off_duration_title">Длительность</string>
     <string name="screen_off_duration_value">%d с</string>
     <string name="screen_off_duration_min">1с</string>
     <string name="screen_off_duration_max">10с</string>
@@ -109,7 +107,7 @@
     <string name="nfc_glyph_button_test">Протестировать</string>
     <string name="nfc_glyph_animation_title">Анимация</string>
     <string name="nfc_glyph_animation_test">Тест: </string>
-    <string name="nfc_glyph_duration_title">Длительность отображения</string>
+    <string name="nfc_glyph_duration_title">Длительность</string>
     <string name="nfc_glyph_duration_min">1с</string>
     <string name="nfc_glyph_duration_max">10с</string>
     <string name="nfc_glyph_duration_description">Как долго воспроизводится анимация после NFC-события</string>

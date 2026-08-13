@@ -1,12 +1,6 @@
 package com.bleelblep.glyphsharge.ui.components
 
-import android.content.Intent
-import android.media.RingtoneManager
-import android.net.Uri
 import android.util.Log
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,7 +18,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
-import androidx.core.net.toUri
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.di.GlyphComponent
@@ -32,22 +25,11 @@ import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileOutputStream
-import java.io.InputStream
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Data
-// ─────────────────────────────────────────────────────────────────────────────
 
 data class PulseLockConfig(
     val animationId: String,
     val durationMs: Long,
 )
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Confirmation Dialog  (uses FeatureConfirmationButtons)
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun PulseLockConfirmationDialog(
@@ -58,20 +40,14 @@ fun PulseLockConfirmationDialog(
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
-    var showEnableDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
 
-    if (!showEnableDialog) {
+    if (!showSettingsDialog) {
         AlertDialog(
             onDismissRequest = { /* non-dismissible */ },
-            properties = DialogProperties(
-                dismissOnBackPress = false,
-                dismissOnClickOutside = false
-            ),
+            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
             title = {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = stringResource(R.string.pulse_lock_title),
                         style = MaterialTheme.typography.headlineMedium,
@@ -89,15 +65,10 @@ fun PulseLockConfirmationDialog(
             text = {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = themeCardContainerColor()
-                    ),
+                    colors = CardDefaults.cardColors(containerColor = themeCardContainerColor()),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             text = stringResource(R.string.pulse_lock_how_it_works_title),
                             style = MaterialTheme.typography.titleSmall,
@@ -116,7 +87,7 @@ fun PulseLockConfirmationDialog(
                 FeatureConfirmationButtons(
                     primaryLabel = stringResource(R.string.pulse_lock_button_test),
                     onPrimary = onTestPulseLock,
-                    onSettings = { showEnableDialog = true },
+                    onSettings = { showSettingsDialog = true },
                     onCancel = onDismiss
                 )
             },
@@ -127,27 +98,23 @@ fun PulseLockConfirmationDialog(
         )
     }
 
-    if (showEnableDialog) {
+    if (showSettingsDialog) {
         PulseLockEnableDialog(
             settingsRepository = settingsRepository,
             onConfirm = { _ ->
                 onEnablePulseLock()
-                showEnableDialog = false
+                showSettingsDialog = false
                 onDismiss()
             },
             onDisable = {
                 onDisablePulseLock()
-                showEnableDialog = false
+                showSettingsDialog = false
                 onDismiss()
             },
-            onDismiss = { showEnableDialog = false }
+            onDismiss = { showSettingsDialog = false }
         )
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Enable / Settings Dialog  (uses FeatureSaveButtons + ThemedValueBadge)
-// ─────────────────────────────────────────────────────────────────────────────
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -158,23 +125,20 @@ fun PulseLockEnableDialog(
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
-    val haptic  = LocalHapticFeedback.current
+    val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
-    val scope   = rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
 
     val currentlyEnabled = remember { settingsRepository.isPulseLockEnabled() }
     var isSaving by remember { mutableStateOf(false) }
 
-    // ── State ───────────────────────────────────────────────────────────
-    var selectedAnim by remember {
+    var selectedAnimation by remember {
         mutableStateOf(GlyphAnimations.getById(settingsRepository.getPulseLockAnimationId()))
     }
-    var animationDuration by remember {
-        mutableLongStateOf(settingsRepository.getPulseLockDuration())
+    var durationSeconds by remember {
+        mutableFloatStateOf((settingsRepository.getPulseLockDuration() / 1000f).coerceIn(1f, 10f))
     }
 
-
-    // DI
     val glyphAnimationManager = remember {
         EntryPointAccessors.fromApplication(
             context.applicationContext,
@@ -182,19 +146,14 @@ fun PulseLockEnableDialog(
         ).glyphAnimationManager()
     }
 
-
-    // Pre-resolve themed values
-    val cardColor    = themeCardContainerColor()
-    val accent       = themePrimaryActionColor()
+    val cardColor = themeCardContainerColor()
+    val accent = themePrimaryActionColor()
     val secBtnColors = themeSecondaryButtonColors()
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = stringResource(R.string.pulse_lock_configure_title),
                     style = MaterialTheme.typography.headlineMedium,
@@ -211,22 +170,15 @@ fun PulseLockEnableDialog(
         },
         text = {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 400.dp)
-                    .verticalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // ── Animation Picker ─────────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
                             text = stringResource(R.string.pulse_lock_animation_title),
                             style = MaterialTheme.typography.titleMedium,
@@ -240,9 +192,9 @@ fun PulseLockEnableDialog(
                         ) {
                             GlyphAnimations.list.forEach { anim ->
                                 FilterChip(
-                                    selected = anim == selectedAnim,
+                                    selected = anim == selectedAnimation,
                                     onClick = {
-                                        selectedAnim = anim
+                                        selectedAnimation = anim
                                         settingsRepository.savePulseLockAnimationId(anim.id)
                                     },
                                     label = { Text(anim.displayName) },
@@ -259,13 +211,13 @@ fun PulseLockEnableDialog(
                                 HapticUtils.triggerMediumFeedback(haptic, context)
                                 scope.launch {
                                     try {
-                                        when (selectedAnim.id) {
+                                        when (selectedAnimation.id) {
                                             "SPIRAL"    -> glyphAnimationManager.runSpiralAnimation()
                                             "HEARTBEAT" -> glyphAnimationManager.runHeartbeatAnimation()
                                             "MATRIX"    -> glyphAnimationManager.runMatrixRainAnimation()
                                             "FIREWORKS" -> glyphAnimationManager.runFireworksAnimation()
                                             "DNA"       -> glyphAnimationManager.runDNAHelixAnimation()
-                                            else        -> glyphAnimationManager.playPulseLockAnimation(selectedAnim.id)
+                                            else        -> glyphAnimationManager.playPulseLockAnimation(selectedAnimation.id)
                                         }
                                     } catch (e: Exception) {
                                         Log.e("PulseLock", "Error testing animation: ${e.message}")
@@ -277,7 +229,7 @@ fun PulseLockEnableDialog(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                text = stringResource(R.string.pulse_lock_animation_test) + selectedAnim.displayName,
+                                text = stringResource(R.string.pulse_lock_animation_test) + selectedAnimation.displayName,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -285,39 +237,33 @@ fun PulseLockEnableDialog(
                     }
                 }
 
-                // ── Animation Duration ───────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(
-                            text = stringResource(R.string.pulse_lock_duration_title),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
-                        )
-
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(stringResource(R.string.pulse_lock_duration_label),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            ThemedValueBadge(stringResource(R.string.pulse_lock_duration_value, (animationDuration / 1000L).toInt()))
+                            Text(
+                                text = stringResource(R.string.pulse_lock_duration_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            ThemedValueBadge("${durationSeconds.toInt()}" + stringResource(id = R.string.glyph_seconds))
                         }
 
                         Slider(
-                            value = (animationDuration / 1000f).coerceIn(1f, 10f),
+                            value = durationSeconds,
                             onValueChange = {
                                 HapticUtils.triggerLightFeedback(haptic, context)
-                                animationDuration = (it * 1000).toLong()
-                                settingsRepository.savePulseLockDuration(animationDuration)
+                                durationSeconds = it
                             },
                             valueRange = 1f..10f,
                             steps = 8,
@@ -325,16 +271,9 @@ fun PulseLockEnableDialog(
                             colors = SliderDefaults.colors(thumbColor = accent)
                         )
 
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(stringResource(R.string.pulse_lock_duration_min),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(stringResource(R.string.pulse_lock_duration_max),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(stringResource(R.string.pulse_lock_duration_min), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.pulse_lock_duration_max), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -347,14 +286,9 @@ fun PulseLockEnableDialog(
                 enableLabel = stringResource(R.string.pulse_lock_button_enable),
                 onSave = {
                     isSaving = true
-                    settingsRepository.savePulseLockAnimationId(selectedAnim.id)
-                    settingsRepository.savePulseLockDuration(animationDuration)
-                    onConfirm(
-                        PulseLockConfig(
-                            selectedAnim.id,
-                            animationDuration
-                        )
-                    )
+                    settingsRepository.savePulseLockAnimationId(selectedAnimation.id)
+                    settingsRepository.savePulseLockDuration((durationSeconds * 1000).toLong())
+                    onConfirm(PulseLockConfig(selectedAnimation.id, (durationSeconds * 1000).toLong()))
                 },
                 onDisable = onDisable,
                 onCancel = onDismiss

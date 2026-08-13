@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
@@ -24,10 +25,6 @@ data class ChargingAnimationConfig(
     val displayDuration: Long = 3000L
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Confirmation Dialog  (uses FeatureConfirmationButtons)
-// ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 fun ChargingAnimationConfirmationDialog(
     onTestAnimation: () -> Unit,
@@ -37,20 +34,14 @@ fun ChargingAnimationConfirmationDialog(
     modifier: Modifier = Modifier,
     settingsRepository: SettingsRepository
 ) {
-    var showEnableDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
 
-    if (!showEnableDialog) {
+    if (!showSettingsDialog) {
         AlertDialog(
             onDismissRequest = { /* non-dismissible */ },
-            properties = DialogProperties(
-                dismissOnBackPress = false,
-                dismissOnClickOutside = false
-            ),
+            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
             title = {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = stringResource(id = R.string.charging_animation_title),
                         style = MaterialTheme.typography.headlineMedium,
@@ -68,15 +59,10 @@ fun ChargingAnimationConfirmationDialog(
             text = {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = themeCardContainerColor()
-                    ),
+                    colors = CardDefaults.cardColors(containerColor = themeCardContainerColor()),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             text = stringResource(id = R.string.charging_animation_how_it_works_title),
                             style = MaterialTheme.typography.titleSmall,
@@ -95,7 +81,7 @@ fun ChargingAnimationConfirmationDialog(
                 FeatureConfirmationButtons(
                     primaryLabel = stringResource(id = R.string.charging_animation_button_test),
                     onPrimary = onTestAnimation,
-                    onSettings = { showEnableDialog = true },
+                    onSettings = { showSettingsDialog = true },
                     onCancel = onDismiss
                 )
             },
@@ -106,27 +92,23 @@ fun ChargingAnimationConfirmationDialog(
         )
     }
 
-    if (showEnableDialog) {
+    if (showSettingsDialog) {
         ChargingAnimationEnableDialog(
             onConfirm = { config ->
                 onEnableAnimation()
-                showEnableDialog = false
+                showSettingsDialog = false
                 onDismiss()
             },
-            onDismiss = { showEnableDialog = false },
+            onDismiss = { showSettingsDialog = false },
             onDisable = {
                 onDisableAnimation()
-                showEnableDialog = false
+                showSettingsDialog = false
                 onDismiss()
             },
             settingsRepository = settingsRepository
         )
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Enable / Settings Dialog  (uses FeatureSaveButtons + ThemedValueBadge)
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun ChargingAnimationEnableDialog(
@@ -140,7 +122,9 @@ fun ChargingAnimationEnableDialog(
     val context = LocalContext.current
 
     val currentlyEnabled = remember { settingsRepository.isChargingAnimationEnabled() }
-    var displayDuration by remember { mutableFloatStateOf(settingsRepository.getChargingAnimationDuration() / 1000f) }
+    var durationSeconds by remember {
+        mutableFloatStateOf((settingsRepository.getChargingAnimationDuration() / 1000f).coerceIn(2f, 10f))
+    }
     var isSaving by remember { mutableStateOf(false) }
 
     val cardColor = themeCardContainerColor()
@@ -149,10 +133,7 @@ fun ChargingAnimationEnableDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = stringResource(id = R.string.charging_animation_configure_title),
                     style = MaterialTheme.typography.headlineMedium,
@@ -177,10 +158,7 @@ fun ChargingAnimationEnableDialog(
                     colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -189,36 +167,29 @@ fun ChargingAnimationEnableDialog(
                             Text(
                                 text = stringResource(id = R.string.charging_animation_duration_title),
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
-                            ThemedValueBadge("${displayDuration.toInt()}" + stringResource(id = R.string.glyph_seconds))
+                            ThemedValueBadge("${durationSeconds.toInt()}" + stringResource(id = R.string.glyph_seconds))
                         }
 
                         Slider(
-                            value = displayDuration,
+                            value = durationSeconds,
                             onValueChange = {
                                 HapticUtils.triggerLightFeedback(haptic, context)
-                                displayDuration = it
+                                durationSeconds = it
                             },
                             valueRange = 2f..10f,
                             steps = 7,
                             modifier = Modifier.fillMaxWidth(),
-                            colors = SliderDefaults.colors(
-                                thumbColor = accent,
-                                activeTrackColor = accent
-                            )
+                            colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent)
                         )
 
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(stringResource(id = R.string.charging_animation_duration_min),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(stringResource(id = R.string.charging_animation_duration_max),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(stringResource(id = R.string.charging_animation_duration_min), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(id = R.string.charging_animation_duration_max), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -231,14 +202,9 @@ fun ChargingAnimationEnableDialog(
                 enableLabel = stringResource(id = R.string.charging_animation_button_enable),
                 onSave = {
                     isSaving = true
-                    val newDuration = (displayDuration * 1000).toLong()
+                    val newDuration = (durationSeconds * 1000).toLong()
                     settingsRepository.saveChargingAnimationDuration(newDuration)
-                    onConfirm(
-                        ChargingAnimationConfig(
-                            isEnabled = true,
-                            displayDuration = newDuration
-                        )
-                    )
+                    onConfirm(ChargingAnimationConfig(isEnabled = true, displayDuration = newDuration))
                 },
                 onDisable = {
                     onDisable()

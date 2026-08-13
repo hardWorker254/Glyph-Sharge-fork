@@ -14,10 +14,6 @@ import com.bleelblep.glyphsharge.R
 import androidx.compose.ui.res.stringResource
 import com.bleelblep.glyphsharge.data.SettingsRepository
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  PowerPeekCard
-// ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 fun PowerPeekCard(
     icon: Painter,
@@ -66,10 +62,6 @@ fun PowerPeekCard(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  PulseLockCard (Glow Gate)
-// ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 fun PulseLockCard(
     icon: Painter,
@@ -117,10 +109,6 @@ fun PulseLockCard(
         )
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  LowBatteryAlertCard
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun LowBatteryAlertCard(
@@ -201,10 +189,6 @@ fun LowBatteryAlertCard(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  ScreenOffCard
-// ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 fun ScreenOffCard(
     onTestScreenOff: () -> Unit,
@@ -246,10 +230,16 @@ fun ScreenOffCard(
         ScreenOffConfirmationDialog(
             onTest = { onTestScreenOff(); showConfirmDialog = false },
             onDismiss = { showConfirmDialog = false },
-            onEnable = { showConfirmDialog = false; showSettingsDialog = true },
+            onEnable = {
+                isEnabled = true
+                settingsRepository.saveScreenOffFeatureEnabled(true)
+                onEnableScreenOff()
+                showConfirmDialog = false
+            },
             onDisable = {
                 isEnabled = false
                 settingsRepository.saveScreenOffFeatureEnabled(false)
+                onDisableScreenOff()
                 showConfirmDialog = false
             },
             settingsRepository = settingsRepository
@@ -257,7 +247,7 @@ fun ScreenOffCard(
     }
 
     if (showSettingsDialog && isServiceActive) {
-        ScreenOffConfigDialog(
+        ScreenOffEnableDialog(
             onEnable = {
                 isEnabled = true
                 onEnableScreenOff()
@@ -276,10 +266,6 @@ fun ScreenOffCard(
         )
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  NfcGlyphCard
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun NfcGlyphCard(
@@ -339,7 +325,7 @@ fun NfcGlyphCard(
     }
 
     if (showSettingsDialog) {
-        NfcGlyphConfigDialog(
+        NfcGlyphEnableDialog(
             onDismiss = {
                 showSettingsDialog = false
                 isEnabled = settingsRepository.isNfcFeatureEnabled()
@@ -360,10 +346,6 @@ fun NfcGlyphCard(
         )
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  ChargingAnimationCard
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun ChargingAnimationCard(

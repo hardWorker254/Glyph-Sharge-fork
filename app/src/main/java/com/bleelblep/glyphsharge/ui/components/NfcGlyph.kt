@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
@@ -24,10 +25,6 @@ import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.launch
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Shared helper: run a glyph animation by id via the manager
-// ─────────────────────────────────────────────────────────────────────────────
 
 private suspend fun testAnimation(
     animId: String,
@@ -48,10 +45,6 @@ private suspend fun testAnimation(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Confirmation Dialog  (uses FeatureConfirmationButtons)
-// ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 fun NfcGlyphConfirmationDialog(
     onTest: () -> Unit,
@@ -61,20 +54,14 @@ fun NfcGlyphConfirmationDialog(
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
-    var showSettings by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
 
-    if (!showSettings) {
+    if (!showSettingsDialog) {
         AlertDialog(
             onDismissRequest = { /* non-dismissible */ },
-            properties = DialogProperties(
-                dismissOnBackPress = false,
-                dismissOnClickOutside = false
-            ),
+            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
             title = {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = stringResource(R.string.nfc_glyph_title),
                         style = MaterialTheme.typography.headlineMedium,
@@ -93,14 +80,9 @@ fun NfcGlyphConfirmationDialog(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = themeCardContainerColor()
-                    )
+                    colors = CardDefaults.cardColors(containerColor = themeCardContainerColor())
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             text = stringResource(R.string.nfc_glyph_how_it_works_title),
                             style = MaterialTheme.typography.titleSmall,
@@ -119,7 +101,7 @@ fun NfcGlyphConfirmationDialog(
                 FeatureConfirmationButtons(
                     primaryLabel = stringResource(R.string.nfc_glyph_button_test),
                     onPrimary = onTest,
-                    onSettings = { showSettings = true },
+                    onSettings = { showSettingsDialog = true },
                     onCancel = onDismiss
                 )
             },
@@ -130,17 +112,17 @@ fun NfcGlyphConfirmationDialog(
         )
     }
 
-    if (showSettings) {
-        NfcGlyphConfigDialog(
-            onDismiss = { showSettings = false },
+    if (showSettingsDialog) {
+        NfcGlyphEnableDialog(
+            onDismiss = { showSettingsDialog = false },
             onEnable = {
-                showSettings = false
                 onEnable()
+                showSettingsDialog = false
                 onDismiss()
             },
             onDisable = {
-                showSettings = false
                 onDisable()
+                showSettingsDialog = false
                 onDismiss()
             },
             settingsRepository = settingsRepository
@@ -148,29 +130,24 @@ fun NfcGlyphConfirmationDialog(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Config / Settings Dialog  (uses FeatureSaveButtons)
-// ─────────────────────────────────────────────────────────────────────────────
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun NfcGlyphConfigDialog(
+fun NfcGlyphEnableDialog(
     onDismiss: () -> Unit,
     onEnable: () -> Unit,
     onDisable: () -> Unit,
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
-    val haptic  = LocalHapticFeedback.current
+    val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
-    val scope   = rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
 
-    // ── State ───────────────────────────────────────────────────────────
-    var selectedAnim by remember {
+    var selectedAnimation by remember {
         mutableStateOf(GlyphAnimations.getById(settingsRepository.getNfcAnimationId()))
     }
-    var duration by remember {
-        mutableFloatStateOf(settingsRepository.getNfcAnimationDuration().toFloat())
+    var durationSeconds by remember {
+        mutableFloatStateOf((settingsRepository.getNfcAnimationDuration() / 1000f).coerceIn(1f, 10f))
     }
     val currentlyEnabled = remember { settingsRepository.isNfcFeatureEnabled() }
     var isSaving by remember { mutableStateOf(false) }
@@ -182,18 +159,14 @@ fun NfcGlyphConfigDialog(
         ).glyphAnimationManager()
     }
 
-    // Pre-resolve themed values
-    val cardColor    = themeCardContainerColor()
-    val accent       = themePrimaryActionColor()
+    val cardColor = themeCardContainerColor()
+    val accent = themePrimaryActionColor()
     val secBtnColors = themeSecondaryButtonColors()
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = stringResource(R.string.nfc_glyph_configure_title),
                     style = MaterialTheme.typography.headlineMedium,
@@ -210,22 +183,15 @@ fun NfcGlyphConfigDialog(
         },
         text = {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 400.dp)
-                    .verticalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // ── Animation Picker ────────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
                             stringResource(R.string.nfc_glyph_animation_title),
                             style = MaterialTheme.typography.titleMedium,
@@ -239,10 +205,10 @@ fun NfcGlyphConfigDialog(
                         ) {
                             GlyphAnimations.list.forEach { anim ->
                                 FilterChip(
-                                    selected = anim == selectedAnim,
+                                    selected = anim == selectedAnimation,
                                     onClick = {
                                         HapticUtils.triggerLightFeedback(haptic, context)
-                                        selectedAnim = anim
+                                        selectedAnimation = anim
                                         settingsRepository.saveNfcAnimationId(anim.id)
                                     },
                                     label = { Text(anim.displayName) },
@@ -258,7 +224,7 @@ fun NfcGlyphConfigDialog(
                             onClick = {
                                 HapticUtils.triggerMediumFeedback(haptic, context)
                                 scope.launch {
-                                    testAnimation(selectedAnim.id, glyphAnimationManager) {
+                                    testAnimation(selectedAnimation.id, glyphAnimationManager) {
                                         glyphAnimationManager.playNfcAnimation(it)
                                     }
                                 }
@@ -268,7 +234,7 @@ fun NfcGlyphConfigDialog(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                text = stringResource(R.string.nfc_glyph_animation_test) + selectedAnim.displayName,
+                                text = stringResource(R.string.nfc_glyph_animation_test) + selectedAnimation.displayName,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -276,16 +242,12 @@ fun NfcGlyphConfigDialog(
                     }
                 }
 
-                // ── Duration Slider ─────────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -294,22 +256,19 @@ fun NfcGlyphConfigDialog(
                             Text(
                                 text = stringResource(R.string.nfc_glyph_duration_title),
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
-                            ThemedValueBadge("${(duration / 1000f).toInt()}" + stringResource(id = R.string.glyph_seconds))
+                            ThemedValueBadge("${durationSeconds.toInt()}" + stringResource(id = R.string.glyph_seconds))
                         }
 
-                        Text(
-                            text = stringResource(R.string.nfc_glyph_duration_description),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-
                         Slider(
-                            value = (duration / 1000f).coerceIn(1f, 10f),
+                            value = durationSeconds,
                             onValueChange = {
                                 HapticUtils.triggerLightFeedback(haptic, context)
-                                duration = it * 1000f
+                                durationSeconds = it
                             },
                             valueRange = 1f..10f,
                             steps = 8,
@@ -317,32 +276,19 @@ fun NfcGlyphConfigDialog(
                             colors = SliderDefaults.colors(thumbColor = accent)
                         )
 
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                stringResource(R.string.nfc_glyph_duration_min),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(
-                                stringResource(R.string.nfc_glyph_duration_max),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(stringResource(R.string.nfc_glyph_duration_min), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.nfc_glyph_duration_max), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
 
-                // ── Info note ───────────────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
                             text = stringResource(R.string.nfc_glyph_note_title),
                             style = MaterialTheme.typography.titleSmall,
@@ -365,17 +311,11 @@ fun NfcGlyphConfigDialog(
                 enableLabel = stringResource(R.string.nfc_glyph_button_enable),
                 onSave = {
                     isSaving = true
-                    settingsRepository.saveNfcAnimationId(selectedAnim.id)
-                    settingsRepository.saveNfcAnimationDuration(duration.toLong())
-                    settingsRepository.saveNfcFeatureEnabled(true)
+                    settingsRepository.saveNfcAnimationId(selectedAnimation.id)
+                    settingsRepository.saveNfcAnimationDuration((durationSeconds * 1000).toLong())
                     onEnable()
-                    onDismiss()
                 },
-                onDisable = {
-                    settingsRepository.saveNfcFeatureEnabled(false)
-                    onDisable()
-                    onDismiss()
-                },
+                onDisable = onDisable,
                 onCancel = onDismiss
             )
         },

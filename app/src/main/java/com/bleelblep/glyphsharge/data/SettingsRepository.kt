@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import androidx.core.content.edit
+import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.ui.theme.AppThemeStyle
 import com.bleelblep.glyphsharge.ui.theme.FontSizeSettings
 import com.bleelblep.glyphsharge.ui.theme.FontVariant
@@ -321,16 +322,6 @@ class SettingsRepository @Inject constructor(
 
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Battery story
-    // ─────────────────────────────────────────────────────────────────────────
-
-    fun saveBatteryStoryEnabled(enabled: Boolean) =
-        prefs.edit { putBoolean(KEY_BATTERY_STORY_ENABLED, enabled) }
-
-    fun isBatteryStoryEnabled(): Boolean =
-        prefs.getBoolean(KEY_BATTERY_STORY_ENABLED, false)
-
-    // ─────────────────────────────────────────────────────────────────────────
     // Glow Gate (Pulse Lock)
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -521,7 +512,6 @@ class SettingsRepository @Inject constructor(
             Shake Threshold: ${getShakeThreshold()}
             Display Duration: ${getDisplayDuration()}
             Vibration Intensity: ${getVibrationIntensity()}
-            Battery Story: ${isBatteryStoryEnabled()}
             Glow Gate enabled: ${isPulseLockEnabled()}
             Low-Battery Alert enabled: ${isLowBatteryEnabled()}
             Screen Off Anim enabled: ${isScreenOffFeatureEnabled()}

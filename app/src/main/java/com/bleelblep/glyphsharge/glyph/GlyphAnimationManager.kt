@@ -1588,11 +1588,15 @@ class GlyphAnimationManager @Inject constructor(
      */
     suspend fun playPulseLockAnimation(id: String) {
         if (!isGlyphServiceEnabled()) return
+
+        val durationMs = settingsRepository.getLowBatteryDuration()
+        val cyclesFromDuration = (durationMs / 500L).toInt().coerceAtLeast(1)
+
         when (id) {
             "C1" -> runC1SequentialAnimation()
             "WAVE" -> runWaveAnimation()
             "BEEDAH" -> runBeedahAnimation()
-            "PULSE" -> runPulseEffect(2)
+            "PULSE" -> runPulseEffect(cyclesFromDuration)
             "LOCK" -> runLockPulseAnimation()
             "SPIRAL" -> runSpiralAnimation()
             "HEARTBEAT" -> runHeartbeatAnimation()

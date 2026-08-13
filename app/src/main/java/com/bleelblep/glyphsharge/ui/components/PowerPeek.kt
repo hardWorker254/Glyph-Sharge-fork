@@ -11,6 +11,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
@@ -27,10 +28,6 @@ data class PowerPeekConfig(
     val enableWhenScreenOff: Boolean = false
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Confirmation Dialog  (uses FeatureConfirmationButtons)
-// ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 fun PowerPeekConfirmationDialog(
     onTestPowerPeek: () -> Unit,
@@ -40,20 +37,14 @@ fun PowerPeekConfirmationDialog(
     modifier: Modifier = Modifier,
     settingsRepository: SettingsRepository
 ) {
-    var showEnableDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
 
-    if (!showEnableDialog) {
+    if (!showSettingsDialog) {
         AlertDialog(
             onDismissRequest = { /* non-dismissible */ },
-            properties = DialogProperties(
-                dismissOnBackPress = false,
-                dismissOnClickOutside = false
-            ),
+            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
             title = {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = stringResource(R.string.power_peek_title),
                         style = MaterialTheme.typography.headlineMedium,
@@ -71,15 +62,10 @@ fun PowerPeekConfirmationDialog(
             text = {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = themeCardContainerColor()
-                    ),
+                    colors = CardDefaults.cardColors(containerColor = themeCardContainerColor()),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             text = stringResource(R.string.power_peek_how_it_works_title),
                             style = MaterialTheme.typography.titleSmall,
@@ -98,7 +84,7 @@ fun PowerPeekConfirmationDialog(
                 FeatureConfirmationButtons(
                     primaryLabel = stringResource(R.string.power_peek_button_test),
                     onPrimary = onTestPowerPeek,
-                    onSettings = { showEnableDialog = true },
+                    onSettings = { showSettingsDialog = true },
                     onCancel = onDismiss
                 )
             },
@@ -109,27 +95,23 @@ fun PowerPeekConfirmationDialog(
         )
     }
 
-    if (showEnableDialog) {
+    if (showSettingsDialog) {
         PowerPeekEnableDialog(
             onConfirm = { config ->
                 onEnablePowerPeek()
-                showEnableDialog = false
+                showSettingsDialog = false
                 onDismiss()
             },
-            onDismiss = { showEnableDialog = false },
+            onDismiss = { showSettingsDialog = false },
             onDisable = {
                 onDisablePowerPeek()
-                showEnableDialog = false
+                showSettingsDialog = false
                 onDismiss()
             },
             settingsRepository = settingsRepository
         )
     }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  Enable / Settings Dialog  (uses FeatureSaveButtons + ThemedValueBadge)
-// ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
 fun PowerPeekEnableDialog(
@@ -139,26 +121,24 @@ fun PowerPeekEnableDialog(
     modifier: Modifier = Modifier,
     settingsRepository: SettingsRepository
 ) {
-    val haptic  = LocalHapticFeedback.current
+    val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
 
     val currentlyEnabled = remember { settingsRepository.isPowerPeekEnabled() }
     var enableWhenScreenOff by remember { mutableStateOf(true) }
     var shakeThreshold by remember { mutableFloatStateOf(settingsRepository.getShakeThreshold()) }
-    var displayDuration by remember { mutableFloatStateOf(settingsRepository.getDisplayDuration() / 1000f) }
+    var durationSeconds by remember {
+        mutableFloatStateOf((settingsRepository.getDisplayDuration() / 1000f).coerceIn(2f, 10f))
+    }
     var isSaving by remember { mutableStateOf(false) }
 
-    // Pre-resolve themed values
     val cardColor = themeCardContainerColor()
-    val accent    = themePrimaryActionColor()
+    val accent = themePrimaryActionColor()
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = stringResource(R.string.power_peek_configure_title),
                     style = MaterialTheme.typography.headlineMedium,
@@ -178,16 +158,12 @@ fun PowerPeekEnableDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // ── Shake Sensitivity ────────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -198,20 +174,20 @@ fun PowerPeekEnableDialog(
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
-                            ThemedValueBadge(
-                                stringResource(settingsRepository.getShakeIntensityLevel(shakeThreshold))
-                            )
+                            ThemedValueBadge(stringResource(settingsRepository.getShakeIntensityLevel(shakeThreshold)))
                         }
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            listOf(stringResource(R.string.power_peek_sensitivity_soft),
+                            listOf(
+                                stringResource(R.string.power_peek_sensitivity_soft),
                                 stringResource(R.string.power_peek_sensitivity_easy),
                                 stringResource(R.string.power_peek_sensitivity_medium),
                                 stringResource(R.string.power_peek_sensitivity_hard),
-                                stringResource(R.string.power_peek_sensitivity_hardest)).forEach { label ->
+                                stringResource(R.string.power_peek_sensitivity_hardest)
+                            ).forEach { label ->
                                 Text(
                                     text = label,
                                     style = MaterialTheme.typography.bodySmall,
@@ -254,24 +230,17 @@ fun PowerPeekEnableDialog(
                             valueRange = 0f..4f,
                             steps = 0,
                             modifier = Modifier.fillMaxWidth(),
-                            colors = SliderDefaults.colors(
-                                thumbColor = accent,
-                                activeTrackColor = accent
-                            )
+                            colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent)
                         )
                     }
                 }
 
-                // ── Display Duration ─────────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -280,16 +249,19 @@ fun PowerPeekEnableDialog(
                             Text(
                                 text = stringResource(R.string.power_peek_duration_title),
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
-                            ThemedValueBadge("${displayDuration.toInt()}" + stringResource(id = R.string.glyph_seconds))
+                            ThemedValueBadge("${durationSeconds.toInt()}" + stringResource(id = R.string.glyph_seconds))
                         }
 
                         Slider(
-                            value = displayDuration,
+                            value = durationSeconds,
                             onValueChange = {
                                 HapticUtils.triggerLightFeedback(haptic, context)
-                                displayDuration = it
+                                durationSeconds = it
                             },
                             valueRange = 2f..10f,
                             steps = 7,
@@ -297,16 +269,9 @@ fun PowerPeekEnableDialog(
                             colors = SliderDefaults.colors(thumbColor = accent)
                         )
 
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(stringResource(R.string.power_peek_duration_min),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(stringResource(R.string.power_peek_duration_max),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(stringResource(R.string.power_peek_duration_min), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(R.string.power_peek_duration_max), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -319,7 +284,7 @@ fun PowerPeekEnableDialog(
                 enableLabel = stringResource(R.string.power_peek_button_enable),
                 onSave = {
                     isSaving = true
-                    val newDuration = (displayDuration * 1000).toLong()
+                    val newDuration = (durationSeconds * 1000).toLong()
                     settingsRepository.saveShakeThreshold(shakeThreshold)
                     settingsRepository.saveDisplayDuration(newDuration)
                     onConfirm(

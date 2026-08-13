@@ -10,7 +10,7 @@
     <string name="charging_animation_button_test">Test Animation</string>
     <string name="charging_animation_configure_title">Configure</string>
     <string name="charging_animation_configure_subtitle">Customize charging display</string>
-    <string name="charging_animation_duration_title">Display Duration</string>
+    <string name="charging_animation_duration_title">Duration</string>
     <string name="charging_animation_duration_min">2s</string>
     <string name="charging_animation_duration_max">10s</string>
     <string name="charging_animation_button_enable">Enable</string>
@@ -33,7 +33,7 @@
     <string name="power_peek_sensitivity_medium">Medium</string>
     <string name="power_peek_sensitivity_hard">Hard</string>
     <string name="power_peek_sensitivity_hardest">Harder</string>
-    <string name="power_peek_duration_title">Display Duration</string>
+    <string name="power_peek_duration_title">Duration</string>
     <string name="power_peek_duration_value">%d s</string>
     <string name="power_peek_duration_min">2s</string>
     <string name="power_peek_duration_max">10s</string>
@@ -51,8 +51,7 @@
     <string name="pulse_lock_configure_subtitle">Customize unlock animation</string>
     <string name="pulse_lock_animation_title">Animation</string>
     <string name="pulse_lock_animation_test">Test </string>
-    <string name="pulse_lock_duration_title">Display Duration</string>
-    <string name="pulse_lock_duration_label">Duration:</string>
+    <string name="pulse_lock_duration_title">Duration</string>
     <string name="pulse_lock_duration_value">%d s</string>
     <string name="pulse_lock_duration_min">1s</string>
     <string name="pulse_lock_duration_max">10s</string>
@@ -73,8 +72,7 @@
     <string name="low_battery_alert_threshold_max">High (50%)</string>
     <string name="low_battery_alert_animation_title">Animation</string>
     <string name="low_battery_alert_animation_test">Test </string>
-    <string name="low_battery_alert_duration_title">Display Duration</string>
-    <string name="low_battery_alert_duration_label">Duration:</string>
+    <string name="low_battery_alert_duration_title">Duration</string>
     <string name="low_battery_alert_duration_min">1s</string>
     <string name="low_battery_alert_duration_max">10s</string>
     <string name="low_battery_alert_button_enable">Enable</string>
@@ -91,7 +89,7 @@
     <string name="screen_off_configure_subtitle">Customize Screen Off behavior</string>
     <string name="screen_off_animation_title">Select Animation</string>
     <string name="screen_off_animation_test">Test </string>
-    <string name="screen_off_duration_title">Display Duration</string>
+    <string name="screen_off_duration_title">Duration</string>
     <string name="screen_off_duration_value">%d s</string>
     <string name="screen_off_duration_min">1s</string>
     <string name="screen_off_duration_max">10s</string>
@@ -108,7 +106,7 @@
     <string name="nfc_glyph_button_test">Test NFC Glyph</string>
     <string name="nfc_glyph_animation_title">Animation</string>
     <string name="nfc_glyph_animation_test">Test </string>
-    <string name="nfc_glyph_duration_title">Display Duration</string>
+    <string name="nfc_glyph_duration_title">Duration</string>
     <string name="nfc_glyph_duration_min">1s</string>
     <string name="nfc_glyph_duration_max">10s</string>
     <string name="nfc_glyph_duration_description">How long the animation plays after an NFC event</string>

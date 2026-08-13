@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
@@ -25,10 +26,6 @@ import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.launch
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Confirmation Dialog  (uses FeatureConfirmationButtons)
-// ─────────────────────────────────────────────────────────────────────────────
-
 @Composable
 fun ScreenOffConfirmationDialog(
     onTest: () -> Unit,
@@ -38,20 +35,14 @@ fun ScreenOffConfirmationDialog(
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
-    var showConfigDialog by remember { mutableStateOf(false) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
 
-    if (!showConfigDialog) {
+    if (!showSettingsDialog) {
         AlertDialog(
             onDismissRequest = onDismiss,
-            properties = DialogProperties(
-                dismissOnBackPress = true,
-                dismissOnClickOutside = true
-            ),
+            properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true),
             title = {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                     Text(
                         text = stringResource(id = R.string.screen_off_title),
                         style = MaterialTheme.typography.headlineMedium,
@@ -70,14 +61,9 @@ fun ScreenOffConfirmationDialog(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = themeCardContainerColor()
-                    )
+                    colors = CardDefaults.cardColors(containerColor = themeCardContainerColor())
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
                             text = stringResource(id = R.string.screen_off_how_it_works_title),
                             style = MaterialTheme.typography.titleSmall,
@@ -96,7 +82,7 @@ fun ScreenOffConfirmationDialog(
                 FeatureConfirmationButtons(
                     primaryLabel = stringResource(id = R.string.screen_off_button_test),
                     onPrimary = onTest,
-                    onSettings = { showConfigDialog = true },
+                    onSettings = { showSettingsDialog = true },
                     onCancel = onDismiss
                 )
             },
@@ -107,17 +93,17 @@ fun ScreenOffConfirmationDialog(
         )
     }
 
-    if (showConfigDialog) {
-        ScreenOffConfigDialog(
-            onDismiss = { showConfigDialog = false },
+    if (showSettingsDialog) {
+        ScreenOffEnableDialog(
+            onDismiss = { showSettingsDialog = false },
             onEnable = {
                 onEnable()
-                showConfigDialog = false
+                showSettingsDialog = false
                 onDismiss()
             },
             onDisable = {
                 onDisable()
-                showConfigDialog = false
+                showSettingsDialog = false
                 onDismiss()
             },
             settingsRepository = settingsRepository,
@@ -126,28 +112,23 @@ fun ScreenOffConfirmationDialog(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Config / Settings Dialog  (uses FeatureSaveButtons + ThemedValueBadge)
-// ─────────────────────────────────────────────────────────────────────────────
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun ScreenOffConfigDialog(
+fun ScreenOffEnableDialog(
     onDismiss: () -> Unit,
     onEnable: () -> Unit,
     onDisable: () -> Unit,
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
-    val haptic  = LocalHapticFeedback.current
+    val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
-    val scope   = rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
 
-    // ── State ───────────────────────────────────────────────────────────
-    var durationMs by remember {
-        mutableStateOf(settingsRepository.getScreenOffDuration().toFloat())
+    var durationSeconds by remember {
+        mutableFloatStateOf((settingsRepository.getScreenOffDuration() / 1000f).coerceIn(1f, 10f))
     }
-    var selectedAnim by remember {
+    var selectedAnimation by remember {
         mutableStateOf(GlyphAnimations.getById(settingsRepository.getScreenOffAnimationId()))
     }
     val currentlyEnabled = remember { settingsRepository.isScreenOffFeatureEnabled() }
@@ -160,18 +141,14 @@ fun ScreenOffConfigDialog(
         ).glyphAnimationManager()
     }
 
-    // Pre-resolve themed values
-    val cardColor    = themeCardContainerColor()
-    val accent       = themePrimaryActionColor()
+    val cardColor = themeCardContainerColor()
+    val accent = themePrimaryActionColor()
     val secBtnColors = themeSecondaryButtonColors()
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = stringResource(id = R.string.screen_off_configure_title),
                     style = MaterialTheme.typography.headlineMedium,
@@ -188,22 +165,15 @@ fun ScreenOffConfigDialog(
         },
         text = {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 400.dp)
-                    .verticalScroll(rememberScrollState()),
+                modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // ── Animation Picker ─────────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
                             stringResource(id = R.string.screen_off_animation_title),
                             style = MaterialTheme.typography.titleMedium,
@@ -217,10 +187,10 @@ fun ScreenOffConfigDialog(
                         ) {
                             GlyphAnimations.list.forEach { anim ->
                                 FilterChip(
-                                    selected = anim == selectedAnim,
+                                    selected = anim == selectedAnimation,
                                     onClick = {
                                         HapticUtils.triggerLightFeedback(haptic, context)
-                                        selectedAnim = anim
+                                        selectedAnimation = anim
                                         settingsRepository.saveScreenOffAnimationId(anim.id)
                                     },
                                     label = { Text(anim.displayName) },
@@ -237,7 +207,14 @@ fun ScreenOffConfigDialog(
                                 HapticUtils.triggerMediumFeedback(haptic, context)
                                 scope.launch {
                                     try {
-                                        glyphAnimationManager.playScreenOffAnimation(selectedAnim.id)
+                                        when (selectedAnimation.id) {
+                                            "SPIRAL"    -> glyphAnimationManager.runSpiralAnimation()
+                                            "HEARTBEAT" -> glyphAnimationManager.runHeartbeatAnimation()
+                                            "MATRIX"    -> glyphAnimationManager.runMatrixRainAnimation()
+                                            "FIREWORKS" -> glyphAnimationManager.runFireworksAnimation()
+                                            "DNA"       -> glyphAnimationManager.runDNAHelixAnimation()
+                                            else        -> glyphAnimationManager.playScreenOffAnimation(selectedAnimation.id)
+                                        }
                                     } catch (e: Exception) {
                                         Log.e("ScreenOffConfig", "Error testing animation: ${e.message}")
                                     }
@@ -248,7 +225,7 @@ fun ScreenOffConfigDialog(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(
-                                text = stringResource(id = R.string.screen_off_animation_test) + selectedAnim.displayName,
+                                text = stringResource(id = R.string.screen_off_animation_test) + selectedAnimation.displayName,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -256,16 +233,12 @@ fun ScreenOffConfigDialog(
                     }
                 }
 
-                // ── Duration Slider ──────────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -274,34 +247,29 @@ fun ScreenOffConfigDialog(
                             Text(
                                 text = stringResource(id = R.string.screen_off_duration_title),
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
-                            ThemedValueBadge(stringResource(id = R.string.screen_off_duration_value, (durationMs / 1000f).toInt()))
+                            ThemedValueBadge("${durationSeconds.toInt()}" + stringResource(id = R.string.glyph_seconds))
                         }
 
                         Slider(
-                            value = durationMs,
+                            value = durationSeconds,
                             onValueChange = {
                                 HapticUtils.triggerLightFeedback(haptic, context)
-                                durationMs = it
-                                settingsRepository.saveScreenOffDuration(it.toLong())
+                                durationSeconds = it
                             },
-                            valueRange = 1000f..10000f,
+                            valueRange = 1f..10f,
                             steps = 8,
                             modifier = Modifier.fillMaxWidth(),
                             colors = SliderDefaults.colors(thumbColor = accent)
                         )
 
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(stringResource(id = R.string.screen_off_duration_min),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(stringResource(id = R.string.screen_off_duration_max),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(stringResource(id = R.string.screen_off_duration_min), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(id = R.string.screen_off_duration_max), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -314,9 +282,8 @@ fun ScreenOffConfigDialog(
                 enableLabel = stringResource(id = R.string.screen_off_button_enable),
                 onSave = {
                     isSaving = true
-                    settingsRepository.saveScreenOffAnimationId(selectedAnim.id)
-                    settingsRepository.saveScreenOffDuration(durationMs.toLong())
-                    settingsRepository.saveScreenOffFeatureEnabled(true)
+                    settingsRepository.saveScreenOffAnimationId(selectedAnimation.id)
+                    settingsRepository.saveScreenOffDuration((durationSeconds * 1000).toLong())
                     onEnable()
                 },
                 onDisable = onDisable,
