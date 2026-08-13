@@ -199,7 +199,7 @@ fun PowerPeekEnableDialog(
                                 fontWeight = FontWeight.Bold
                             )
                             ThemedValueBadge(
-                                settingsRepository.getShakeIntensityLevel(shakeThreshold)
+                                stringResource(settingsRepository.getShakeIntensityLevel(shakeThreshold))
                             )
                         }
 
