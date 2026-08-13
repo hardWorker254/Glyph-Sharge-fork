@@ -53,6 +53,7 @@
     <string name="pulse_lock_animation_test">Test </string>
     <string name="pulse_lock_duration_title">Display Duration</string>
     <string name="pulse_lock_duration_label">Duration:</string>
+    <string name="pulse_lock_duration_value">%d s</string>
     <string name="pulse_lock_duration_min">1s</string>
     <string name="pulse_lock_duration_max">10s</string>
     <string name="pulse_lock_button_enable">Enable</string>
@@ -91,6 +92,7 @@
     <string name="screen_off_animation_title">Select Animation</string>
     <string name="screen_off_animation_test">Test </string>
     <string name="screen_off_duration_title">Display Duration</string>
+    <string name="screen_off_duration_value">%d s</string>
     <string name="screen_off_duration_min">1s</string>
     <string name="screen_off_duration_max">10s</string>
     <string name="screen_off_button_enable">Enable</string>
