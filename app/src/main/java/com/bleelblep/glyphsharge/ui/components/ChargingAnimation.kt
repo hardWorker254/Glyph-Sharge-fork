@@ -140,11 +140,9 @@ fun ChargingAnimationEnableDialog(
     val context = LocalContext.current
 
     val currentlyEnabled = remember { settingsRepository.isChargingAnimationEnabled() }
-
     var displayDuration by remember { mutableFloatStateOf(settingsRepository.getChargingAnimationDuration() / 1000f) }
     var isSaving by remember { mutableStateOf(false) }
 
-    // Pre-resolve themed values
     val cardColor = themeCardContainerColor()
     val accent = themePrimaryActionColor()
 
@@ -174,7 +172,6 @@ fun ChargingAnimationEnableDialog(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // ── Display Duration ─────────────────────────────────────
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
@@ -235,9 +232,7 @@ fun ChargingAnimationEnableDialog(
                 onSave = {
                     isSaving = true
                     val newDuration = (displayDuration * 1000).toLong()
-
                     settingsRepository.saveChargingAnimationDuration(newDuration)
-
                     onConfirm(
                         ChargingAnimationConfig(
                             isEnabled = true,

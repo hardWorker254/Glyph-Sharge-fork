@@ -1,7 +1,5 @@
 package com.bleelblep.glyphsharge.ui.components
 
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,104 +7,68 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.res.stringResource
-import com.bleelblep.glyphsharge.R
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  WideFeatureCardWithToggle
-//
-//  Replaces: PowerPeekCard, GlyphGuardCard, PulseLockCard,
-//            LowBatteryAlertCard, ScreenOffCard, NfcGlyphCard
-//
-//  Each of those cards differs only in:
-//    - title / description / icon
-//    - enabled state persistence (settingsRepository call)
-//    - which dialog to show on click
-//
-//  The caller supplies:
-//    isFeatureEnabled  – current persisted state
-//    onFeatureToggle   – persist + side-effects (start/stop service, etc.)
-//    onCardClick       – show the feature's own dialog / gate behind service check
+//  Themed Value Badge
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Reusable badge component for displaying values in settings dialogs.
+ * Automatically adapts to theme style (CLASSIC/EXPRESSIVE).
+ */
 @Composable
-fun WideFeatureCardWithToggle(
-    title: String,
-    description: String,
-    icon: Painter,
-    isServiceActive: Boolean,
-    isFeatureEnabled: Boolean,
-    onFeatureToggle: (Boolean) -> Unit,
-    onCardClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    iconSize: Int = 32,
-    height: Int = 140
+fun ThemedValueBadge(
+    value: String,
+    modifier: Modifier = Modifier
 ) {
-    val resolvedTint = when {
-        !isServiceActive -> NothingViolate
-        isFeatureEnabled -> NothingGreen
-        else             -> NothingRed
+    val themeState = LocalThemeState.current
+    
+    val backgroundColor = if (themeState.themeStyle == AppThemeStyle.EXPRESSIVE) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant
     }
-
-    val alpha by animateFloatAsState(
-        targetValue = if (isServiceActive) 1f else 0.3f,
-        animationSpec = tween(300),
-        label = "featureAlpha"
-    )
-
-    // Card layer
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(height.dp)
-            .alpha(alpha)
-    ) {
-        FeatureCard(
-            title = title,
-            description = description,
-            icon = icon,
-            onClick = onCardClick,
-            modifier = Modifier.fillMaxSize(),
-            iconSize = iconSize,
-            contentPadding = PaddingValues(16.dp),
-            iconTint = resolvedTint
-        )
+    
+    val contentColor = if (themeState.themeStyle == AppThemeStyle.EXPRESSIVE) {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
     }
-
-    // Toggle overlay — zero-height Box so it doesn't affect layout
-    Box(
+    
+    Surface(
         modifier = modifier
-            .fillMaxWidth()
-            .height(0.dp)
+            .wrapContentSize(),
+        shape = RoundedCornerShape(8.dp),
+        color = backgroundColor,
+        contentColor = contentColor
     ) {
-        MorphingToggleButton(
-            checked = isFeatureEnabled,
-            onCheckedChange = onFeatureToggle,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .offset(x = (-12).dp, y = 12.dp)
+        Text(
+            text = value,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
         )
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  FeatureConfirmationButtons
-//
-//  Replaces: the identical 3-button layout (Primary action / Settings / Cancel)
-//  that appears in GlyphGuardConfirmationDialog, NfcGlyphConfirmationDialog,
-//  ScreenOffConfirmationDialog, LowBatteryConfirmationDialog.
+//  Feature Confirmation Buttons
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Standardized 3-button layout for feature confirmation dialogs.
+ * Used in: PowerPeek, PulseLock, ScreenOff, NfcGlyph, LowBattery confirmation dialogs.
+ */
 @Composable
 fun FeatureConfirmationButtons(
     primaryLabel: String,
@@ -116,8 +78,8 @@ fun FeatureConfirmationButtons(
     modifier: Modifier = Modifier
 ) {
     val themeState = LocalThemeState.current
-    val haptic     = LocalHapticFeedback.current
-    val context    = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -158,7 +120,7 @@ fun FeatureConfirmationButtons(
                 modifier = Modifier.weight(1f).height(48.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = themeSettingsButtonColor(),
-                    contentColor   = themeSettingsButtonContentColor()
+                    contentColor = themeSettingsButtonContentColor()
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -194,13 +156,13 @@ fun FeatureConfirmationButtons(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  FeatureSaveButtons
-//
-//  Replaces: the identical Save / Disable / Cancel button group that appears
-//  in GlyphGuardSettingsDialog, NfcGlyphConfigDialog, ScreenOffConfigDialog,
-//  LowBatteryConfigDialog.
+//  Feature Save Buttons
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Standardized 3-button layout for feature settings/save dialogs.
+ * Used in: PowerPeek, PulseLock, ScreenOff, NfcGlyph, LowBattery config dialogs.
+ */
 @Composable
 fun FeatureSaveButtons(
     isSaving: Boolean,
@@ -211,9 +173,8 @@ fun FeatureSaveButtons(
     onCancel: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val themeState = LocalThemeState.current
-    val haptic     = LocalHapticFeedback.current
-    val context    = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val context = LocalContext.current
 
     Column(
         modifier = modifier.fillMaxWidth(),
