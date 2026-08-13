@@ -15,106 +15,103 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.res.*
 import androidx.compose.ui.text.font.*
 import androidx.compose.ui.text.style.*
 import androidx.compose.ui.unit.*
-
-// Project imports
-import com.bleelblep.glyphsharge.di.GlyphComponent
+import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
-import com.bleelblep.glyphsharge.R
-import dagger.hilt.android.EntryPointAccessors
-import kotlinx.coroutines.*
 
-
-/**
- * Home-specific card templates for the GlyphZen app
- * These templates are optimized for the main homepage layout and interactions
- */
+// ─────────────────────────────────────────────────────────────────────────────
+//  Base Card Components
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Toggle card template for switches and boolean controls
+ * Base content card with consistent styling and press animation.
+ * Supports both CLASSIC and EXPRESSIVE theme styles.
  */
 @Composable
-fun ToggleCard(
-    title: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
+fun ContentCard(
     modifier: Modifier = Modifier,
-    statusText: @Composable (Boolean) -> String = { if (it) "Enabled" else "Disabled" },
-    customContent: (@Composable ColumnScope.() -> Unit)? = null,
-    @DrawableRes illustrationRes: Int? = null
+    title: String? = null,
+    onClick: (() -> Unit)? = null,
+    contentPadding: PaddingValues = PaddingValues(16.dp),
+    content: @Composable ColumnScope.() -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
-    ContentCard(
-        title = title,
-        modifier = modifier,
-        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 20.dp)
+    val themeState = LocalThemeState.current
+    var isPressed by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.98f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy),
+        label = "pressScale"
+    )
+    
+    val containerColor = if (themeState.themeStyle == AppThemeStyle.EXPRESSIVE) {
+        MaterialTheme.colorScheme.surfaceContainer
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+    
+    val shape = if (themeState.themeStyle == AppThemeStyle.EXPRESSIVE) {
+        CutCornerShape(
+            topStartPercent = 0,
+            topEndPercent = 15,
+            bottomStartPercent = 15,
+            bottomEndPercent = 0
+        )
+    } else {
+        MaterialTheme.shapes.large
+    }
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .scale(pressScale),
+        onClick = {
+            if (onClick != null && !isPressed) {
+                isPressed = true
+                HapticUtils.triggerLightFeedback(haptic, context)
+                onClick()
+                scope.launch {
+                    delay(150)
+                    isPressed = false
+                }
+            }
+        },
+        enabled = onClick != null,
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = shape,
+        colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
-        // Toggle section
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(contentPadding),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = statusText(checked),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
-            )
-            Switch(
-                checked = checked,
-                onCheckedChange = { newValue ->
-                    HapticUtils.triggerLightFeedback(haptic, context)
-                    onCheckedChange(newValue)
-                },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.primary,
-                    checkedTrackColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            )
-        }
-
-        // Custom content section
-        if (customContent != null) {
-            Spacer(modifier = Modifier.weight(1f))
-            customContent()
-        }
-
-        // Illustration section
-        if (illustrationRes != null) {
-            if (customContent == null) {
-                Spacer(modifier = Modifier.weight(1f))
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(24.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = illustrationRes),
-                    contentDescription = "Illustration for $title",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(24.dp),
-                    contentScale = ContentScale.Fit
+            title?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
+            content()
         }
     }
 }
 
 /**
- * Feature card template for action-based cards with icons
+ * Feature card with icon, title, description and press animation.
+ * Used as building block for SquareFeatureCard and WideFeatureCard.
  */
 @Composable
 fun FeatureCard(
@@ -129,8 +126,9 @@ fun FeatureCard(
 ) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
-    val themeState = LocalThemeState.current
     var isPressed by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    
     val pressScale by animateFloatAsState(
         targetValue = if (isPressed) 0.95f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy),
@@ -138,16 +136,16 @@ fun FeatureCard(
     )
 
     ContentCard(
-        modifier = modifier
-            .scale(pressScale),
+        modifier = modifier.scale(pressScale),
         onClick = {
-            isPressed = true
-            HapticUtils.triggerLightFeedback(haptic, context)
-            onClick()
-            // Reset pressed state after animation
-            GlobalScope.launch {
-                delay(150)
-                isPressed = false
+            if (!isPressed) {
+                isPressed = true
+                HapticUtils.triggerLightFeedback(haptic, context)
+                onClick()
+                scope.launch {
+                    delay(150)
+                    isPressed = false
+                }
             }
         },
         contentPadding = contentPadding
@@ -155,15 +153,7 @@ fun FeatureCard(
         Icon(
             painter = icon,
             contentDescription = title,
-            tint = iconTint ?: when {
-                title.contains("Breathing", ignoreCase = true) && themeState.themeStyle == AppThemeStyle.CLASSIC -> NothingViolate
-                title.contains("Guard", ignoreCase = true) && themeState.themeStyle == AppThemeStyle.CLASSIC -> NothingViolate
-                title.contains("Peek", ignoreCase = true) && themeState.themeStyle == AppThemeStyle.CLASSIC -> NothingViolate
-                title.contains("Pulse", ignoreCase = true) && themeState.themeStyle == AppThemeStyle.CLASSIC -> NothingViolate
-                title.contains("Battery", ignoreCase = true) && themeState.themeStyle == AppThemeStyle.CLASSIC -> NothingViolate
-                title.contains("Information", ignoreCase = true) && themeState.themeStyle == AppThemeStyle.CLASSIC -> NothingViolate
-                else -> MaterialTheme.colorScheme.primary
-            },
+            tint = iconTint ?: MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(iconSize.dp)
         )
 
@@ -191,8 +181,12 @@ fun FeatureCard(
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  Feature Cards (Square & Wide)
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Square feature card template for grid layouts
+ * Square feature card for grid layouts with optional confirmation dialog.
  */
 @Composable
 fun SquareFeatureCard(
@@ -211,12 +205,6 @@ fun SquareFeatureCard(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
-    val glyphAnimationManager = remember {
-        EntryPointAccessors.fromApplication(
-            context.applicationContext,
-            GlyphComponent::class.java
-        ).glyphAnimationManager()
-    }
 
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.95f else 1f,
@@ -246,10 +234,8 @@ fun SquareFeatureCard(
         label = "alpha"
     )
 
-    // Handle press animation and dialog timing
     LaunchedEffect(isPressed) {
         if (isPressed && !isServiceActive) {
-            // Brief animation then trigger onClick for toast
             delay(150)
             isPressed = false
             onClick()
@@ -263,7 +249,7 @@ fun SquareFeatureCard(
         description = description,
         icon = icon,
         onClick = {
-            if (!isPressed) { // Prevent multiple rapid clicks
+            if (!isPressed) {
                 isPressed = true
             }
         },
@@ -279,7 +265,6 @@ fun SquareFeatureCard(
         iconTint = resolvedTint
     )
 
-    // Simple confirmation dialog
     if (!skipConfirmation && showDialog && isServiceActive) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
@@ -322,7 +307,7 @@ fun SquareFeatureCard(
 }
 
 /**
- * Wide feature card template for full-width actions
+ * Wide feature card for full-width layouts with optional confirmation dialog.
  */
 @Composable
 fun WideFeatureCard(
@@ -339,7 +324,6 @@ fun WideFeatureCard(
 ) {
     var isPressed by remember { mutableStateOf(false) }
     var showDialog by remember { mutableStateOf(false) }
-    val themeState = LocalThemeState.current
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
 
@@ -443,59 +427,78 @@ fun WideFeatureCard(
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  Wide Feature Card with Toggle
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Section header for grouping cards
+ * Wide feature card with integrated toggle switch.
+ * Used for features that can be enabled/disabled (PowerPeek, PulseLock, etc.)
  */
 @Composable
-fun HomeSectionHeader(
+fun WideFeatureCardWithToggle(
     title: String,
-    modifier: Modifier = Modifier
-) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = modifier
-            .padding(start = 8.dp, bottom = 8.dp, top = 8.dp)
-    )
-}
-
-/**
- * Feature grid layout for organizing multiple feature cards
- */
-@Composable
-fun FeatureGrid(
+    description: String,
+    icon: Painter,
+    isServiceActive: Boolean,
+    isFeatureEnabled: Boolean,
+    onFeatureToggle: (Boolean) -> Unit,
+    onCardClick: () -> Unit,
     modifier: Modifier = Modifier,
-    spacing: Int = 16,
-    content: @Composable RowScope.() -> Unit
+    iconSize: Int = 32,
+    height: Int = 140
 ) {
-    val themeState = LocalThemeState.current
-    
-    // Use Material 3's 8dp grid system for expressive theme
-    val enhancedSpacing = if (themeState.themeStyle == AppThemeStyle.EXPRESSIVE) {
-        // Material 3 spacing: 8dp, 16dp, 24dp, 32dp
-        when (spacing) {
-            8 -> 8
-            16 -> 16
-            24 -> 24
-            32 -> 32
-            else -> 16 // Default to 16dp for expressive theme
-        }
-    } else {
-        spacing
+    val resolvedTint = when {
+        !isServiceActive -> NothingViolate
+        isFeatureEnabled -> NothingGreen
+        else             -> NothingRed
     }
-    
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(enhancedSpacing.dp),
-        content = content
+
+    val alpha by animateFloatAsState(
+        targetValue = if (isServiceActive) 1f else 0.3f,
+        animationSpec = tween(300),
+        label = "featureAlpha"
     )
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(height.dp)
+            .alpha(alpha)
+    ) {
+        FeatureCard(
+            title = title,
+            description = description,
+            icon = icon,
+            onClick = onCardClick,
+            modifier = Modifier.fillMaxSize(),
+            iconSize = iconSize,
+            contentPadding = PaddingValues(16.dp),
+            iconTint = resolvedTint
+        )
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(0.dp)
+    ) {
+        MorphingToggleButton(
+            checked = isFeatureEnabled,
+            onCheckedChange = onFeatureToggle,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = (-12).dp, y = 12.dp)
+        )
+    }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  Glyph Control Card
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Main glyph control card template (specialized for the main toggle)
- * Inspired by Nothing OS interface design with Material You theming
- * Features a morphing button with repositioned text elements
+ * Main glyph control card with morphing toggle button.
  */
 @Composable
 fun GlyphControlCard(
@@ -506,18 +509,13 @@ fun GlyphControlCard(
 ) {
     val themeState = LocalThemeState.current
     
-    // Use Material 3 surface container colors for expressive theme
     val backgroundColor = if (themeState.themeStyle == AppThemeStyle.EXPRESSIVE) {
         MaterialTheme.colorScheme.surfaceContainer
     } else {
         MaterialTheme.colorScheme.surface
     }
 
-    val textColor = if (enabled) {
-        MaterialTheme.colorScheme.onSurface
-    } else {
-        MaterialTheme.colorScheme.onSurface
-    }
+    val textColor = MaterialTheme.colorScheme.onSurface
 
     Card(
         modifier = modifier.height(120.dp),
@@ -533,27 +531,24 @@ fun GlyphControlCard(
                 .fillMaxSize()
                 .padding(20.dp)
         ) {
-            // Service status text - top left
             Text(
                 text = if (enabled) stringResource(id = R.string.glyph_service_active)
                     else stringResource(id = R.string.glyph_service_inactive),
                 style = MaterialTheme.typography.headlineSmall,
                 color = textColor,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.align(Alignment.TopStart)
             )
 
-            // Glyph lights label - bottom left
             Text(
                 text = "GLYPH LIGHTS",
                 style = MaterialTheme.typography.bodyMedium,
                 color = textColor.copy(alpha = 0.8f),
                 letterSpacing = 0.5.sp,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
+                fontWeight = FontWeight.Medium,
                 modifier = Modifier.align(Alignment.BottomStart)
             )
 
-            // Morphing toggle button - top right
             MorphingToggleButton(
                 checked = enabled,
                 onCheckedChange = onEnabledChange,
@@ -563,9 +558,12 @@ fun GlyphControlCard(
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  Morphing Toggle Button
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Reusable morphing toggle button component
- * Features smooth shape transitions and consistent theming
+ * Reusable morphing toggle button with smooth shape transitions.
  */
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
@@ -686,9 +684,12 @@ fun MorphingToggleButton(
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  Three-State Font Morphing Button
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Three-state morphing toggle button for font family selection
- * Features smooth shape transitions, distinct colors, and typography preview
+ * Three-state morphing button for font family selection.
  */
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
@@ -702,19 +703,17 @@ fun ThreeStateFontMorphingButton(
     val context = LocalContext.current
     val themeState = LocalThemeState.current
 
-    // Cycle through variants: HEADLINE -> NDOT -> SYSTEM -> HEADLINE
     val nextVariant = when (currentVariant) {
         FontVariant.HEADLINE -> FontVariant.NDOT
         FontVariant.NDOT -> FontVariant.SYSTEM
         FontVariant.SYSTEM -> FontVariant.HEADLINE
     }
 
-    // Use exact standard morphing toggle dimensions - matches other settings cards
     val width by animateDpAsState(
         targetValue = when (currentVariant) {
-            FontVariant.HEADLINE -> 88.dp  // Wide rectangle (unchecked state)
-            FontVariant.NDOT -> 60.dp      // Square (checked state)
-            FontVariant.SYSTEM -> 60.dp    // Circle (checked state)
+            FontVariant.HEADLINE -> 88.dp
+            FontVariant.NDOT -> 60.dp
+            FontVariant.SYSTEM -> 60.dp
         },
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "width"
@@ -722,26 +721,24 @@ fun ThreeStateFontMorphingButton(
 
     val height by animateDpAsState(
         targetValue = when (currentVariant) {
-            FontVariant.HEADLINE -> 40.dp  // Standard rectangle height
-            FontVariant.NDOT -> 60.dp      // Square height (checked state)
-            FontVariant.SYSTEM -> 60.dp    // Circle height (checked state)
+            FontVariant.HEADLINE -> 40.dp
+            FontVariant.NDOT -> 60.dp
+            FontVariant.SYSTEM -> 60.dp
         },
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "height"
     )
 
-    // Exact standard morphing toggle corner radius
     val cornerRadius by animateDpAsState(
         targetValue = when (currentVariant) {
-            FontVariant.HEADLINE -> 12.dp  // Standard rounded rectangle
-            FontVariant.NDOT -> 12.dp      // Standard rounded rectangle
-            FontVariant.SYSTEM -> 30.dp    // Full circle (checked state)
+            FontVariant.HEADLINE -> 12.dp
+            FontVariant.NDOT -> 12.dp
+            FontVariant.SYSTEM -> 30.dp
         },
         animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy),
         label = "cornerRadius"
     )
 
-    // Three distinct colors for each font variant
     val backgroundColor by animateColorAsState(
         targetValue = if (themeState.themeStyle == AppThemeStyle.EXPRESSIVE) {
             when (currentVariant) {
@@ -753,7 +750,7 @@ fun ThreeStateFontMorphingButton(
             when (currentVariant) {
                 FontVariant.HEADLINE -> NothingGray
                 FontVariant.NDOT -> NothingViolate
-                FontVariant.SYSTEM -> NothingRed                       // Red for System Default
+                FontVariant.SYSTEM -> NothingRed
             }
         },
         animationSpec = tween(durationMillis = 300),
@@ -771,9 +768,9 @@ fun ThreeStateFontMorphingButton(
 
     val activeScale by animateFloatAsState(
         targetValue = when (currentVariant) {
-            FontVariant.HEADLINE -> 1f      // Normal scale (unchecked state)
-            FontVariant.NDOT -> 1.07f       // Enlarged scale (checked state)
-            FontVariant.SYSTEM -> 1.07f     // Enlarged scale (checked state)
+            FontVariant.HEADLINE -> 1f
+            FontVariant.NDOT -> 1.07f
+            FontVariant.SYSTEM -> 1.07f
         },
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "activeScale"
@@ -821,8 +818,8 @@ fun ThreeStateFontMorphingButton(
                 },
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontFamily = when (variant) {
-                        FontVariant.HEADLINE -> FontFamily(Font(com.bleelblep.glyphsharge.R.font.ntype_82_headline))
-                        FontVariant.NDOT -> FontFamily(Font(com.bleelblep.glyphsharge.R.font.ndot55caps))
+                        FontVariant.HEADLINE -> FontFamily(Font(R.font.ntype_82_headline))
+                        FontVariant.NDOT -> FontFamily(Font(R.font.ndot55caps))
                         FontVariant.SYSTEM -> FontFamily.Default
                     },
                     fontSize = when (variant) {
@@ -838,6 +835,53 @@ fun ThreeStateFontMorphingButton(
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  Utility Components
+// ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Section header for grouping cards.
+ */
+@Composable
+fun HomeSectionHeader(
+    title: String,
+    modifier: Modifier = Modifier
+) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = modifier
+            .padding(start = 8.dp, bottom = 8.dp, top = 8.dp)
+    )
+}
 
-
+/**
+ * Feature grid layout for organizing multiple feature cards.
+ */
+@Composable
+fun FeatureGrid(
+    modifier: Modifier = Modifier,
+    spacing: Int = 16,
+    content: @Composable RowScope.() -> Unit
+) {
+    val themeState = LocalThemeState.current
+    
+    val enhancedSpacing = if (themeState.themeStyle == AppThemeStyle.EXPRESSIVE) {
+        when (spacing) {
+            8 -> 8
+            16 -> 16
+            24 -> 24
+            32 -> 32
+            else -> 16
+        }
+    } else {
+        spacing
+    }
+    
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(enhancedSpacing.dp),
+        content = content
+    )
+}

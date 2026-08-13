@@ -1,5 +1,6 @@
 package com.bleelblep.glyphsharge.ui.theme
 
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -126,5 +127,24 @@ fun themeSurfaceVariantButtonContentColor(): Color {
         AppThemeStyle.AMOLED  -> Color.White
         AppThemeStyle.CLASSIC -> Color(0xFF674FA3)
         else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+}
+
+@Composable
+fun themeSecondaryButtonColors(): androidx.compose.material3.ButtonColors {
+    val t = LocalThemeState.current
+    return when (t.themeStyle) {
+        AppThemeStyle.AMOLED -> ButtonDefaults.buttonColors(
+            containerColor = Color(0xFF2D2D2D),
+            contentColor = Color.White
+        )
+        AppThemeStyle.CLASSIC -> ButtonDefaults.buttonColors(
+            containerColor = Color(0xFFE8E1F5),
+            contentColor = Color(0xFF674FA3)
+        )
+        else -> ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
