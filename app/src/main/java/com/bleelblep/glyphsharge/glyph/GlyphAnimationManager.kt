@@ -1592,7 +1592,7 @@ class GlyphAnimationManager @Inject constructor(
             "C1" -> runC1SequentialAnimation()
             "WAVE" -> runWaveAnimation()
             "BEEDAH" -> runBeedahAnimation()
-            "PULSE" -> runPulseEffect(3)
+            "PULSE" -> runPulseEffect(2)
             "LOCK" -> runLockPulseAnimation()
             "SPIRAL" -> runSpiralAnimation()
             "HEARTBEAT" -> runHeartbeatAnimation()

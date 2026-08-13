@@ -291,13 +291,13 @@ class SettingsRepository @Inject constructor(
     fun getShakeThreshold(): Float =
         prefs.getFloat(KEY_SHAKE_THRESHOLD, SHAKE_MEDIUM)
 
-    fun getShakeIntensityLevel(threshold: Float): String = when (threshold) {
-        SHAKE_SOFT -> "Soft"
-        SHAKE_EASY -> "Easy"
-        SHAKE_MEDIUM -> "Medium"
-        SHAKE_HARD -> "Hard"
-        SHAKE_HARDEST -> "Hardest"
-        else -> "Medium"
+    fun getShakeIntensityLevel(threshold: Float): Int = when (threshold) {
+        SHAKE_SOFT -> R.string.power_peek_sensitivity_soft
+        SHAKE_EASY -> R.string.power_peek_sensitivity_easy
+        SHAKE_MEDIUM -> R.string.power_peek_sensitivity_medium
+        SHAKE_HARD -> R.string.power_peek_sensitivity_hard
+        SHAKE_HARDEST -> R.string.power_peek_sensitivity_hardest
+        else -> R.string.power_peek_sensitivity_medium
     }
 
     fun saveDisplayDuration(duration: Long) =
