@@ -6,7 +6,7 @@
 
 **Power. Protect. Personalize. All through light.**
 
-[![Download](https://img.shields.io/badge/Download-Latest-red?style=for-the-badge)](https://github.com/hardWorker254/Glyph-Sharge-fork/releases/tag/Main)
+[![Download](https://img.shields.io/badge/Download-Latest-red?style=for-the-badge)](https://github.com/hardWorker254/Glyph-Sharge-fork/releases/)
 [![Version](https://img.shields.io/badge/Version-1.0.30-blue?style=for-the-badge)](https://github.com/hardWorker254/Glyph-Sharge-fork/releases)
 [![Platform](https://img.shields.io/badge/Platform-Android%2014+-green?style=for-the-badge)](https://www.android.com/)
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9.10-purple?style=for-the-badge&logo=kotlin)](https://kotlinlang.org/)
@@ -69,9 +69,9 @@ Whether you're checking charge levels or activating security features, Glyph Sha
 
 | Device | Model Number | SDK Support |
 |--------|--------------|-------------|
-| Nothing Phone (1) | 20111 | ✅ Full |
-| Nothing Phone (2) | 22111 | ✅ Full |
-| Nothing Phone (2a) | 23111 / 23113 | ✅ Full |
+| Nothing Phone (1) | 20111 | No testers |
+| Nothing Phone (2) | 22111 | No testers |
+| Nothing Phone (2a) | 23111 / 23113 | No testers |
 | Nothing Phone (3a) | 24111 | ✅ Full |
 
 ---
@@ -96,30 +96,6 @@ cd Glyph-Sharge-fork
 2. **Open in Android Studio**
 
 3. **Sync Gradle dependencies**
-
-4. **Build and install:**
-```bash
-./gradlew assembleDebug
-```
-
-### Build Commands
-
-```bash
-# Debug build
-./gradlew assembleDebug
-
-# Release build
-./gradlew assembleRelease
-
-# Run tests
-./gradlew test
-
-# Clean project
-./gradlew clean
-
-# Install on device
-./gradlew installDebug
-```
 
 > ⚠️ **Important**: The app uses an **official Nothing API key**, so debug mode is NOT required for glyph functionality.
 
@@ -225,7 +201,6 @@ Official Nothing fonts with dynamic scaling:
 | `ContentCard` | Custom content container |
 | `WavyProgressIndicator` | Animated sine wave progress |
 | `TransparentTopAppBar` | Scroll-aware app bar |
-| `WatermarkBox` | Diagonal watermark overlay |
 
 ---
 
@@ -241,33 +216,6 @@ Official Nothing fonts with dynamic scaling:
 | `PulseLockService` | Heart rate security lock |
 | `ScreenOffGlyphService` | Notifications with screen off |
 | `QuietHoursService` | Scheduled silent mode |
-
----
-
-## 🛠 Tech Stack
-
-### Core
-- **Language**: Kotlin 1.9.10
-- **UI Framework**: Jetpack Compose + Material Design 3
-- **Min SDK**: Android 14 (API 34)
-- **Target SDK**: Android 14 (API 34)
-
-### Dependencies
-
-| Library | Version | Purpose |
-|---------|---------|---------|
-| Android Gradle Plugin | 8.13.2 | Build system |
-| Compose BOM | 2024.02.00 | Compose bill of materials |
-| Material 3 | 1.2.0 | Design system |
-| Hilt | 2.50 | Dependency injection |
-| KSP | 1.9.10-1.0.13 | Symbol processing |
-| Navigation Compose | 2.7.7 | In-app navigation |
-| Room | 2.6.1 | Local database |
-| Lottie Compose | 6.3.0 | Animations |
-| Material Components | 1.11.0 | Additional widgets |
-
-### SDK
-- **Nothing Ketchum SDK** (`KetchumSDK_Community_20250319.jar`) — Official Glyph Interface SDK
 
 ---
 
@@ -291,64 +239,11 @@ Comprehensive documentation is available in the [`docs/`](docs/) folder:
 
 ---
 
-## 🤝 Contributing
-
-Contributions are welcome! Here's how you can help:
-
-### How to Contribute
-
-1. **Fork** the repository
-2. **Create a feature branch** (`git checkout -b feature/amazing-feature`)
-3. **Commit your changes** (`git commit -m 'Add amazing feature'`)
-4. **Push to the branch** (`git push origin feature/amazing-feature`)
-5. **Open a Pull Request**
-
-### Development Guidelines
-
-- Follow Kotlin coding conventions
-- Write meaningful commit messages
-- Test your changes thoroughly on Nothing Phone devices
-- Update documentation if needed
-- Ensure UI changes work with all 6 theme styles
-
-### Areas for Contribution
-
-- 🐛 Bug fixes
-- ✨ New glyph features and animations
-- 🎨 UI/UX improvements
-- 📝 Documentation translations
-- 🧪 Unit and integration tests
-- ⚡ Performance optimizations
-
----
-
 ## 📄 License
 
 This is **NOT** an official Nothing Technology Limited product.
 
 The app uses an official Nothing API key for Glyph Interface functionality.
-
----
-
-## 🔗 Links & Resources
-
-| Resource | Description |
-|----------|-------------|
-| [📦 Releases](https://github.com/hardWorker254/Glyph-Sharge-fork/releases) | Download latest versions and release notes |
-| [🐛 Issues](https://github.com/hardWorker254/Glyph-Sharge-fork/issues) | Report bugs or request features |
-| [💬 Discussions](https://github.com/hardWorker254/Glyph-Sharge-fork/discussions) | Community discussions and Q&A |
-| [📖 Nothing Developer Program](https://github.com/Nothing-Developer-Programme/Glyph-Developer-Kit) | Official Nothing Glyph SDK documentation |
-
----
-
-## 📞 Support
-
-For questions, issues, or suggestions:
-
-1. Check the [documentation](docs/) first
-2. Search existing [issues](https://github.com/hardWorker254/Glyph-Sharge-fork/issues)
-3. Review [release notes](https://github.com/hardWorker254/Glyph-Sharge-fork/releases) for updates
-4. Open a new issue if your problem isn't listed
 
 ---
 
