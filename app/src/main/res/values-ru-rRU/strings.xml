@@ -59,7 +59,7 @@
     <string name="pulse_lock_button_enable">Включить</string>
 
     <!-- Low Battery Alert -->
-    <string name="low_battery_alert_title">Низкий заряд</string>
+    <string name="low_battery_alert_title">Low Battery Alert</string>
     <string name="low_battery_alert_description">Получайте уведомление через Glyph при низком заряде.</string>
     <string name="low_battery_alert_toast">Сначала включите Glyph-сервис</string>
     <string name="low_battery_alert_how_it_works_title">Как это работает:</string>

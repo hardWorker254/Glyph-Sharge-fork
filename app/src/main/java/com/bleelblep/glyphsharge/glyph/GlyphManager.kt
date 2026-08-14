@@ -16,6 +16,10 @@ import java.util.concurrent.atomic.AtomicReference
 // Placeholder until official GlyphAnimation class is available in the SDK
 private typealias GlyphAnimation = Any
 
+@Volatile private var isInitialized = false
+@Volatile private var _isSessionActive = false
+@Volatile private var _isServiceConnected = false
+
 /**
  * Manager class for interacting with the Nothing Glyph Interface.
  * This class wraps the Nothing Glyph SDK functionality and provides
@@ -91,16 +95,12 @@ class GlyphManager @Inject constructor(
     // Initialize callback in init block
     private val mCallback: com.nothing.ketchum.GlyphManager.Callback by lazy {
         object : com.nothing.ketchum.GlyphManager.Callback {
-        override fun onServiceConnected(componentName: ComponentName) {
-            Log.d(TAG, "Glyph Service Connected")
-            LoggingManager.logSessionState("SERVICE_CONNECTED", "Component: ${componentName.className}")
+            override fun onServiceConnected(componentName: ComponentName) {
+                Log.d(TAG, "Glyph Service Connected")
+                LoggingManager.logSessionState("SERVICE_CONNECTED", "Component: ${componentName.className}")
                 _isServiceConnected = true
-                
+
                 try {
-                    // Initialize GlyphManager first
-                    mGM?.init(mCallback)
-                    
-                    // Register based on device type
                     val deviceType: String = when {
                         Common.is20111() -> Glyph.DEVICE_20111
                         Common.is22111() -> Glyph.DEVICE_22111
@@ -109,21 +109,15 @@ class GlyphManager @Inject constructor(
                         Common.is24111() -> Glyph.DEVICE_24111
                         else -> throw GlyphException("Unsupported device type")
                     }
-                    
-                    // Register device
+
                     mGM?.register(deviceType)
                     Log.d(TAG, "Registered device type: $deviceType")
                     LoggingManager.logSDKOperation("DEVICE_REGISTRATION", "Successfully registered $deviceType")
-                    
-                    // Do NOT open a session automatically. A session will be opened only when the
-                    // user explicitly enables the Glyph Service via the toggle, which calls
-                    // GlyphManager.openSession() through toggleGlyphService().
-                    
                 } catch (e: GlyphException) {
-                    Log.e(TAG, "Failed to initialize session: ${e.message}")
+                    Log.e(TAG, "Failed to register device: ${e.message}")
                     handleError(e)
+                }
             }
-        }
 
         override fun onServiceDisconnected(componentName: ComponentName) {
             Log.d(TAG, "Glyph Service Disconnected")
@@ -159,18 +153,20 @@ class GlyphManager @Inject constructor(
      * Clean up resources and close session
      */
     fun cleanup() {
-        try {
-            // Clear locally tracked animations (SDK handles its own cleanup)
-            registeredAnimations.clear()
-            
-            // Close session
-            _isSessionActive = false
-            isInitialized = false
-            
-            Log.d(TAG, "GlyphManager cleaned up successfully")
-            } catch (e: Exception) {
-            Log.e(TAG, "Error during cleanup", e)
+        runCatching {
+            if (_isSessionActive) {
+                mGM?.closeSession()
+            }
         }
+
+        registeredAnimations.clear()
+
+        _isSessionActive = false
+        _isServiceConnected = false
+        _sessionState.set(false)
+        isInitialized = false
+
+        Log.d(TAG, "GlyphManager cleaned up")
     }
 
     /**
@@ -301,11 +297,10 @@ class GlyphManager @Inject constructor(
      */
     fun toggleGlyphService(): Boolean {
         return if (isSessionActive) {
-            closeSession()
+            runCatching { closeSession() }
             false
         } else {
-            openSession()
-            true
+            runCatching { openSession() }.isSuccess
         }
     }
 
@@ -352,6 +347,8 @@ class GlyphManager @Inject constructor(
      * Open a session with the Glyph service
      */
     fun openSession() {
+        if (_isSessionActive) return
+
         try {
             mGM?.openSession()
             _isSessionActive = true
@@ -369,16 +366,19 @@ class GlyphManager @Inject constructor(
      * Close the current session
      */
     fun closeSession() {
+        if (!_isSessionActive) return
+
         try {
             mGM?.closeSession()
-            _isSessionActive = false
-            _sessionState.set(false)
-            onSessionStateChanged?.invoke(false)
             Log.d(TAG, "Glyph session closed")
             LoggingManager.logSessionState("SESSION_CLOSED", "Session closed")
         } catch (e: GlyphException) {
             Log.e(TAG, "Failed to close session: ${e.message}")
             throw e
+        } finally {
+            _isSessionActive = false
+            _sessionState.set(false)
+            onSessionStateChanged?.invoke(false)
         }
     }
 
