@@ -3,10 +3,7 @@ package com.bleelblep.glyphsharge.receiver
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
-import android.os.BatteryManager
 import android.util.Log
-import com.bleelblep.glyphsharge.data.repository.ChargingSessionRepository
 import com.bleelblep.glyphsharge.services.*
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
@@ -29,7 +26,6 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class BootCompletedReceiver : BroadcastReceiver() {
 
-    @Inject lateinit var repository: ChargingSessionRepository
     @Inject lateinit var settingsRepository: SettingsRepository
 
     override fun onReceive(context: Context, intent: Intent) {
