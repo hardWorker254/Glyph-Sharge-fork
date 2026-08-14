@@ -1,54 +1,46 @@
-```
-# Compiled and build artifacts
-*.class
-*.o
-*.obj
-*.so
-*.a
-*.dll
-*.exe
-*.out
-
-# Dependencies
-.gradle/
-build/
-target/
+# Documentation builds and artifacts
+docs/_build/
+docs/build/
+docs/.doctrees/
+*.pyc
+__pycache__/
 
 # Logs and temp files
 *.log
 *.tmp
 *.swp
 
-# Editors
-.idea/
-.vscode/
-
 # Environment
 .env
 .env.local
-*.env.*
+.env.*
+
+# Editors
+.vscode/
+.idea/
 
 # Coverage reports
+.coverage
 coverage/
 htmlcov/
-*.coverage
 
-# Python specific
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-*.so
-.Python
+# Distribution / packaging
+dist/
+build/
 *.egg-info/
-.eggs/
-.venv/
-venv/
-.mypy_cache/
-.pytest_cache/
 
-# Node.js specific
+# Testing
+.pytest_cache/
+.mypy_cache/
+.tox/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Dependencies
 node_modules/
 npm-debug.log*
 yarn-debug.log*
@@ -56,22 +48,10 @@ yarn-error.log*
 
 # OS generated files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
-# Archives
-*.zip
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.rar
-*.7z
-*.gz
-*.bz2
-*.xz
-*.zst
-```
+# Temporary files
+*.tmp
+*~
+.\#*
+.#*
