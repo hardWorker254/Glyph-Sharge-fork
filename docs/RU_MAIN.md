@@ -29,9 +29,9 @@
 
 ### Поддерживаемые устройства
 
-- Nothing Phone (1) — модель 20111
-- Nothing Phone (2) — модель 22111
-- Nothing Phone (2a) — модели 23111, 23113
+- Nothing Phone (1) — модель 20111 ( Нет тестировщиков, не гарантировано)
+- Nothing Phone (2) — модель 22111 ( Нет тестировщиков, не гарантировано)
+- Nothing Phone (2a) — модели 23111, 23113 ( Нет тестировщиков, не гарантировано)
 - Nothing Phone (3a) — модель 24111
 
 ---
@@ -56,11 +56,6 @@ cd Glyph-Sharge-fork
 2. Откройте проект в Android Studio
 
 3. Синхронизируйте Gradle зависимости
-
-4. Соберите и установите приложение:
-```bash
-./gradlew assembleDebug
-```
 
 ### Важное примечание
 
@@ -345,31 +340,6 @@ LinearWavyProgressIndicator(
 - Становится сплошной при прокрутке
 - Плавные цветовые переходы
 
-#### WatermarkBox
-Контейнер с диагональным повторяющимся водяным знаком:
-
-```kotlin
-WatermarkBox(
-    enabled = BuildConfig.DEBUG,
-    text = "PREVIEW",
-    color = Color.Red,
-    alpha = 0.15f,
-    spacing = 64.dp
-) {
-    YourAppContent()
-}
-```
-
-#### EmojiPainter
-Утилита для использования эмодзи как Painter в Icon:
-
-```kotlin
-Icon(
-    painter = rememberEmojiPainter("🔋", fontSizeDp = 32f),
-    contentDescription = "Battery"
-)
-```
-
 ### Экраны приложения
 
 #### SettingsScreen
@@ -389,97 +359,6 @@ Icon(
 
 ---
 
-## Настройка и сборка
-
-### Конфигурация Gradle
-
-#### Версии зависимостей
-
-```groovy
-ext {
-    compose_version = '1.5.1'
-    kotlin_version = '1.9.10'
-    material3_version = '1.2.0'
-}
-```
-
-#### Основные зависимости
-
-- **Android Gradle Plugin**: 8.13.2
-- **Kotlin**: 1.9.10
-- **Compose BOM**: 2024.02.00
-- **Material 3**: 1.2.0
-- **Hilt**: 2.50
-- **KSP**: 1.9.10-1.0.13
-- **Navigation Compose**: 2.7.7
-- **Room**: 2.6.1
-- **Lottie Compose**: 6.3.0
-
-#### Nothing Glyph SDK
-
-Приложение использует официальный Nothing Ketchum SDK:
-```groovy
-implementation files('libs/KetchumSDK_Community_20250319.jar')
-```
-
-### Команды сборки
-
-```bash
-# Сборка debug версии
-./gradlew assembleDebug
-
-# Сборка release версии
-./gradlew assembleRelease
-
-# Запуск тестов
-./gradlew test
-
-# Очистка проекта
-./gradlew clean
-
-# Сборка и установка на устройство
-./gradlew installDebug
-```
-
-### Настройка ProGuard (для release)
-
-В файле `proguard-rules.pro` необходимо добавить правила для Nothing SDK и Hilt.
-
----
-
-## Технологический стек
-
-### Языки программирования
-- **Kotlin** 1.9.10 — основной язык разработки
-
-### UI Framework
-- **Jetpack Compose** — декларативный UI
-- **Material Design 3** — дизайн-система
-- **Compose Animation** — анимации
-- **Canvas API** — кастомная графика
-
-### Архитектура и DI
-- **Hilt** 2.50 — dependency injection
-- **KSP** — обработка аннотаций
-- **Repository Pattern** — слой данных
-
-### Навигация
-- **Navigation Compose** 2.7.7 — навигация между экранами
-
-### Хранение данных
-- **Room** 2.6.1 — локальная база данных
-- **DataStore** — настройки приложения
-
-### Дополнительные библиотеки
-- **Lottie Compose** 6.3.0 — анимации Lottie
-- **Material Components** 1.11.0 — дополнительные компоненты
-- **Robolectric** 4.11.1 — тестирование
-
-### SDK
-- **Nothing Ketchum SDK** — официальный SDK для Glyph Interface
-
----
-
 ## Лицензия
 
 Это НЕ официальный репозиторий Nothing Technology Limited.
@@ -492,18 +371,6 @@ implementation files('libs/KetchumSDK_Community_20250319.jar')
 
 - **Репозиторий**: https://github.com/hardWorker254/Glyph-Sharge-fork
 - **Релизы**: https://github.com/hardWorker254/Glyph-Sharge-fork/releases
-
----
-
-## Вклад в проект
-
-Для внесения изменений:
-
-1. Создайте форк репозитория
-2. Создайте ветку для вашей функции (`git checkout -b feature/amazing-feature`)
-3. Закоммитьте изменения (`git commit -m 'Add amazing feature'`)
-4. Отправьте в удалённый репозиторий (`git push origin feature/amazing-feature`)
-5. Откройте Pull Request
 
 ---
 
