@@ -200,9 +200,9 @@ class GlyphManager @Inject constructor(
 | NfcGlyphService | NFC интеграция | Bound |
 | LowBatteryAlertService | Мониторинг батареи | Broadcast Receiver |
 | PowerPeekService | Встряхивание для проверки | Sensor-based |
-| PulseLockService | Блокировка пульсом | Bound |
+| PulseLockService | Анимации при включении | Bound |
 | QuietHoursService | Тихие часы | Scheduled |
-| ScreenOffGlyphService | Уведомления без экрана | Bound |
+| ScreenOffGlyphService | Анимации при выключении | Bound |
 
 ## Навигация
 
@@ -280,77 +280,6 @@ private fun handleError(error: Exception) {
     }
 }
 ```
-
-## Тестирование
-
-### Unit тесты
-
-Расположение: `app/src/test/`
-
-```kotlin
-class SettingsRepositoryTest {
-    @Test
-    fun `verify theme settings saved correctly`() {
-        // Arrange
-        val repository = SettingsRepositoryImpl(...)
-        
-        // Act
-        repository.saveTheme(AppThemeStyle.NEON)
-        
-        // Assert
-        assertEquals(AppThemeStyle.NEON, repository.getThemeSettings().theme)
-    }
-}
-```
-
-### Instrumentation тесты
-
-Расположение: `app/src/androidTest/`
-
-```kotlin
-@RunWith(AndroidJUnit4::class)
-class GlyphManagerTest {
-    @get:Rule
-    val hiltRule = HiltAndroidRule(this)
-    
-    @Test
-    fun testGlyphInitialization() {
-        // Test implementation
-    }
-}
-```
-
-## Безопасность
-
-### Разрешения
-
-В `AndroidManifest.xml`:
-
-```xml
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-<uses-permission android:name="android.permission.NFC" />
-<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-<!-- Другие разрешения -->
-```
-
-### Защита данных
-
-- Локальные данные шифруются через Android Keystore
-- Чувствительные данные хранятся в EncryptedSharedPreferences
-
-## Производительность
-
-### Оптимизации
-
-1. **Lazy initialization** — компоненты инициализируются по требованию
-2. **Coroutine scopes** — правильное управление асинхронными операциями
-3. **State hoisting** — подъем состояния для оптимизации рекомпозиции
-4. **Derived state** — использование `derivedStateOf` для вычисляемых значений
-
-### Мониторинг
-
-- LoggingManager для отслеживания операций
-- Performance monitoring через Android Vitals
 
 ## Масштабируемость
 
