@@ -1,4 +1,16 @@
-```
-# Documentation
-docs/INDEX.md
-```
+.gradle/
+build/
+/*/build/
+*.apk
+*.aar
+*.aab
+.kotlin/
+.idea/
+*.iml
+*.ipr
+*.iws
+captures/
+output-metadata.json
+local.properties
+*.log
+

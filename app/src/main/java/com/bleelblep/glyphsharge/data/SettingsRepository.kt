@@ -10,8 +10,6 @@ import com.bleelblep.glyphsharge.ui.theme.FontSizeSettings
 import com.bleelblep.glyphsharge.ui.theme.FontVariant
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import java.util.Calendar
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -54,11 +52,14 @@ class SettingsRepository @Inject constructor(
         private const val KEY_IS_DARK_THEME = "is_dark_theme"
         private const val KEY_THEME_STYLE = "theme_style"
         private const val KEY_GLYPH_SERVICE_ENABLED = "glyph_service_enabled"
-        private const val KEY_POWER_PEEK_ENABLED = "power_peek_enabled"
-        private const val KEY_SHAKE_THRESHOLD = "shake_threshold"
-        private const val KEY_DISPLAY_DURATION = "display_duration"
+
         private const val KEY_VIBRATION_INTENSITY = "vibration_intensity"
         private const val KEY_BATTERY_STORY_ENABLED = "battery_story_enabled"
+
+        // Power Peek
+        private const val KEY_POWER_PEEK_ENABLED = "power_peek_enabled"
+        private const val KEY_POWER_PEEK_THRESHOLD = "shake_threshold"
+        private const val KEY_POWER_PEEK_DURATION = "display_duration"
 
         // Pulse Lock keys
         private const val KEY_PULSE_LOCK_ENABLED = "pulse_lock_enabled"
@@ -280,17 +281,21 @@ class SettingsRepository @Inject constructor(
     fun getGlyphServiceEnabled(): Boolean =
         prefs.getBoolean(KEY_GLYPH_SERVICE_ENABLED, false)
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Power Peek
+    // ─────────────────────────────────────────────────────────────────────────
+
     fun savePowerPeekEnabled(enabled: Boolean) =
         prefs.edit { putBoolean(KEY_POWER_PEEK_ENABLED, enabled) }
 
     fun isPowerPeekEnabled(): Boolean =
         prefs.getBoolean(KEY_POWER_PEEK_ENABLED, false)
 
-    fun saveShakeThreshold(threshold: Float) =
-        prefs.edit { putFloat(KEY_SHAKE_THRESHOLD, threshold) }
+    fun savePowerPeekThreshold(threshold: Float) =
+        prefs.edit { putFloat(KEY_POWER_PEEK_THRESHOLD, threshold) }
 
-    fun getShakeThreshold(): Float =
-        prefs.getFloat(KEY_SHAKE_THRESHOLD, SHAKE_MEDIUM)
+    fun getPowerPeekThreshold(): Float =
+        prefs.getFloat(KEY_POWER_PEEK_THRESHOLD, SHAKE_MEDIUM)
 
     fun getShakeIntensityLevel(threshold: Float): Int = when (threshold) {
         SHAKE_SOFT -> R.string.power_peek_sensitivity_soft
@@ -301,11 +306,11 @@ class SettingsRepository @Inject constructor(
         else -> R.string.power_peek_sensitivity_medium
     }
 
-    fun saveDisplayDuration(duration: Long) =
-        prefs.edit { putLong(KEY_DISPLAY_DURATION, duration) }
+    fun savePowerPeekDuration(duration: Long) =
+        prefs.edit { putLong(KEY_POWER_PEEK_DURATION, duration) }
 
-    fun getDisplayDuration(): Long =
-        prefs.getLong(KEY_DISPLAY_DURATION, 3000L)
+    fun getPowerPeekDuration(): Long =
+        prefs.getLong(KEY_POWER_PEEK_DURATION, 3000L)
 
     fun saveVibrationIntensity(intensity: Float) {
         prefs.edit { putFloat(KEY_VIBRATION_INTENSITY, intensity) }
@@ -509,8 +514,8 @@ class SettingsRepository @Inject constructor(
             Theme Style: ${getThemeStyle()}
             Glyph Service: ${getGlyphServiceEnabled()}
             PowerPeek: ${isPowerPeekEnabled()}
-            Shake Threshold: ${getShakeThreshold()}
-            Display Duration: ${getDisplayDuration()}
+            Shake Threshold: ${getPowerPeekThreshold()}
+            Display Duration: ${getPowerPeekDuration()}
             Vibration Intensity: ${getVibrationIntensity()}
             Glow Gate enabled: ${isPulseLockEnabled()}
             Low-Battery Alert enabled: ${isLowBatteryEnabled()}

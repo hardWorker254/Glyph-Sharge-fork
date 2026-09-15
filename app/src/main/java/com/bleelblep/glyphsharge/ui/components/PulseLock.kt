@@ -217,7 +217,7 @@ fun PulseLockEnableDialog(
                                             "MATRIX"    -> glyphAnimationManager.runMatrixRainAnimation()
                                             "FIREWORKS" -> glyphAnimationManager.runFireworksAnimation()
                                             "DNA"       -> glyphAnimationManager.runDNAHelixAnimation()
-                                            else        -> glyphAnimationManager.playPulseLockAnimation(selectedAnimation.id)
+                                            else        -> glyphAnimationManager.playPulseLockAnimation()
                                         }
                                     } catch (e: Exception) {
                                         Log.e("PulseLock", "Error testing animation: ${e.message}")
@@ -290,7 +290,10 @@ fun PulseLockEnableDialog(
                     settingsRepository.savePulseLockDuration((durationSeconds * 1000).toLong())
                     onConfirm(PulseLockConfig(selectedAnimation.id, (durationSeconds * 1000).toLong()))
                 },
-                onDisable = onDisable,
+                onDisable = {
+                    onDisable()
+                    onDismiss()
+                },
                 onCancel = onDismiss
             )
         },

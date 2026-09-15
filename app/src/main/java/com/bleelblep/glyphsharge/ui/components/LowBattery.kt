@@ -34,12 +34,11 @@ data class LowBatteryAlertConfig(
 
 @Composable
 fun LowBatteryAlertConfirmationDialog(
+    modifier: Modifier = Modifier,
     onTestAlert: () -> Unit,
     onEnableAlert: () -> Unit,
     onDisableAlert: () -> Unit,
     onDismiss: () -> Unit,
-    onConfirm: (LowBatteryAlertConfig) -> Unit,
-    modifier: Modifier = Modifier,
     settingsRepository: SettingsRepository
 ) {
     var showSettingsDialog by remember { mutableStateOf(false) }
@@ -51,13 +50,13 @@ fun LowBatteryAlertConfirmationDialog(
             title = {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = stringResource(id = R.string.low_battery_alert_title),
+                        text = stringResource(R.string.low_battery_alert_title),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center
                     )
                     Text(
-                        text = stringResource(id = R.string.low_battery_alert_description),
+                        text = stringResource(R.string.low_battery_alert_description),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
@@ -72,12 +71,12 @@ fun LowBatteryAlertConfirmationDialog(
                 ) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = stringResource(id = R.string.low_battery_alert_how_it_works_title),
+                            text = stringResource(R.string.low_battery_alert_how_it_works_title),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = stringResource(id = R.string.low_battery_alert_how_it_works_description),
+                            text = stringResource(R.string.low_battery_alert_how_it_works_description),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             lineHeight = 20.sp
@@ -87,7 +86,7 @@ fun LowBatteryAlertConfirmationDialog(
             },
             confirmButton = {
                 FeatureConfirmationButtons(
-                    primaryLabel = stringResource(id = R.string.low_battery_alert_button_test),
+                    primaryLabel = stringResource(R.string.low_battery_alert_button_test),
                     onPrimary = onTestAlert,
                     onSettings = { showSettingsDialog = true },
                     onCancel = onDismiss
@@ -95,14 +94,15 @@ fun LowBatteryAlertConfirmationDialog(
             },
             dismissButton = {},
             containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(24.dp)
+            shape = RoundedCornerShape(24.dp),
+            modifier = modifier
         )
     }
 
     if (showSettingsDialog) {
         LowBatteryAlertEnableDialog(
-            onConfirm = { config ->
-                onConfirm(config)
+            onConfirm = { _ ->
+                onEnableAlert()
                 showSettingsDialog = false
                 onDismiss()
             },
@@ -120,11 +120,11 @@ fun LowBatteryAlertConfirmationDialog(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun LowBatteryAlertEnableDialog(
+    modifier: Modifier = Modifier,
     onConfirm: (LowBatteryAlertConfig) -> Unit,
     onDismiss: () -> Unit,
     onDisable: () -> Unit,
     settingsRepository: SettingsRepository,
-    modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
@@ -263,7 +263,7 @@ fun LowBatteryAlertEnableDialog(
                                             "MATRIX"    -> glyphAnimationManager.runMatrixRainAnimation()
                                             "FIREWORKS" -> glyphAnimationManager.runFireworksAnimation()
                                             "DNA"       -> glyphAnimationManager.runDNAHelixAnimation()
-                                            else        -> glyphAnimationManager.playLowBatteryAnimation(selectedAnimation.id)
+                                            else        -> glyphAnimationManager.playLowBatteryAnimation()
                                         }
                                     } catch (e: Exception) {
                                         Log.e("LowBatteryAlert", "Error testing animation: ${e.message}")

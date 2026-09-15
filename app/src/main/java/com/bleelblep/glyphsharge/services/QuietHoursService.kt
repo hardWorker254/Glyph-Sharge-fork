@@ -43,6 +43,8 @@ class QuietHoursService : Service() {
         const val ACTION_QUIET_HOURS_START = "com.bleelblep.glyphsharge.QUIET_HOURS_START"
         const val ACTION_QUIET_HOURS_END   = "com.bleelblep.glyphsharge.QUIET_HOURS_END"
 
+        const val ACTION_STOP = "com.bleelblep.glyphsharge.QUIET_HOURS_STOP"
+
         // Request codes for PendingIntents – must be unique
         private const val RC_START = 100
         private const val RC_END   = 101

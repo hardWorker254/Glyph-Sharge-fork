@@ -27,6 +27,7 @@ import kotlinx.coroutines.delay
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import androidx.core.net.toUri
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Foreground service that listens for the device being unlocked and plays the
@@ -147,12 +148,12 @@ class PulseLockService : Service() {
 
             try {
                 val animJob = launch(Dispatchers.Default) {
-                    glyphAnimationManager.playPulseLockAnimation(animationId)
+                    glyphAnimationManager.playPulseLockAnimation()
                 }
 
                 // Hard-stop watchdog: cancels the animation job and kills audio
                 val watchdogJob = launch {
-                    delay(duration)
+                    delay(duration.milliseconds)
                     Log.d(TAG, "Duration limit reached – stopping animation & audio")
                     animJob.cancelAndJoin()          // cancel, then wait for cleanup
                     glyphAnimationManager.stopAnimations()

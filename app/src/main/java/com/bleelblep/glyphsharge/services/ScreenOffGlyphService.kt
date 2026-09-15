@@ -24,6 +24,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Foreground service that listens for the device screen turning OFF and plays the
@@ -145,11 +146,11 @@ class ScreenOffGlyphService : Service() {
 
             try {
                 val animJob = launch(Dispatchers.Default) {
-                    glyphAnimationManager.playScreenOffAnimation(animationId)
+                    glyphAnimationManager.playScreenOffAnimation()
                 }
 
                 val watchdogJob = launch {
-                    delay(duration)
+                    delay(duration.milliseconds)
                     Log.d(TAG, "Duration limit reached – stopping animation")
                     animJob.cancelAndJoin()
                     glyphAnimationManager.stopAnimations()

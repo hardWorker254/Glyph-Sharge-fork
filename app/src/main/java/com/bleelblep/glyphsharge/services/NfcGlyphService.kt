@@ -265,7 +265,7 @@ class NfcGlyphService : Service() {
 
             try {
                 val animJob = launch(Dispatchers.Default) {
-                    glyphAnimationManager.playNfcAnimation(animationId)
+                    glyphAnimationManager.playNfcAnimation()
                 }
 
                 val watchdogJob = launch {

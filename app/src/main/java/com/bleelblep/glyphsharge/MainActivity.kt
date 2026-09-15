@@ -37,7 +37,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.*
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.res.stringResource
 import com.bleelblep.glyphsharge.glyph.*
 import com.bleelblep.glyphsharge.services.*
 import com.bleelblep.glyphsharge.ui.components.*
@@ -48,6 +47,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import javax.inject.Inject
 import com.bleelblep.glyphsharge.data.SettingsRepository
+import kotlin.time.Duration.Companion.milliseconds
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -96,7 +96,6 @@ class MainActivity : ComponentActivity() {
         ) { uri -> uri?.let { writeLogToUri(it) } }
 
         configureWindow()
-        initializeGlyphService()
         initializeServices()
         initializeNfcDispatch()
         WatermarkHelper.disable()
@@ -167,14 +166,14 @@ class MainActivity : ComponentActivity() {
 
     /** Start / stop every background service according to saved preferences. */
     private fun initializeServices() {
-        initServiceByPref(PowerPeekService::class.java,       settingsRepository.isPowerPeekEnabled())
-        initServiceByPref(LowBatteryAlertService::class.java, settingsRepository.isLowBatteryEnabled())
-        initServiceByPref(QuietHoursService::class.java,      settingsRepository.isQuietHoursEnabled())
-        initServiceByPref(ChargingAnimationService::class.java, settingsRepository.isChargingAnimationEnabled()) // Added
         initializeGlyphService()
-        initializePulseLock()
-        initializeScreenOffFeature()
-        initializeNfcFeature()
+        initServiceByPref(PowerPeekService::class.java, settingsRepository.isPowerPeekEnabled())
+        initServiceByPref(LowBatteryAlertService::class.java, settingsRepository.isLowBatteryEnabled())
+        initServiceByPref(QuietHoursService::class.java, settingsRepository.isQuietHoursEnabled())
+        initServiceByPref(ChargingAnimationService::class.java, settingsRepository.isChargingAnimationEnabled())
+        initServiceByPref(PulseLockService::class.java, settingsRepository.isPulseLockEnabled())
+        initServiceByPref(ScreenOffGlyphService::class.java, settingsRepository.isScreenOffFeatureEnabled())
+        initServiceByPref(NfcGlyphService::class.java, settingsRepository.isNfcFeatureEnabled())
     }
 
     /** Generic helper: start or stop a foreground service class based on a boolean flag. */
@@ -195,29 +194,13 @@ class MainActivity : ComponentActivity() {
 
         if (settingsRepository.getGlyphServiceEnabled() && glyphManager.isNothingPhone()) {
             lifecycleScope.launch {
-                delay(STARTUP_DELAY_MS)
+                delay(STARTUP_DELAY_MS.milliseconds)
                 if (!glyphManager.isSessionActive) toggleGlyphService(true)
                 else _glyphServiceState.value = true
             }
         } else {
             _glyphServiceState.value = glyphManager.isSessionActive
         }
-    }
-
-    private fun initializePulseLock() {
-        val enabled = settingsRepository.isPulseLockEnabled()
-        val intent = Intent(this, PulseLockService::class.java).apply {
-            action = if (enabled) PulseLockService.ACTION_START else PulseLockService.ACTION_STOP
-        }
-        if (enabled) startForegroundServiceCompat(intent) else stopService(intent)
-    }
-
-    private fun initializeScreenOffFeature() {
-        val enabled = settingsRepository.isScreenOffFeatureEnabled()
-        val intent = Intent(this, ScreenOffGlyphService::class.java).apply {
-            action = if (enabled) ScreenOffGlyphService.ACTION_START else ScreenOffGlyphService.ACTION_STOP
-        }
-        if (enabled) startForegroundServiceCompat(intent) else stopService(intent)
     }
 
     // ── NFC initialisation ───────────────────────────────────────────────────
@@ -235,13 +218,7 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private fun initializeNfcFeature() {
-        val enabled = settingsRepository.isNfcFeatureEnabled()
-        val intent = Intent(this, NfcGlyphService::class.java).apply {
-            action = if (enabled) NfcGlyphService.ACTION_START else NfcGlyphService.ACTION_STOP
-        }
-        if (enabled) startForegroundServiceCompat(intent) else stopService(intent)
-    }
+
 
     private fun enableNfcForegroundDispatch() {
         if (!settingsRepository.isNfcFeatureEnabled()) return
@@ -269,26 +246,13 @@ class MainActivity : ComponentActivity() {
                 WatermarkBox(enabled = false, text = "TESTING", alpha = 0.5f, fontSize = 20.sp) {
                     Surface(modifier = Modifier.fillMaxSize(), color = bgColor) {
                         MainScreen(
-                            isNothingPhone             = glyphManager.isNothingPhone(),
                             glyphServiceEnabled        = glyphServiceState.value,
                             onGlyphServiceToggle       = ::toggleGlyphService,
-                            onLaunchGlyphDemo          = ::runGlyphDemo,
-                            onTestAllZones             = ::testAllZones,
-                            onTestCustomPattern        = ::testCustomPattern,
-                            onRunWaveAnimation         = ::runWaveAnimation,
-                            onRunPulseEffect           = ::runPulseEffect,
-                            onTestGlyphGuard           = ::testGlyphGuard,
-                            onStartGlyphGuard          = ::startGlyphGuard,
-                            onStopGlyphGuard           = ::stopGlyphGuard,
-                            onRunBoxBreathing          = ::runBoxBreathing,
+
+                            // Power Peek
                             onTestPowerPeek            = ::testPowerPeek,
                             onEnablePowerPeek          = ::enablePowerPeek,
                             onDisablePowerPeek         = ::disablePowerPeek,
-                            onRunNotificationEffect    = ::runNotificationEffect,
-                            onTestGlyphChannel         = ::testGlyphChannel,
-                            onTestC1Segment            = ::testC1Segment,
-                            onTestFinalState           = ::testFinalStateBeforeTurnoff,
-                            onTestC14C15Isolated       = ::testC14AndC15Isolated,
 
                             // Pulse Lock
                             onTestPulseLock            = ::testPulseLock,
@@ -310,8 +274,11 @@ class MainActivity : ComponentActivity() {
                             onEnableChargingAnimation  = ::enableChargingAnimation,
                             onDisableChargingAnimation = ::disableChargingAnimation,
 
-                            onTestLowBattery           = ::testLowBatteryAlert,
-                            onRunDiagnostics           = ::runDiagnostics,
+                            // Low Battery
+                            onTestLowBattery           = ::testLowBattery,
+                            onEnableLowBattery         = ::onEnableLowBattery,
+                            onDisableLowBattery        = ::onDisableLowBattery,
+
                             backgroundColorMain        = bgColor,
                             settingsRepository         = settingsRepository
                         )
@@ -364,14 +331,11 @@ class MainActivity : ComponentActivity() {
     private fun syncServicesAfterToggle(glyphOn: Boolean) {
         val fgIntent = Intent(this, GlyphForegroundService::class.java)
         if (glyphOn) {
-            if (settingsRepository.isPulseLockEnabled())         initializePulseLock()
-            if (settingsRepository.isScreenOffFeatureEnabled())  initializeScreenOffFeature()
-            if (settingsRepository.isNfcFeatureEnabled())        initializeNfcFeature()
-            if (settingsRepository.isChargingAnimationEnabled()) {
-                startForegroundServiceCompat(Intent(this, ChargingAnimationService::class.java))
-            }
-            startForegroundServiceCompat(fgIntent)
+            initializeServices()
         } else {
+            runCatching { startService(Intent(this, PowerPeekService::class.java).apply        { action = PowerPeekService.ACTION_STOP }) }
+            runCatching { startService(Intent(this, LowBatteryAlertService::class.java).apply   { action = LowBatteryAlertService.ACTION_STOP }) }
+            runCatching { startService(Intent(this, QuietHoursService::class.java).apply         { action = QuietHoursService.ACTION_STOP }) }
             runCatching { startService(Intent(this, PulseLockService::class.java).apply        { action = PulseLockService.ACTION_STOP }) }
             runCatching { startService(Intent(this, ScreenOffGlyphService::class.java).apply   { action = ScreenOffGlyphService.ACTION_STOP }) }
             runCatching { startService(Intent(this, NfcGlyphService::class.java).apply         { action = NfcGlyphService.ACTION_STOP }) }
@@ -380,60 +344,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // ── Animation helpers ─────────────────────────────────────────────────────
-
-    private fun launchGlyphAnim(
-        label: String,
-        bypass: Boolean = false,
-        block: suspend () -> Unit
-    ) {
-        if (!canPerformGlyphOperation(bypass)) return
-        animJob?.cancel()
-        isGlyphDemoRunning = false
-        animJob = lifecycleScope.launch {
-            try {
-                block()
-                delay(settingsRepository.getDisplayDuration())
-            } catch (e: Exception) {
-                Log.e(TAG, "Error in $label: ${e.message}")
-                showToast("Error: ${e.message}")
-            } finally {
-                glyphAnimationManager.stopAnimations()
-                isGlyphDemoRunning = false
-            }
+    // ── PowerPeek ─────────────────────────────────────────────────────────────
+    fun testPowerPeek() {
+        showToast("Testing Power Peek")
+        lifecycleScope.launch {
+            glyphAnimationManager.playPowerPeekAnimation(this@MainActivity) {}
         }
     }
 
-    // ── Public animation API ──────────────────────────────────────────────────
-    fun runGlyphDemo() { /* ... */ }
-    fun testAllZones(bypass: Boolean = false) = launchGlyphAnim("testAllZones", bypass) { glyphAnimationManager.testAllZones(bypass) }
-    fun testCustomPattern(bypass: Boolean = false) = launchGlyphAnim("testCustomPattern", bypass) { glyphAnimationManager.testCustomPattern(bypass) }
-    fun runWaveAnimation() = launchGlyphAnim("runWaveAnimation") { glyphAnimationManager.runWaveAnimation() }
-    fun runPulseEffect() = launchGlyphAnim("runPulseEffect") { glyphAnimationManager.runPulseEffect(3) }
-    fun runBoxBreathing() = launchGlyphAnim("runBoxBreathing") { glyphAnimationManager.runC1SequentialWithBreathingTiming(true, 2) }
-    fun runNotificationEffect() = launchGlyphAnim("runNotificationEffect") { glyphAnimationManager.runNotificationEffect() }
-    fun testGlyphChannel(channelIndex: Int) = launchGlyphAnim("testGlyphChannel[$channelIndex]", bypass = true) { glyphAnimationManager.testGlyphChannel(channelIndex, true) }
-    fun testC1Segment(c1Index: Int) = launchGlyphAnim("testC1Segment[$c1Index]", bypass = true) { glyphAnimationManager.testC1Segment(c1Index, true) }
-    fun testFinalStateBeforeTurnoff() = launchGlyphAnim("testFinalState", bypass = true) { glyphAnimationManager.testFinalStateBeforeTurnoff(true) }
-    fun testC14AndC15Isolated() = launchGlyphAnim("testC14C15Isolated", bypass = true) { glyphAnimationManager.testOnlyC14AndC15Isolated(true) }
-
-    fun testPowerPeek(bypass: Boolean = false) = launchGlyphAnim("testPowerPeek", bypass) {
-        showToast("Testing PowerPeek – showing battery percentage…")
-        val duration = settingsRepository.getDisplayDuration()
-        // Updated to new function name
-        glyphAnimationManager.playBatteryStatusAnimation(this@MainActivity, duration) {}
-    }
-
-    fun testGlyphGuard(bypass: Boolean = false) { /* ... */ }
-
-    // ── Glyph Guard service ───────────────────────────────────────────────────
-    fun startGlyphGuard() { /* ... */ }
-    fun stopGlyphGuard() { /* ... */ }
-
-    // ── PowerPeek ─────────────────────────────────────────────────────────────
     fun enablePowerPeek() {
         settingsRepository.savePowerPeekEnabled(true)
-        startForegroundServiceCompat(Intent(this, PowerPeekService::class.java))
+        initServiceByPref(PowerPeekService::class.java, settingsRepository.isPowerPeekEnabled())
         showToast("PowerPeek enabled! Shake when screen is off to see battery %.")
     }
 
@@ -444,15 +365,16 @@ class MainActivity : ComponentActivity() {
     }
 
     // ── Charging Animation ────────────────────────────────────────────────────
-    fun testChargingAnimation() = launchGlyphAnim("testChargingAnimation") {
-        showToast("Testing Charging Animation...")
-        val duration = settingsRepository.getDisplayDuration()
-        glyphAnimationManager.playBatteryStatusAnimation(this@MainActivity, duration) {}
+    fun testChargingAnimation() {
+        showToast("Testing Charging Animation")
+        lifecycleScope.launch {
+            glyphAnimationManager.playChargingAnimationAnimation(this@MainActivity) {}
+        }
     }
 
     fun enableChargingAnimation() {
         settingsRepository.saveChargingAnimationEnabled(true)
-        startForegroundServiceCompat(Intent(this, ChargingAnimationService::class.java))
+        initServiceByPref(ChargingAnimationService::class.java, settingsRepository.isChargingAnimationEnabled())
         showToast("Charging Animation enabled")
     }
 
@@ -464,46 +386,50 @@ class MainActivity : ComponentActivity() {
 
     // ── Glow Gate (PulseLock) ─────────────────────────────────────────────────
     fun testPulseLock() = lifecycleScope.launch {
-        runCatching { glyphAnimationManager.playPulseLockAnimation(settingsRepository.getPulseLockAnimationId()) }
-            .onFailure { Log.e(TAG, "Error testing Glow Gate", it) }
+        showToast("Testing Pulse Lock")
+        lifecycleScope.launch {
+            glyphAnimationManager.playPulseLockAnimation()
+        }
     }
 
     fun enablePulseLock() {
         settingsRepository.savePulseLockEnabled(true)
-        initializePulseLock()
+        initServiceByPref(PulseLockService::class.java, settingsRepository.isPulseLockEnabled())
         showToast("Glow Gate enabled")
     }
 
     fun disablePulseLock() {
         settingsRepository.savePulseLockEnabled(false)
-        initializePulseLock()
+        stopService(Intent(this, PulseLockService::class.java))
         showToast("Glow Gate disabled")
     }
 
     // ── Screen Off Animation ──────────────────────────────────────────
     fun testScreenOffAnimation() = lifecycleScope.launch {
-        runCatching {
-            glyphAnimationManager.playScreenOffAnimation(settingsRepository.getScreenOffAnimationId())
-        }.onFailure { Log.e(TAG, "Error testing Screen Off Anim", it) }
+        showToast("Testing Screen Off")
+        lifecycleScope.launch {
+            glyphAnimationManager.playScreenOffAnimation()
+        }
     }
 
     fun enableScreenOffFeature() {
         settingsRepository.saveScreenOffFeatureEnabled(true)
-        initializeScreenOffFeature()
+        initServiceByPref(ScreenOffGlyphService::class.java, settingsRepository.isScreenOffFeatureEnabled())
         showToast("Screen Off Animation enabled")
     }
 
     fun disableScreenOffFeature() {
         settingsRepository.saveScreenOffFeatureEnabled(false)
-        initializeScreenOffFeature()
+        stopService(Intent(this, ScreenOffGlyphService::class.java))
         showToast("Screen Off Animation disabled")
     }
 
     // ── NFC Glyph Animation ──────────────────────────────────────────────────
     fun testNfcAnimation() = lifecycleScope.launch {
-        runCatching {
-            glyphAnimationManager.playNfcAnimation(settingsRepository.getNfcAnimationId())
-        }.onFailure { Log.e(TAG, "Error testing NFC animation", it) }
+        showToast("Testing NFC")
+        lifecycleScope.launch {
+            glyphAnimationManager.playNfcAnimation()
+        }
     }
 
     fun enableNfcFeature() {
@@ -516,48 +442,47 @@ class MainActivity : ComponentActivity() {
             return
         }
         settingsRepository.saveNfcFeatureEnabled(true)
-        initializeNfcFeature()
+        initServiceByPref(NfcGlyphService::class.java, settingsRepository.isNfcFeatureEnabled())
         enableNfcForegroundDispatch()
         showToast("NFC Glyph Animation enabled")
     }
 
     fun disableNfcFeature() {
         settingsRepository.saveNfcFeatureEnabled(false)
-        initializeNfcFeature()
+        stopService(Intent(this, NfcGlyphService::class.java))
         disableNfcForegroundDispatch()
         showToast("NFC Glyph Animation disabled")
     }
 
     // ── Low Battery Alert ─────────────────────────────────────────────────────
-    fun testLowBatteryAlert() {
-        runCatching {
-            startForegroundServiceCompat(
-                Intent(this, LowBatteryAlertService::class.java).apply {
-                    action = LowBatteryAlertService.ACTION_TEST_ALERT
-                }
-            )
-            showToast("Testing Low Battery Alert")
-        }.onFailure {
-            Log.e(TAG, "Failed to test low battery alert", it)
-            showToast("Failed to test alert: ${it.message}")
+    fun testLowBattery() {
+        showToast("Testing Power Peek")
+        lifecycleScope.launch {
+            glyphAnimationManager.playLowBatteryAnimation()
         }
     }
 
+    fun onEnableLowBattery() {
+        settingsRepository.saveLowBatteryEnabled(true)
+        initServiceByPref(LowBatteryAlertService::class.java, settingsRepository.isLowBatteryEnabled())
+        showToast("Low Battery Alert enabled")
+    }
+
+    fun onDisableLowBattery() {
+        settingsRepository.saveLowBatteryEnabled(false)
+        stopService(Intent(this, LowBatteryAlertService::class.java))
+        showToast("Low Battery Alert disabled")
+    }
+
     // ── Diagnostics ───────────────────────────────────────────────────────────
-    fun runDiagnostics() { /* ... */ }
-    private fun captureLogcatText(): String = Runtime.getRuntime().exec("logcat -d").inputStream.bufferedReader().use { it.readText() }
     private fun writeLogToUri(uri: android.net.Uri) { /* ... */ }
-    private fun promptShareLog(uri: android.net.Uri) { /* ... */ }
 
     // ── Session management ────────────────────────────────────────────────────
     private fun maybeRestoreSession() { /* ... */ }
     private fun startPersistentGlyphService() { /* ... */ }
-    private fun canPerformGlyphOperation(bypass: Boolean = false): Boolean { return true /* ... */ }
     @SuppressLint("BatteryLife")
-    private fun requestBatteryOptimizationExemption() { /* ... */ }
     private fun cancelRunningAnimations() { animJob?.cancel(); isGlyphDemoRunning = false }
     private fun showToast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
-    private fun showServiceDisabledToast() = showToast("Glyph service is not enabled.")
     private fun startForegroundServiceCompat(intent: Intent) { startForegroundService(intent) }
 
     // ── Constants ─────────────────────────────────────────────────────────────
@@ -565,8 +490,6 @@ class MainActivity : ComponentActivity() {
         private const val TAG                   = "MainActivity"
         private const val REQ_NOTIFICATION      = 1001
         private const val STARTUP_DELAY_MS      = 100L
-        private const val GUARD_TEST_DURATION_MS = 5_000L
-        private const val GUARD_BLINK_MS        = 200L
     }
 }
 
@@ -575,26 +498,13 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
-    isNothingPhone: Boolean,
     glyphServiceEnabled: Boolean,
     onGlyphServiceToggle: (Boolean) -> Unit,
-    onLaunchGlyphDemo: () -> Unit,
-    onTestAllZones: (Boolean) -> Unit,
-    onTestCustomPattern: (Boolean) -> Unit,
-    onRunWaveAnimation: () -> Unit,
-    onRunPulseEffect: () -> Unit,
-    onTestGlyphGuard: () -> Unit,
-    onStartGlyphGuard: () -> Unit,
-    onStopGlyphGuard: () -> Unit,
-    onRunBoxBreathing: () -> Unit,
+
+    // Power Peek
     onTestPowerPeek: () -> Unit,
     onEnablePowerPeek: () -> Unit,
     onDisablePowerPeek: () -> Unit,
-    onRunNotificationEffect: () -> Unit,
-    onTestGlyphChannel: (Int) -> Unit,
-    onTestC1Segment: (Int) -> Unit,
-    onTestFinalState: () -> Unit,
-    onTestC14C15Isolated: () -> Unit,
 
     // Pulse Lock
     onTestPulseLock: () -> Unit,
@@ -616,19 +526,16 @@ fun MainScreen(
     onEnableChargingAnimation: () -> Unit,
     onDisableChargingAnimation: () -> Unit,
 
+    // Low Battery
     onTestLowBattery: () -> Unit,
-    onRunDiagnostics: () -> Unit,
+    onEnableLowBattery: () -> Unit,
+    onDisableLowBattery: () -> Unit,
+
     backgroundColorMain: ComposeColor,
     settingsRepository: SettingsRepository
 ) {
     val navController = rememberNavController()
     val context = androidx.compose.ui.platform.LocalContext.current
-
-    /** Show a toast and invoke [action] only when the glyph service is enabled. */
-    fun requireGlyphService(action: () -> Unit) {
-        if (glyphServiceEnabled) action()
-        else Toast.makeText(context, "Please enable the Glyph service first", Toast.LENGTH_SHORT).show()
-    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -694,9 +601,9 @@ fun MainScreen(
                             modifier = Modifier.fillMaxWidth(),
                             iconSize = 32,
                             isServiceActive = glyphServiceEnabled,
-                            onTestAnimation = { requireGlyphService(onTestChargingAnimation) },
-                            onEnableAnimation = { requireGlyphService(onEnableChargingAnimation) },
-                            onDisableAnimation = { requireGlyphService(onDisableChargingAnimation) },
+                            onTestAnimation = onTestChargingAnimation,
+                            onEnableAnimation = onEnableChargingAnimation,
+                            onDisableAnimation = onDisableChargingAnimation,
                             settingsRepository = settingsRepository
                         )
                     }
@@ -704,19 +611,17 @@ fun MainScreen(
                     item {
                         PowerPeekCard(
                             icon = painterResource(id = R.drawable._44),
-                            onTestPowerPeek = { requireGlyphService(onTestPowerPeek) },
-                            onEnablePowerPeek = {
-                                requireGlyphService {
-                                    when (ContextCompat.checkSelfPermission(context, Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE)) {
-                                        PackageManager.PERMISSION_GRANTED -> onEnablePowerPeek()
-                                        else -> permissionLauncher.launch(Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE)
-                                    }
-                                }
-                            },
-                            onDisablePowerPeek = { requireGlyphService(onDisablePowerPeek) },
                             modifier = Modifier.fillMaxWidth(),
                             iconSize = 32,
                             isServiceActive = glyphServiceEnabled,
+                            onTestPowerPeek = onTestPowerPeek,
+                            onEnablePowerPeek = {
+                                when (ContextCompat.checkSelfPermission(context, Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE)) {
+                                    PackageManager.PERMISSION_GRANTED -> onEnablePowerPeek()
+                                    else -> permissionLauncher.launch(Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE)
+                                }
+                            },
+                            onDisablePowerPeek = onDisablePowerPeek,
                             settingsRepository = settingsRepository
                         )
                     }
@@ -726,8 +631,8 @@ fun MainScreen(
                             modifier = Modifier.fillMaxWidth(),
                             iconSize = 32,
                             isServiceActive = glyphServiceEnabled,
-                            onTestPulseLock = { requireGlyphService(onTestPulseLock) },
-                            onEnablePulseLock = { requireGlyphService(onEnablePulseLock) },
+                            onTestPulseLock = onTestPulseLock,
+                            onEnablePulseLock = onEnablePulseLock,
                             onDisablePulseLock = onDisablePulseLock,
                             settingsRepository = settingsRepository
                         )
@@ -739,10 +644,10 @@ fun MainScreen(
                             modifier = Modifier.fillMaxWidth(),
                             iconSize = 32,
                             isServiceActive = glyphServiceEnabled,
-                            onTestScreenOff    = { requireGlyphService(onTestScreenOff) },
-                            settingsRepository = settingsRepository,
-                            onEnableScreenOff = { requireGlyphService(onEnableScreenOff) },
-                            onDisableScreenOff = { requireGlyphService(onDisableScreenOff) },
+                            onTestScreenOff    = onTestScreenOff,
+                            onEnableScreenOff = onEnableScreenOff,
+                            onDisableScreenOff = onDisableScreenOff,
+                            settingsRepository = settingsRepository
                         )
                     }
 
@@ -752,19 +657,23 @@ fun MainScreen(
                             modifier = Modifier.fillMaxWidth(),
                             iconSize = 32,
                             isServiceActive = glyphServiceEnabled,
-                            onTestNfc    = { requireGlyphService(onTestNfc) },
-                            onEnableNfc  = { requireGlyphService(onEnableNfc) },
-                            onDisableNfc = { requireGlyphService(onDisableNfc) },
+                            onTestNfc    = onTestNfc,
+                            onEnableNfc  = onEnableNfc,
+                            onDisableNfc = onDisableNfc,
                             settingsRepository = settingsRepository
                         )
                     }
 
                     item {
                         LowBatteryAlertCard(
-                            onTestAlert = onTestLowBattery,
+                            icon = rememberVectorPainter(image = Icons.Default.BatteryAlert),
                             modifier = Modifier.fillMaxWidth(),
-                            settingsRepository = settingsRepository,
-                            isServiceActive = glyphServiceEnabled
+                            iconSize = 32,
+                            isServiceActive = glyphServiceEnabled,
+                            onTestAlert = onTestLowBattery,
+                            onEnableLowBattery = onEnableLowBattery,
+                            onDisableLowBattery = onDisableLowBattery,
+                            settingsRepository = settingsRepository
                         )
                     }
                 }
@@ -792,8 +701,6 @@ fun MainScreen(
                 onBackClick = { navController.popBackStack() },
                 settingsRepository = settingsRepository,
                 onLanguageChanged = {
-                    // Перезапускаем активность для применения новой локали
-                    // Передаём флаг, чтобы не терять навигационный стек
                     (context as? ComponentActivity)?.let { activity ->
                         activity.intent.apply {
                             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)

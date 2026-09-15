@@ -27,6 +27,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
 
 @AndroidEntryPoint
 class ChargingAnimationService : Service() {
@@ -150,14 +151,13 @@ class ChargingAnimationService : Service() {
 
             try {
                 val animJob = launch(Dispatchers.Default) {
-                    glyphAnimationManager.playBatteryStatusAnimation(
-                        this@ChargingAnimationService,
-                        duration
+                    glyphAnimationManager.playChargingAnimationAnimation(
+                        this@ChargingAnimationService
                     )
                 }
 
                 val watchdogJob = launch {
-                    delay(duration)
+                    delay(duration.milliseconds)
                     animJob.cancelAndJoin()
                     glyphAnimationManager.stopAnimations()
                 }

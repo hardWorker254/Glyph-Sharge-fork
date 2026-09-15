@@ -1,46 +1,116 @@
 package com.bleelblep.glyphsharge.glyph
 
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import android.util.Log
+import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.nothing.ketchum.Common
 import com.nothing.ketchum.GlyphFrame
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
 import kotlin.math.sin
 import kotlin.random.Random
-import com.bleelblep.glyphsharge.data.SettingsRepository
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Optimized glyph animation manager.
- * Public API preserved. Internal duplication reduced via DeviceProfile.
+ * Plays glyph animations for supported Nothing Phone models.
+ *
+ * Device-specific channel layouts and timings are described by [DeviceProfile],
+ * built once for the connected model. All public suspend functions are safe to
+ * call concurrently: [isAnimationRunning] guards a running animation, and glyphs
+ * are always turned off when an animation ends or is cancelled.
  */
 @Singleton
 class GlyphAnimationManager @Inject constructor(
     private val glyphManager: GlyphManager,
     private val settingsRepository: SettingsRepository
 ) {
-    private val TAG = "GlyphAnimationManager"
+
+    private companion object {
+        const val TAG = "GlyphAnimationManager"
+
+        const val DEFAULT_MAX_BRIGHTNESS = 4000
+        const val CLEANUP_DELAY_MS = 100L
+
+        // Pulse
+        const val PULSE_ON_DURATION = 300L
+        const val PULSE_OFF_DURATION = 300L
+        const val PULSE_CYCLES = 3
+
+        // Notification effect
+        const val NOTIFICATION_CYCLES = 2
+        const val NOTIFICATION_ON_MS = 1000L
+        const val NOTIFICATION_OFF_MS = 500L
+
+        // Battery
+        const val BATTERY_STEP_DELAY = 50L
+        const val LOW_BATTERY_THRESHOLD_PERCENT = 20
+        const val FALLBACK_BATTERY_PERCENT = 50
+
+        // Tests
+        const val TEST_FLASH_REPEATS = 3
+        const val TEST_FLASH_ON_MS = 300L
+        const val TEST_FLASH_OFF_MS = 200L
+        const val FINAL_STATE_HOLD_MS = 3000L
+        const val ISOLATION_TEST_HOLD_MS = 5000L
+        const val ZONE_SHOW_MS = 1000L
+        const val ZONE_GAP_MS = 500L
+        const val PATTERN_ROUNDS = 3
+        const val PATTERN_SHOW_MS = 500L
+        const val PATTERN_GAP_MS = 200L
+
+        // Breathing (4-7-8: inhale 4s, hold 7s, exhale 8s — scaled)
+        const val BREATHING_STEP_MS = 200L
+        const val BREATHING_478_STEP_MS = 400L
+        const val BREATHING_478_HOLD_MS = 700L
+        const val BREATHING_478_EXHALE_MS = 800L
+
+        // Lock pulse
+        const val LOCK_STEP_MS = 100L
+        const val LOCK_FINAL_ON_MS = 700L
+        const val LOCK_DIM_RATIO = 0.5f
+
+        // Group (wave/beedah) step per device
+        const val GROUP_PHONE1_STEP = 150L
+        const val GROUP_PHONE2_STEP = 100L
+        const val GROUP_PHONE2A_STEP = 80L
+        const val GROUP_PHONE3A_STEP = 80L
+
+        // Spiral
+        const val SPIRAL_STEP_PHONE1 = 100L
+        const val SPIRAL_STEP_PHONE2 = 80L
+        const val SPIRAL_STEP_PHONE2A = 70L
+        const val SPIRAL_STEP_PHONE3A = 60L
+        const val SPIRAL_FULL_HOLD_MS = 250L
+        const val SPIRAL_END_BLINK_MS = 200L
+        const val SPIRAL_END_GAP_MS = 100L
+        const val SPIRAL_STAGE_EXTRA_MS = 10L
+        const val SPIRAL_FINALE_MS = 500L
+        const val SPIRAL_FINALE_GAP_MS = 200L
+        const val SPIRAL_FINALE_TAIL_MS = 300L
+
+        // Heartbeat
+        const val HEARTBEAT_CYCLES = 3
+        const val HEARTBEAT_BEAT_MS = 200L
+        const val HEARTBEAT_GAP_MS = 100L
+        const val HEARTBEAT_RECOVER_MS = 300L
+
+        // Playback dispatcher
+        const val CYCLE_MS = 500L
+    }
 
     @Volatile
     private var isAnimationRunning = false
 
-    private companion object {
-        const val DEFAULT_MAX_BRIGHTNESS = 4000
-        const val CLEANUP_DELAY = 100L
-        const val PULSE_ON_DURATION = 300L
-        const val PULSE_OFF_DURATION = 300L
-        const val BATTERY_STEP_DELAY = 50L
-        const val BATTERY_FILL_STEP_DELAY = 50L
-        const val WAVE_PHONE1_STEP = 150L
-        const val WAVE_PHONE2_STEP = 100L
-        const val WAVE_PHONE2A_STEP = 80L
-        const val WAVE_PHONE3A_STEP = 80L
-    }
+    private val maxBrightness = DEFAULT_MAX_BRIGHTNESS
 
-    private var maxBrightness = DEFAULT_MAX_BRIGHTNESS
+    private val profile: DeviceProfile? by lazy { buildProfile() }
 
     private enum class DeviceType {
         PHONE1,
@@ -49,340 +119,88 @@ class GlyphAnimationManager @Inject constructor(
         PHONE3A
     }
 
-    private data class AnimGroup(
+    private class AnimGroup(
         val segments: List<Int>,
         val step: Long,
         val off: Long = 0L
     )
 
-    private data class DeviceProfile(
+    private class MatrixConfig(
+        val drops: Int,
+        val minLength: Int,
+        val maxLength: Int,
+        val stepDelayMs: Long,
+        val offDelayMs: Long,
+        val brightnessDecrement: Int
+    )
+
+    private class FireworksConfig(
+        val count: Int,
+        val minExplosion: Int,
+        val maxExplosion: Int,
+        val launchDelayMs: Long,
+        val explosionDelayMs: Long,
+        val fadeDelayMs: Long
+    )
+
+    private class DnaConfig(
+        val rotations: Int,
+        val stepDelayMs: Long,
+        val offDelayMs: Long
+    )
+
+    private data class BatteryState(
+        val percentage: Int,
+        val isCharging: Boolean
+    )
+
+    private class DeviceProfile(
         val type: DeviceType,
         val all: List<Int>,
-        val c: List<Int>,
         val a: List<Int>,
         val b: List<Int>,
+        val c: List<Int>,
+        val cOther: List<Int>,
         val d: List<Int>,
         val e: List<Int>,
-        val cOther: List<Int>,
         val waveGroups: List<AnimGroup>,
-        val beedahGroups: List<AnimGroup>,
         val spiralOrder: List<Int>,
         val spiralStep: Long,
         val pulseSegments: List<Int>,
-        val lockMain: List<Int>,
-        val lockAll: List<Int>,
-        val zones: List<Pair<List<Int>, String>>,
+        val zones: List<List<Int>>,
         val channelMap: Map<Int, List<Int>>,
-        val c1SeqMain: List<Int>,
-        val c1SeqSupport: List<Int>,
         val c1SeqStep: Long,
         val c1SeqHold: Long,
         val customPatterns: List<List<Int>>,
-        val batteryBar: List<Int>
-    )
+        val matrixConfig: MatrixConfig,
+        val fireworksConfig: FireworksConfig,
+        val dnaConfig: DnaConfig
+    ) {
+        /** Same rhythm as [waveGroups], but without the pause between groups. */
+        val beedahGroups: List<AnimGroup> = waveGroups.map { AnimGroup(it.segments, it.step) }
 
-    private val profile: DeviceProfile? by lazy { buildProfile() }
+        /** Every channel outside the main C strip; used as supporting light. */
+        val nonC: List<Int> = all.filterNot { it in c.toSet() }
+    }
 
-    // region Public API
+    // region Public API — animations
 
     fun stopAnimations() {
         isAnimationRunning = false
-        runCatching { glyphManager.turnOffAll() }
+        turnOffAllSafely()
     }
 
     suspend fun runWaveAnimation() = anim { p ->
         for (group in p.waveGroups) {
             for (segment in group.segments) {
                 if (!isAnimationRunning) return@anim
-                toggleSingle(segment, group.step, group.off)
+                pulse(listOf(segment), onMs = group.step, offMs = group.off)
             }
         }
     }
 
     suspend fun runBeedahAnimation() = anim { p ->
         runBeedahGroups(p.beedahGroups)
-    }
-
-    suspend fun runPhone3aSpiralAnimation() = anim { p ->
-        if (p.type == DeviceType.PHONE3A) {
-            runPhone3aSpiralInternal(p)
-        }
-    }
-
-    suspend fun runPulseEffect(cycles: Int = 3) = anim { p ->
-        if (p.pulseSegments.isEmpty()) return@anim
-        val builder = createFrameBuilder(p.pulseSegments) ?: return@anim
-
-        repeat(cycles) {
-            if (!isAnimationRunning) return@repeat
-            try {
-                glyphManager.mGM?.toggle(builder.build())
-                delay(250L)
-                glyphManager.turnOffAll()
-                delay(250L)
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                Log.e(TAG, "Pulse error: ${e.message}")
-                delay(250L)
-            }
-        }
-    }
-
-    suspend fun runNotificationEffect() = anim { p ->
-        repeat(2) {
-            if (!isAnimationRunning) return@repeat
-            try {
-                val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: return@repeat
-                p.all.forEach { builder.buildChannel(it, maxBrightness) }
-                glyphManager.mGM?.toggle(builder.build())
-                delay(1000L)
-                glyphManager.turnOffAll()
-                delay(500L)
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                Log.e(TAG, "Notification effect error: ${e.message}")
-                delay(500L)
-            }
-        }
-    }
-
-    suspend fun testGlyphChannel(channelIndex: Int, bypassServiceCheck: Boolean = false) {
-        if (!isGlyphServiceEnabled()) return
-        if (!glyphManager.isNothingPhone()) return
-        if (!bypassServiceCheck && !glyphManager.canPerformOperation()) return
-
-        val p = profile ?: return
-        val channels = p.channelMap[channelIndex] ?: return
-
-        anim(requireService = false) {
-            flashChannels(channels, repeats = 3, onMs = 300L, offMs = 200L)
-        }
-    }
-
-    suspend fun testC1Segment(c1Index: Int, bypassServiceCheck: Boolean = false) {
-        if (!glyphManager.isNothingPhone()) return
-        if (!bypassServiceCheck && !glyphManager.canPerformOperation()) return
-
-        val p = profile ?: return
-        val channel = mapC1Index(p, c1Index)
-        if (channel == -1) return
-
-        anim(requireService = false) {
-            flashChannels(listOf(channel), repeats = 3, onMs = 300L, offMs = 200L)
-        }
-    }
-
-    suspend fun runC1SequentialAnimation() = anim(requireService = false) { p ->
-        if (p.c1SeqMain.isEmpty()) return@anim
-        runC1Phase(p, forward = true)
-        delay(p.c1SeqHold)
-        runC1Phase(p, forward = false)
-        glyphManager.turnOffAll()
-    }
-
-    suspend fun testAllZones(bypassServiceCheck: Boolean = false) {
-        if (!glyphManager.isNothingPhone()) return
-        if (!bypassServiceCheck && !glyphManager.canPerformOperation()) return
-
-        anim(requireService = false) { p ->
-            for ((channels, _) in p.zones) {
-                if (!isAnimationRunning) break
-                toggleChannels(channels, delayMs = 1000L)
-                glyphManager.turnOffAll()
-                delay(500L)
-            }
-        }
-    }
-
-    suspend fun testCustomPattern(bypassServiceCheck: Boolean = false) {
-        if (!glyphManager.isNothingPhone()) return
-        if (!bypassServiceCheck && !glyphManager.canPerformOperation()) return
-
-        anim(requireService = false) { p ->
-            repeat(3) {
-                if (!isAnimationRunning) return@repeat
-                for (pattern in p.customPatterns) {
-                    if (!isAnimationRunning) break
-                    toggleChannels(pattern, delayMs = 500L)
-                    glyphManager.turnOffAll()
-                    delay(200L)
-                }
-            }
-        }
-    }
-
-    suspend fun runC1SequentialWithBreathingTiming(is478Pattern: Boolean, cycles: Int) = anim { p ->
-        if (p.type != DeviceType.PHONE2) return@anim
-
-        val stepDuration = if (is478Pattern) 400L else 200L
-
-        repeat(cycles) {
-            if (!isAnimationRunning) return@repeat
-
-            for (segment in p.c) {
-                if (!isAnimationRunning) break
-                toggleChannels(listOf(segment), delayMs = stepDuration)
-            }
-
-            if (is478Pattern) delay(700L)
-
-            for (segment in p.c.reversed()) {
-                if (!isAnimationRunning) break
-                toggleChannels(listOf(segment), delayMs = stepDuration)
-            }
-
-            if (is478Pattern) delay(800L)
-        }
-    }
-
-    suspend fun testFinalStateBeforeTurnoff(bypassServiceCheck: Boolean = false) {
-        if (!glyphManager.isNothingPhone()) return
-        if (!bypassServiceCheck && !glyphManager.canPerformOperation()) return
-
-        anim(requireService = false) { p ->
-            val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: return@anim
-
-            when (p.type) {
-                DeviceType.PHONE1 -> {
-                    builder.buildChannel(2, maxBrightness)
-                    p.all.filter { it != 2 }.forEach { builder.buildChannel(it, maxBrightness / 4) }
-                }
-                DeviceType.PHONE2 -> {
-                    builder.buildChannel(3, maxBrightness)
-                    p.all.filter { it != 3 }.forEach { builder.buildChannel(it, maxBrightness / 16) }
-                }
-                else -> {
-                    val main = p.c.firstOrNull() ?: return@anim
-                    builder.buildChannel(main, maxBrightness)
-                    p.all.filter { it != main }.forEach { builder.buildChannel(it, maxBrightness / 8) }
-                }
-            }
-
-            toggleFrame(builder, 3000L)
-        }
-    }
-
-    suspend fun testOnlyC14AndC15Isolated(bypassServiceCheck: Boolean = false) {
-        if (!glyphManager.isNothingPhone() || !Common.is22111()) return
-        if (!bypassServiceCheck && !glyphManager.canPerformOperation()) return
-
-        anim(requireService = false) {
-            val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: return@anim
-
-            for (i in 0..32) {
-                if (i != 16 && i != 17) {
-                    builder.buildChannel(i, 0)
-                }
-            }
-
-            builder.buildChannel(16, maxBrightness)
-            builder.buildChannel(17, maxBrightness)
-
-            toggleFrame(builder, 5000L)
-        }
-    }
-
-    suspend fun playBatteryStatusAnimation(
-        context: Context,
-        durationMillis: Long,
-        onProgressUpdate: (Float) -> Unit = {}
-    ) {
-        if (!isGlyphServiceEnabled() || !glyphManager.isNothingPhone()) return
-
-        val p = profile ?: return
-        isAnimationRunning = true
-
-        try {
-            resetGlyphs()
-            delay(CLEANUP_DELAY)
-
-            val intentFilter = android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)
-            val batteryIntent = context.registerReceiver(null, intentFilter)
-
-            if (batteryIntent != null) {
-                val batteryLevel = batteryIntent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1)
-                val batteryScale = batteryIntent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1)
-                val batteryStatus = batteryIntent.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1)
-                val pluggedType = batteryIntent.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, -1)
-
-                val isPluggedIn = pluggedType == android.os.BatteryManager.BATTERY_PLUGGED_AC ||
-                        pluggedType == android.os.BatteryManager.BATTERY_PLUGGED_USB
-
-                val isCharging = isPluggedIn ||
-                        batteryStatus == android.os.BatteryManager.BATTERY_STATUS_CHARGING ||
-                        batteryStatus == android.os.BatteryManager.BATTERY_STATUS_FULL
-
-                val batteryPercentage = if (batteryLevel != -1 && batteryScale != -1) {
-                    (batteryLevel * 100 / batteryScale.toFloat()).toInt().coerceIn(0, 100)
-                } else {
-                    50
-                }
-
-                animateBattery(p, batteryPercentage, isCharging, durationMillis, onProgressUpdate)
-            } else {
-                animateBattery(p, 50, false, durationMillis, onProgressUpdate)
-            }
-        } finally {
-            isAnimationRunning = false
-            glyphManager.turnOffAll()
-        }
-    }
-
-    suspend fun playPulseLockAnimation(id: String) {
-        if (!isGlyphServiceEnabled()) return
-        playAnimation(id, settingsRepository.getPulseLockDuration()) { cycles ->
-            runPulseEffect(cycles)
-        }
-    }
-
-    suspend fun playLowBatteryAnimation(id: String) {
-        if (!isGlyphServiceEnabled()) return
-        playAnimation(id, settingsRepository.getLowBatteryDuration()) { cycles ->
-            runPulseEffect(cycles)
-        }
-    }
-
-    suspend fun playScreenOffAnimation(id: String) {
-        if (!isGlyphServiceEnabled()) return
-        playAnimation(id, settingsRepository.getScreenOffDuration()) { cycles ->
-            runPulseEffect(cycles)
-        }
-    }
-
-    suspend fun playNfcAnimation(id: String) {
-        if (!isGlyphServiceEnabled()) return
-        playAnimation(id, settingsRepository.getScreenOffDuration()) { cycles ->
-            runPulseEffect(cycles)
-        }
-    }
-
-    suspend fun runLockPulseAnimation() = anim { p ->
-        if (p.lockMain.isEmpty()) return@anim
-
-        val mainSet = p.lockMain.toSet()
-        val nonC = p.lockAll.filterNot { it in mainSet }
-
-        for (idx in p.lockMain.indices) {
-            if (!isAnimationRunning) break
-
-            val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
-            val nonCBrightness = (maxBrightness * 0.5f).toInt()
-
-            nonC.forEach { builder.buildChannel(it, nonCBrightness) }
-
-            for (j in 0..idx) {
-                val brightness = if (idx == 0 || j == idx) {
-                    maxBrightness
-                } else {
-                    (maxBrightness * (0.3f + 0.7f * (j.toFloat() / idx))).toInt()
-                }
-                builder.buildChannel(p.lockMain[j], brightness)
-            }
-
-            toggleFrame(builder, 100L)
-        }
-
-        toggleChannels(p.lockAll, delayMs = 700L)
     }
 
     suspend fun runSpiralAnimation() = anim { p ->
@@ -393,34 +211,109 @@ class GlyphAnimationManager @Inject constructor(
         }
     }
 
+    suspend fun runC1SequentialAnimation() = anim { p ->
+        if (p.c.isEmpty()) return@anim
+        runC1Phase(p, forward = true)
+        delay(p.c1SeqHold.milliseconds)
+        runC1Phase(p, forward = false)
+    }
+
+    suspend fun runLockPulseAnimation() = anim { p ->
+        if (p.c.isEmpty()) return@anim
+
+        val nonCBrightness = (maxBrightness * LOCK_DIM_RATIO).toInt()
+
+        for (idx in p.c.indices) {
+            if (!isAnimationRunning) break
+            val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
+
+            p.nonC.forEach { builder.buildChannel(it, nonCBrightness) }
+
+            for (j in 0..idx) {
+                val brightness = if (idx == 0 || j == idx) {
+                    maxBrightness
+                } else {
+                    (maxBrightness * (0.3f + 0.7f * (j.toFloat() / idx))).toInt()
+                }
+                builder.buildChannel(p.c[j], brightness)
+            }
+
+            toggleFrame(builder, LOCK_STEP_MS)
+        }
+
+        pulse(p.all, onMs = LOCK_FINAL_ON_MS)
+    }
+
+    suspend fun runPulseEffect(cycles: Int = 3) = anim { p ->
+        for (i in 0 until cycles) {
+            if (!isAnimationRunning) break
+            pulse(p.pulseSegments, onMs = PULSE_ON_DURATION, offMs = PULSE_OFF_DURATION)
+        }
+    }
+
     suspend fun runHeartbeatAnimation() = anim { p ->
         runHeartbeat(p)
     }
 
     suspend fun runMatrixRainAnimation() = anim { p ->
-        when (p.type) {
-            DeviceType.PHONE1 -> runMatrixForSegments(p.all, 20, 3, 8, 100L, 50L, 200)
-            DeviceType.PHONE2 -> runMatrixForSegments(p.all, 25, 4, 10, 80L, 40L, 150)
-            DeviceType.PHONE2A -> runMatrixForSegments(p.all, 30, 5, 12, 70L, 35L, 120)
-            DeviceType.PHONE3A -> runMatrixForSegments(p.all, 35, 6, 15, 60L, 30L, 100)
-        }
+        runMatrixRain(p)
     }
 
     suspend fun runFireworksAnimation() = anim { p ->
-        when (p.type) {
-            DeviceType.PHONE1 -> runFireworksForSegments(p.all, 5, 5, 10, 300L, 500L, 200L)
-            DeviceType.PHONE2 -> runFireworksForSegments(p.all, 6, 8, 15, 250L, 400L, 150L)
-            DeviceType.PHONE2A -> runFireworksForSegments(p.all, 7, 10, 20, 200L, 350L, 100L)
-            DeviceType.PHONE3A -> runFireworksForSegments(p.all, 8, 12, 25, 180L, 300L, 80L)
-        }
+        runFireworks(p)
     }
 
     suspend fun runDNAHelixAnimation() = anim { p ->
-        when (p.type) {
-            DeviceType.PHONE1 -> runDNAHelixForSegments(p.all, 3, 150L, 50L)
-            DeviceType.PHONE2 -> runDNAHelixForSegments(p.all, 3, 120L, 40L)
-            DeviceType.PHONE2A -> runDNAHelixForSegments(p.all, 3, 100L, 30L)
-            DeviceType.PHONE3A -> runDNAHelixForSegments(p.all, 3, 80L, 25L)
+        runDNAHelix(p)
+    }
+
+    // endregion
+
+    // region Public API — scenarios
+
+    suspend fun playPulseLockAnimation() {
+        if (!isGlyphServiceEnabled()) return
+        playAnimation(settingsRepository.getPulseLockAnimationId(), settingsRepository.getPulseLockDuration())
+    }
+
+    suspend fun playLowBatteryAnimation() {
+        if (!isGlyphServiceEnabled()) return
+        playAnimation(settingsRepository.getLowBatteryAnimationId(), settingsRepository.getLowBatteryDuration())
+    }
+
+    suspend fun playScreenOffAnimation() {
+        if (!isGlyphServiceEnabled()) return
+        playAnimation(settingsRepository.getScreenOffAnimationId(), settingsRepository.getScreenOffDuration())
+    }
+
+    suspend fun playNfcAnimation() {
+        if (!isGlyphServiceEnabled()) return
+        playAnimation(settingsRepository.getNfcAnimationId(), settingsRepository.getNfcAnimationDuration())
+    }
+
+    suspend fun playPowerPeekAnimation(
+        context: Context,
+        onProgressUpdate: (Float) -> Unit = {}
+    ) {
+        if (!isGlyphServiceEnabled() || !glyphManager.isNothingPhone()) return
+
+        val state = readBatteryState(context)
+
+        anim { p ->
+            animateBattery(p, state.percentage, state.isCharging, settingsRepository.getPowerPeekDuration(), onProgressUpdate)
+        }
+    }
+
+    suspend fun playChargingAnimationAnimation(
+        context: Context,
+        onProgressUpdate: (Float) -> Unit = {}
+    ) {
+        if (!isGlyphServiceEnabled() || !glyphManager.isNothingPhone()) return
+
+        val state = readBatteryState(context)
+
+        anim { p ->
+            animateBattery(p, state.percentage, state.isCharging, settingsRepository.getChargingAnimationDuration(), onProgressUpdate)
         }
     }
 
@@ -434,33 +327,26 @@ class GlyphAnimationManager @Inject constructor(
                 val a = listOf(0)
                 val b = listOf(1)
                 val c = (2..5).toList()
-                val e = listOf(6)
                 val d = (7..14).toList()
+                val e = listOf(6)
+                // Physical channel order: A, B, C, E, D.
                 val all = a + b + c + e + d
+                val groups = listOf(AnimGroup(all, GROUP_PHONE1_STEP, 50L))
 
                 DeviceProfile(
                     type = DeviceType.PHONE1,
                     all = all,
-                    c = c,
                     a = a,
                     b = b,
+                    c = c,
+                    cOther = emptyList(),
                     d = d,
                     e = e,
-                    cOther = emptyList(),
-                    waveGroups = listOf(AnimGroup(all, WAVE_PHONE1_STEP, 50L)),
-                    beedahGroups = listOf(AnimGroup(all, WAVE_PHONE1_STEP)),
+                    waveGroups = groups,
                     spiralOrder = e + a + b + c + d,
-                    spiralStep = 100L,
+                    spiralStep = SPIRAL_STEP_PHONE1,
                     pulseSegments = a + b + e,
-                    lockMain = c,
-                    lockAll = all,
-                    zones = listOf(
-                        a to "A Zone",
-                        b to "B Zone",
-                        c to "C Zone",
-                        e to "E Zone",
-                        d to "D Zone"
-                    ),
+                    zones = listOf(a, b, c, e, d),
                     channelMap = mapOf(
                         1 to a,
                         2 to b,
@@ -471,127 +357,140 @@ class GlyphAnimationManager @Inject constructor(
                         7 to (c + d),
                         8 to all
                     ),
-                    c1SeqMain = c,
-                    c1SeqSupport = a + b + e + d,
                     c1SeqStep = 250L,
                     c1SeqHold = 1000L,
-                    customPatterns = listOf(
-                        all.filterIndexed { index, _ -> index % 2 == 0 },
-                        all.filterIndexed { index, _ -> index % 2 == 1 }
+                    customPatterns = parityPatternsOf(all),
+                    matrixConfig = MatrixConfig(
+                        drops = 20,
+                        minLength = 3,
+                        maxLength = 8,
+                        stepDelayMs = 100L,
+                        offDelayMs = 50L,
+                        brightnessDecrement = 200
                     ),
-                    batteryBar = c
+                    fireworksConfig = FireworksConfig(
+                        count = 5,
+                        minExplosion = 5,
+                        maxExplosion = 10,
+                        launchDelayMs = 300L,
+                        explosionDelayMs = 500L,
+                        fadeDelayMs = 200L
+                    ),
+                    dnaConfig = DnaConfig(rotations = 3, stepDelayMs = 150L, offDelayMs = 50L)
                 )
             }
 
             Common.is22111() -> {
                 val a = listOf(0, 1)
                 val b = listOf(2)
-                val c1 = (3..18).toList()
+                val c = (3..18).toList()
                 val cOther = (19..23).toList()
-                val e = listOf(24)
                 val d = (25..32).toList()
-                val all = a + b + c1 + cOther + e + d
+                val e = listOf(24)
+                val all = a + b + c + cOther + e + d
+                val groups = listOf(AnimGroup(all, GROUP_PHONE2_STEP, 30L))
 
                 DeviceProfile(
                     type = DeviceType.PHONE2,
                     all = all,
-                    c = c1,
                     a = a,
                     b = b,
+                    c = c,
+                    cOther = cOther,
                     d = d,
                     e = e,
-                    cOther = cOther,
-                    waveGroups = listOf(AnimGroup(all, WAVE_PHONE2_STEP, 30L)),
-                    beedahGroups = listOf(AnimGroup(all, WAVE_PHONE2_STEP)),
-                    spiralOrder = e + a + b + c1 + cOther + d,
-                    spiralStep = 80L,
+                    waveGroups = groups,
+                    spiralOrder = e + a + b + c + cOther + d,
+                    spiralStep = SPIRAL_STEP_PHONE2,
                     pulseSegments = a + b + e,
-                    lockMain = c1,
-                    lockAll = all,
-                    zones = listOf(
-                        a to "A Zone",
-                        b to "B Zone",
-                        c1 to "C1 Zone",
-                        cOther to "C Other Zone",
-                        e to "E Zone",
-                        d to "D Zone"
-                    ),
+                    zones = listOf(a, b, c, cOther, e, d),
                     channelMap = mapOf(
                         1 to a,
                         2 to b,
-                        3 to c1,
+                        3 to c,
                         4 to cOther,
                         5 to e,
                         6 to d,
                         7 to (a + b),
-                        8 to all,
-                        9 to all
+                        8 to all
                     ),
-                    c1SeqMain = c1,
-                    c1SeqSupport = a + b + cOther + d + e,
                     c1SeqStep = 250L,
                     c1SeqHold = 1000L,
-                    customPatterns = listOf(
-                        c1.filterIndexed { index, _ -> index % 2 == 0 },
-                        c1.filterIndexed { index, _ -> index % 2 == 1 }
+                    customPatterns = parityPatternsOf(c),
+                    matrixConfig = MatrixConfig(
+                        drops = 25,
+                        minLength = 4,
+                        maxLength = 10,
+                        stepDelayMs = 80L,
+                        offDelayMs = 40L,
+                        brightnessDecrement = 150
                     ),
-                    batteryBar = c1
+                    fireworksConfig = FireworksConfig(
+                        count = 6,
+                        minExplosion = 8,
+                        maxExplosion = 15,
+                        launchDelayMs = 250L,
+                        explosionDelayMs = 400L,
+                        fadeDelayMs = 150L
+                    ),
+                    dnaConfig = DnaConfig(rotations = 3, stepDelayMs = 120L, offDelayMs = 40L)
                 )
             }
 
             Common.is23111() || Common.is23113() -> {
-                val c = (0..23).toList()
                 val a = listOf(25)
                 val b = listOf(24)
-                val all = (0..25).toList()
+                val c = (0..23).toList()
+                // Physical channel order: C, B, A == 0..25.
+                val all = c + b + a
+                val groups = listOf(
+                    AnimGroup(c, GROUP_PHONE2A_STEP, 30L),
+                    AnimGroup(a + b, GROUP_PHONE2A_STEP * 2, 50L)
+                )
 
                 DeviceProfile(
                     type = DeviceType.PHONE2A,
                     all = all,
-                    c = c,
                     a = a,
                     b = b,
+                    c = c,
+                    cOther = emptyList(),
                     d = emptyList(),
                     e = emptyList(),
-                    cOther = emptyList(),
-                    waveGroups = listOf(
-                        AnimGroup(c, WAVE_PHONE2A_STEP, 30L),
-                        AnimGroup(listOf(25, 24), WAVE_PHONE2A_STEP * 2, 50L)
-                    ),
-                    beedahGroups = listOf(
-                        AnimGroup(c, WAVE_PHONE2A_STEP),
-                        AnimGroup(listOf(25, 24), WAVE_PHONE2A_STEP * 2)
-                    ),
+                    waveGroups = groups,
                     spiralOrder = a + b + c,
-                    spiralStep = 70L,
+                    spiralStep = SPIRAL_STEP_PHONE2A,
                     pulseSegments = a + b,
-                    lockMain = c,
-                    lockAll = all,
-                    zones = listOf(
-                        c.take(12) to "C1 Zone",
-                        c.drop(12) to "C2 Zone",
-                        b to "B Zone",
-                        a to "A Zone"
-                    ),
+                    zones = listOf(c.take(12), c.drop(12), b, a),
                     channelMap = mapOf(
                         1 to a,
                         2 to b,
-                        3 to (0..11).toList(),
-                        4 to (12..23).toList(),
+                        3 to c.take(12),
+                        4 to c.drop(12),
                         5 to c,
-                        6 to listOf(24, 25),
-                        7 to all,
-                        8 to all
+                        6 to (b + a),
+                        7 to all
                     ),
-                    c1SeqMain = c,
-                    c1SeqSupport = a + b,
                     c1SeqStep = 180L,
                     c1SeqHold = 1500L,
-                    customPatterns = listOf(
-                        c.filterIndexed { index, _ -> index % 2 == 0 },
-                        c.filterIndexed { index, _ -> index % 2 == 1 }
+                    customPatterns = parityPatternsOf(c),
+                    matrixConfig = MatrixConfig(
+                        drops = 30,
+                        minLength = 5,
+                        maxLength = 12,
+                        stepDelayMs = 70L,
+                        offDelayMs = 35L,
+                        brightnessDecrement = 120
                     ),
-                    batteryBar = c
+                    fireworksConfig = FireworksConfig(
+                        count = 7,
+                        minExplosion = 10,
+                        maxExplosion = 20,
+                        launchDelayMs = 200L,
+                        explosionDelayMs = 350L,
+                        fadeDelayMs = 100L
+                    ),
+                    dnaConfig = DnaConfig(rotations = 3, stepDelayMs = 100L, offDelayMs = 30L)
                 )
             }
 
@@ -600,56 +499,55 @@ class GlyphAnimationManager @Inject constructor(
                 val a = (20..30).toList()
                 val b = (31..35).toList()
                 val all = c + a + b
+                val groups = listOf(
+                    AnimGroup(c, GROUP_PHONE3A_STEP, 25L),
+                    AnimGroup(a, GROUP_PHONE3A_STEP + 20L, 30L),
+                    AnimGroup(b, GROUP_PHONE3A_STEP + 40L, 40L)
+                )
 
                 DeviceProfile(
                     type = DeviceType.PHONE3A,
                     all = all,
-                    c = c,
                     a = a,
                     b = b,
+                    c = c,
+                    cOther = emptyList(),
                     d = emptyList(),
                     e = emptyList(),
-                    cOther = emptyList(),
-                    waveGroups = listOf(
-                        AnimGroup(c, WAVE_PHONE3A_STEP, 25L),
-                        AnimGroup(a, WAVE_PHONE3A_STEP + 20L, 30L),
-                        AnimGroup(b, WAVE_PHONE3A_STEP + 40L, 40L)
-                    ),
-                    beedahGroups = listOf(
-                        AnimGroup(c, WAVE_PHONE3A_STEP),
-                        AnimGroup(a, WAVE_PHONE3A_STEP + 20L),
-                        AnimGroup(b, WAVE_PHONE3A_STEP + 40L)
-                    ),
+                    waveGroups = groups,
                     spiralOrder = all,
-                    spiralStep = 60L,
+                    spiralStep = SPIRAL_STEP_PHONE3A,
                     pulseSegments = listOf(25, 33, 9),
-                    lockMain = c,
-                    lockAll = all,
-                    zones = listOf(
-                        c.take(10) to "C1 Zone",
-                        c.drop(10) to "C2 Zone",
-                        a to "A Zone",
-                        b to "B Zone"
-                    ),
+                    zones = listOf(c.take(10), c.drop(10), a, b),
                     channelMap = mapOf(
                         1 to a,
                         2 to b,
-                        3 to (0..9).toList(),
-                        4 to (10..19).toList(),
+                        3 to c.take(10),
+                        4 to c.drop(10),
                         5 to c,
                         6 to (a + b),
-                        7 to all,
-                        8 to all
+                        7 to all
                     ),
-                    c1SeqMain = c,
-                    c1SeqSupport = a + b,
                     c1SeqStep = 200L,
                     c1SeqHold = 2000L,
-                    customPatterns = listOf(
-                        c.filterIndexed { index, _ -> index % 2 == 0 },
-                        c.filterIndexed { index, _ -> index % 2 == 1 }
+                    customPatterns = parityPatternsOf(c),
+                    matrixConfig = MatrixConfig(
+                        drops = 35,
+                        minLength = 6,
+                        maxLength = 15,
+                        stepDelayMs = 60L,
+                        offDelayMs = 30L,
+                        brightnessDecrement = 100
                     ),
-                    batteryBar = c
+                    fireworksConfig = FireworksConfig(
+                        count = 8,
+                        minExplosion = 12,
+                        maxExplosion = 25,
+                        launchDelayMs = 180L,
+                        explosionDelayMs = 300L,
+                        fadeDelayMs = 80L
+                    ),
+                    dnaConfig = DnaConfig(rotations = 3, stepDelayMs = 80L, offDelayMs = 25L)
                 )
             }
 
@@ -657,13 +555,40 @@ class GlyphAnimationManager @Inject constructor(
         }
     }
 
+    private fun parityPatternsOf(channels: List<Int>): List<List<Int>> = listOf(
+        channels.filterIndexed { index, _ -> index % 2 == 0 },
+        channels.filterIndexed { index, _ -> index % 2 == 1 }
+    )
+
     // endregion
 
-    // region Core animation runners
+    // region Core helpers
+
+    private fun turnOffAllSafely() {
+        runCatching { glyphManager.turnOffAll() }
+            .onFailure { Log.e(TAG, "turnOffAll failed", it) }
+    }
+
+    private suspend fun handleAnimationError(
+        e: Exception,
+        message: String,
+        retryDelayMs: Long = 0L
+    ) {
+        if (e is CancellationException) throw e
+        Log.e(TAG, message, e)
+        if (retryDelayMs > 0) delay(retryDelayMs)
+    }
+
+    private fun isGlyphServiceEnabled(): Boolean {
+        val enabled = settingsRepository.getGlyphServiceEnabled()
+        if (!enabled) {
+            Log.d(TAG, "Glyph service disabled - animation call ignored")
+        }
+        return enabled
+    }
 
     private suspend fun anim(
         requireService: Boolean = true,
-        reset: Boolean = true,
         block: suspend (DeviceProfile) -> Unit
     ) {
         if (requireService && !isGlyphServiceEnabled()) return
@@ -673,22 +598,15 @@ class GlyphAnimationManager @Inject constructor(
         isAnimationRunning = true
 
         try {
-            if (reset) {
-                resetGlyphs()
-                delay(CLEANUP_DELAY)
-            }
+            turnOffAllSafely()
+            delay(CLEANUP_DELAY_MS)
             block(p)
         } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            Log.e(TAG, "Animation error: ${e.message}")
+            handleAnimationError(e, "Animation error")
         } finally {
             isAnimationRunning = false
-            glyphManager.turnOffAll()
+            turnOffAllSafely()
         }
-    }
-
-    private fun resetGlyphs() {
-        runCatching { glyphManager.turnOffAll() }
     }
 
     private fun createFrameBuilder(
@@ -700,7 +618,7 @@ class GlyphAnimationManager @Inject constructor(
             glyphManager.mGM?.getGlyphFrameBuilder()?.apply {
                 channels.forEach { buildChannel(it, brightness) }
             }
-        }.getOrNull()
+        }.onFailure { Log.e(TAG, "createFrameBuilder error", it) }.getOrNull()
     }
 
     private suspend fun toggleFrame(builder: GlyphFrame.Builder?, delayMs: Long = 0L) {
@@ -709,9 +627,7 @@ class GlyphAnimationManager @Inject constructor(
             glyphManager.mGM?.toggle(builder.build())
             if (delayMs > 0) delay(delayMs)
         } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            Log.e(TAG, "toggleFrame error: ${e.message}")
-            if (delayMs > 0) delay(delayMs)
+            handleAnimationError(e, "toggleFrame error", delayMs)
         }
     }
 
@@ -720,32 +636,19 @@ class GlyphAnimationManager @Inject constructor(
         brightness: Int = maxBrightness,
         delayMs: Long = 0L
     ) {
-        if (channels.isEmpty()) return
-        try {
-            createFrameBuilder(channels, brightness)?.let {
-                glyphManager.mGM?.toggle(it.build())
-            }
-            if (delayMs > 0) delay(delayMs)
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            Log.e(TAG, "toggleChannels error: ${e.message}")
-            if (delayMs > 0) delay(delayMs)
-        }
+        toggleFrame(createFrameBuilder(channels, brightness), delayMs)
     }
 
-    private suspend fun toggleSingle(channel: Int, onMs: Long, offMs: Long = 0L) {
-        try {
-            createFrameBuilder(listOf(channel))?.let {
-                glyphManager.mGM?.toggle(it.build())
-            }
-            if (onMs > 0) delay(onMs)
-            glyphManager.turnOffAll()
-            if (offMs > 0) delay(offMs)
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            Log.e(TAG, "toggleSingle error: ${e.message}")
-            if (onMs > 0) delay(onMs)
-        }
+    /** Shows [channels] for [onMs], turns everything off, waits [offMs]. */
+    private suspend fun pulse(
+        channels: Collection<Int>,
+        onMs: Long,
+        offMs: Long = 0L,
+        brightness: Int = maxBrightness
+    ) {
+        toggleChannels(channels, brightness, onMs)
+        turnOffAllSafely()
+        if (offMs > 0) delay(offMs)
     }
 
     private suspend fun flashChannels(
@@ -754,13 +657,15 @@ class GlyphAnimationManager @Inject constructor(
         onMs: Long,
         offMs: Long
     ) {
-        repeat(repeats) {
-            if (!isAnimationRunning) return
-            toggleChannels(channels, delayMs = onMs)
-            glyphManager.turnOffAll()
-            delay(offMs)
+        for (i in 0 until repeats) {
+            if (!isAnimationRunning) break
+            pulse(channels, onMs = onMs, offMs = offMs)
         }
     }
+
+    // endregion
+
+    // region Animation runners
 
     private suspend fun runBeedahGroups(groups: List<AnimGroup>) {
         val lit = mutableListOf<Int>()
@@ -777,25 +682,18 @@ class GlyphAnimationManager @Inject constructor(
     }
 
     private suspend fun pulseSegments(channels: Collection<Int>) {
-        repeat(3) {
-            if (!isAnimationRunning) return
-            glyphManager.turnOffAll()
-            delay(PULSE_OFF_DURATION)
-            toggleChannels(channels, delayMs = PULSE_ON_DURATION)
+        for (i in 0 until PULSE_CYCLES) {
+            if (!isAnimationRunning) break
+            pulse(channels, onMs = PULSE_ON_DURATION, offMs = PULSE_OFF_DURATION)
         }
     }
 
     private suspend fun runHeartbeat(p: DeviceProfile) {
-        repeat(3) {
-            if (!isAnimationRunning) return
-
-            toggleChannels(p.all, delayMs = 200L)
-            glyphManager.turnOffAll()
-            delay(100L)
-
-            toggleChannels(p.all, delayMs = 200L)
-            glyphManager.turnOffAll()
-            delay(300L)
+        for (beat in 0 until HEARTBEAT_CYCLES) {
+            if (!isAnimationRunning) break
+            pulse(p.all, onMs = HEARTBEAT_BEAT_MS, offMs = HEARTBEAT_GAP_MS)
+            if (!isAnimationRunning) break
+            pulse(p.all, onMs = HEARTBEAT_BEAT_MS, offMs = HEARTBEAT_RECOVER_MS)
         }
     }
 
@@ -806,8 +704,8 @@ class GlyphAnimationManager @Inject constructor(
         val size = segments.size
 
         for (i in segments.indices) {
-            if (!isAnimationRunning) return
-            val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: return
+            if (!isAnimationRunning) break
+            val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
 
             for (j in 0..i) {
                 val brightness = (maxBrightness * (0.6f + (j.toFloat() / size) * 0.4f)).toInt()
@@ -817,11 +715,11 @@ class GlyphAnimationManager @Inject constructor(
             toggleFrame(builder, p.spiralStep)
         }
 
-        toggleChannels(segments, delayMs = 250L)
+        toggleChannels(segments, delayMs = SPIRAL_FULL_HOLD_MS)
 
         for (i in segments.indices.reversed()) {
-            if (!isAnimationRunning) return
-            val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: return
+            if (!isAnimationRunning) break
+            val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
 
             val denom = (size - i).coerceAtLeast(1)
             for (j in i until size) {
@@ -832,73 +730,64 @@ class GlyphAnimationManager @Inject constructor(
             toggleFrame(builder, p.spiralStep)
         }
 
-        val center = segments.firstOrNull() ?: return
-        toggleSingle(center, 200L, 100L)
-        toggleSingle(center, 200L, 0L)
+        pulse(listOf(segments.first()), onMs = SPIRAL_END_BLINK_MS, offMs = SPIRAL_END_GAP_MS)
+        pulse(listOf(segments.first()), onMs = SPIRAL_END_BLINK_MS)
     }
 
     private suspend fun runPhone3aSpiralInternal(p: DeviceProfile) {
-        val stepDuration = 60L
+        val step = p.spiralStep
 
-        for (i in p.c.indices) {
-            if (!isAnimationRunning) break
-            val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
-
-            for (j in 0..i) {
-                val brightness = if (j == i) {
-                    maxBrightness
-                } else {
-                    (maxBrightness * (0.3f + (j.toFloat() / i.coerceAtLeast(1)) * 0.4f)).toInt()
-                }
-                builder.buildChannel(p.c[j], brightness)
+        progressiveSweep(p.c, step) { j, i ->
+            if (j == i) {
+                maxBrightness
+            } else {
+                (maxBrightness * (0.3f + (j.toFloat() / i.coerceAtLeast(1)) * 0.4f)).toInt()
             }
-
-            toggleFrame(builder, stepDuration)
         }
 
-        for (i in p.a.indices) {
-            if (!isAnimationRunning) break
-            val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
-
-            p.c.forEach { builder.buildChannel(it, (maxBrightness * 0.3f).toInt()) }
-
-            for (j in 0..i) {
-                val brightness = if (j == i) {
-                    maxBrightness
-                } else {
-                    (maxBrightness * (0.5f + (j.toFloat() / i.coerceAtLeast(1)) * 0.5f)).toInt()
-                }
-                builder.buildChannel(p.a[j], brightness)
+        progressiveSweep(p.a, step + SPIRAL_STAGE_EXTRA_MS, dimmed(p.c, 0.3f)) { j, i ->
+            if (j == i) {
+                maxBrightness
+            } else {
+                (maxBrightness * (0.5f + (j.toFloat() / i.coerceAtLeast(1)) * 0.5f)).toInt()
             }
-
-            toggleFrame(builder, stepDuration + 10L)
         }
 
-        for (i in p.b.indices) {
-            if (!isAnimationRunning) break
-            val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
-
-            p.c.forEach { builder.buildChannel(it, (maxBrightness * 0.4f).toInt()) }
-            p.a.forEach { builder.buildChannel(it, (maxBrightness * 0.7f).toInt()) }
-
-            for (j in 0..i) {
-                builder.buildChannel(p.b[j], maxBrightness)
-            }
-
-            toggleFrame(builder, stepDuration + 20L)
+        progressiveSweep(p.b, step + SPIRAL_STAGE_EXTRA_MS * 2, dimmed(p.c, 0.4f) + dimmed(p.a, 0.7f)) { _, _ ->
+            maxBrightness
         }
 
-        val first = createFrameBuilder(p.all) ?: return
-        toggleFrame(first, 500L)
-        glyphManager.turnOffAll()
-        delay(200L)
-
-        val second = createFrameBuilder(p.all)
-        toggleFrame(second, 300L)
+        toggleFrame(createFrameBuilder(p.all), SPIRAL_FINALE_MS)
+        turnOffAllSafely()
+        delay(SPIRAL_FINALE_GAP_MS.milliseconds)
+        toggleFrame(createFrameBuilder(p.all), SPIRAL_FINALE_TAIL_MS)
     }
 
+    private suspend fun progressiveSweep(
+        segments: List<Int>,
+        stepMs: Long,
+        base: List<Pair<Int, Int>> = emptyList(),
+        brightness: (j: Int, i: Int) -> Int
+    ) {
+        for (i in segments.indices) {
+            if (!isAnimationRunning) break
+            val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
+
+            base.forEach { (channel, baseBrightness) -> builder.buildChannel(channel, baseBrightness) }
+
+            for (j in 0..i) {
+                builder.buildChannel(segments[j], brightness(j, i))
+            }
+
+            toggleFrame(builder, stepMs)
+        }
+    }
+
+    private fun dimmed(channels: List<Int>, ratio: Float): List<Pair<Int, Int>> =
+        channels.map { it to (maxBrightness * ratio).toInt() }
+
     private suspend fun runC1Phase(p: DeviceProfile, forward: Boolean) {
-        val main = p.c1SeqMain
+        val main = p.c
         if (main.isEmpty()) return
 
         val indices = if (forward) main.indices else main.indices.reversed()
@@ -913,105 +802,70 @@ class GlyphAnimationManager @Inject constructor(
             }
 
             val supportBrightness = (maxBrightness * ((i + 1) / main.size.toFloat())).toInt()
-            p.c1SeqSupport.forEach { builder.buildChannel(it, supportBrightness) }
+            p.nonC.forEach { builder.buildChannel(it, supportBrightness) }
 
             toggleFrame(builder, p.c1SeqStep)
         }
     }
 
-    private suspend fun runMatrixForSegments(
-        segments: List<Int>,
-        drops: Int,
-        minLength: Int,
-        maxLength: Int,
-        stepDelay: Long,
-        offDelay: Long,
-        brightnessDecrement: Int
-    ) {
-        if (segments.isEmpty()) return
+    private suspend fun runMatrixRain(p: DeviceProfile) {
+        val cfg = p.matrixConfig
+        if (p.all.isEmpty()) return
 
-        repeat(drops) {
-            if (!isAnimationRunning) return@repeat
+        for (drop in 0 until cfg.drops) {
+            if (!isAnimationRunning) break
 
-            val safeMax = maxLength
-                .coerceAtMost(segments.size + 1)
-                .coerceAtLeast(minLength + 1)
+            val safeMax = cfg.maxLength
+                .coerceAtMost(p.all.size + 1)
+                .coerceAtLeast(cfg.minLength + 1)
 
-            val dropLength = Random.nextInt(minLength, safeMax).coerceAtMost(segments.size)
-            val maxStart = (segments.size - dropLength).coerceAtLeast(0)
+            val dropLength = Random.nextInt(cfg.minLength, safeMax).coerceAtMost(p.all.size)
+            val maxStart = (p.all.size - dropLength).coerceAtLeast(0)
             val startIndex = if (maxStart == 0) 0 else Random.nextInt(maxStart)
 
             for (i in 0 until dropLength) {
                 if (!isAnimationRunning) break
 
-                val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: return
-                val segmentIndex = startIndex + i
-
-                if (segmentIndex < segments.size) {
-                    val brightness = (maxBrightness - (i * brightnessDecrement)).coerceAtLeast(0)
-                    builder.buildChannel(segments[segmentIndex], brightness)
-                }
-
-                toggleFrame(builder, stepDelay)
-                glyphManager.turnOffAll()
-                delay(offDelay)
+                val brightness = (maxBrightness - i * cfg.brightnessDecrement).coerceAtLeast(0)
+                pulse(listOf(p.all[startIndex + i]), onMs = cfg.stepDelayMs, offMs = cfg.offDelayMs, brightness = brightness)
             }
         }
     }
 
-    private suspend fun runFireworksForSegments(
-        segments: List<Int>,
-        fireworks: Int,
-        minExplosion: Int,
-        maxExplosion: Int,
-        launchDelay: Long,
-        explosionDelay: Long,
-        fadeDelay: Long
-    ) {
-        if (segments.isEmpty()) return
+    private suspend fun runFireworks(p: DeviceProfile) {
+        val cfg = p.fireworksConfig
+        if (p.all.isEmpty()) return
 
-        repeat(fireworks) {
-            if (!isAnimationRunning) return@repeat
+        for (i in 0 until cfg.count) {
+            if (!isAnimationRunning) break
 
-            toggleChannels(listOf(segments.random()), delayMs = launchDelay)
+            pulse(listOf(p.all.random()), onMs = cfg.launchDelayMs)
 
-            val safeMax = maxExplosion
-                .coerceAtMost(segments.size + 1)
-                .coerceAtLeast(minExplosion + 1)
+            val safeMax = cfg.maxExplosion
+                .coerceAtMost(p.all.size + 1)
+                .coerceAtLeast(cfg.minExplosion + 1)
 
-            val explosionCount = Random.nextInt(minExplosion, safeMax).coerceAtMost(segments.size)
-            val explosionSegments = segments.shuffled().take(explosionCount)
+            val explosionCount = Random.nextInt(cfg.minExplosion, safeMax).coerceAtMost(p.all.size)
+            val explosionSegments = p.all.shuffled().take(explosionCount)
 
-            toggleChannels(explosionSegments, delayMs = explosionDelay)
-            glyphManager.turnOffAll()
-            delay(fadeDelay)
+            pulse(explosionSegments, onMs = cfg.explosionDelayMs, offMs = cfg.fadeDelayMs)
         }
     }
 
-    private suspend fun runDNAHelixForSegments(
-        segments: List<Int>,
-        rotations: Int,
-        stepDelay: Long,
-        offDelay: Long
-    ) {
-        if (segments.isEmpty()) return
+    private suspend fun runDNAHelix(p: DeviceProfile) {
+        val cfg = p.dnaConfig
+        if (p.all.isEmpty()) return
 
-        val size = segments.size
+        val size = p.all.size
 
-        repeat(rotations) {
-            if (!isAnimationRunning) return@repeat
-
-            for (i in segments.indices) {
+        for (rotation in 0 until cfg.rotations) {
+            for (i in p.all.indices) {
                 if (!isAnimationRunning) break
-
-                val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: return
-
-                builder.buildChannel(segments[i], maxBrightness)
-                builder.buildChannel(segments[(i + size / 2) % size], maxBrightness)
-
-                toggleFrame(builder, stepDelay)
-                glyphManager.turnOffAll()
-                delay(offDelay)
+                pulse(
+                    listOf(p.all[i], p.all[(i + size / 2) % size]),
+                    onMs = cfg.stepDelayMs,
+                    offMs = cfg.offDelayMs
+                )
             }
         }
     }
@@ -1020,16 +874,43 @@ class GlyphAnimationManager @Inject constructor(
 
     // region Battery
 
+    private fun readBatteryState(context: Context): BatteryState {
+        val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+        // Sticky system broadcast read: null receiver, no exporter flag required.
+        val intent = context.registerReceiver(null, filter)
+            ?: return BatteryState(FALLBACK_BATTERY_PERCENT, isCharging = false)
+
+        val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+        val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+        val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+        val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1)
+
+        val isPluggedIn = plugged == BatteryManager.BATTERY_PLUGGED_AC ||
+                plugged == BatteryManager.BATTERY_PLUGGED_USB ||
+                plugged == BatteryManager.BATTERY_PLUGGED_WIRELESS ||
+                plugged == BatteryManager.BATTERY_PLUGGED_DOCK
+
+        val isCharging = isPluggedIn || status == BatteryManager.BATTERY_STATUS_CHARGING
+
+        val percentage = if (level != -1 && scale != -1) {
+            (level * 100 / scale.toFloat()).toInt().coerceIn(0, 100)
+        } else {
+            FALLBACK_BATTERY_PERCENT
+        }
+
+        return BatteryState(percentage, isCharging)
+    }
+
     private suspend fun animateBattery(
         p: DeviceProfile,
         batteryPercentage: Int,
         isCharging: Boolean,
-        durationMillis: Long,
+        durationMs: Long,
         onProgressUpdate: (Float) -> Unit
     ) {
-        if (durationMillis <= 0) return
+        if (durationMs <= 0) return
 
-        val bar = p.batteryBar
+        val bar = p.c
         if (bar.isEmpty()) return
 
         val total = bar.size
@@ -1041,20 +922,18 @@ class GlyphAnimationManager @Inject constructor(
 
         while (isAnimationRunning) {
             val elapsed = System.currentTimeMillis() - startTime
-            if (elapsed >= durationMillis) break
+            if (elapsed >= durationMs) {
+                onProgressUpdate(1f)
+                break
+            }
 
-            onProgressUpdate((elapsed / durationMillis.toFloat()).coerceIn(0f, 1f))
+            onProgressUpdate((elapsed / durationMs.toFloat()).coerceIn(0f, 1f))
 
             try {
                 val builder = glyphManager.mGM?.getGlyphFrameBuilder() ?: break
                 val base = calculateBaseBrightness(batteryPercentage, isCharging)
 
-                val delayTime = if (current < target) {
-                    current++
-                    BATTERY_FILL_STEP_DELAY
-                } else {
-                    BATTERY_STEP_DELAY
-                }
+                if (current < target) current++
 
                 for (i in 0 until current) {
                     val brightness = if (isCharging) {
@@ -1091,33 +970,33 @@ class GlyphAnimationManager @Inject constructor(
                     } else {
                         when (p.type) {
                             DeviceType.PHONE1 -> {
-                                if (batteryPercentage >= 20) {
-                                    addPlayfulGlow(builder, bar, batteryPercentage, base, step)
+                                if (batteryPercentage >= LOW_BATTERY_THRESHOLD_PERCENT) {
+                                    addPlayfulBarGlow(builder, bar, batteryPercentage, base, step)
                                 } else if (current > 0) {
                                     addAlert(builder, bar[current - 1], step)
                                 }
                             }
                             DeviceType.PHONE2 -> {
-                                if (batteryPercentage >= 20) {
-                                    addPlayfulGlowPhone2(builder, p, step)
+                                if (batteryPercentage >= LOW_BATTERY_THRESHOLD_PERCENT) {
+                                    addPlayfulAccentGlow(builder, p, step)
                                     addWaveAnimation(
                                         builder,
                                         bar,
-                                        (current.toFloat() / total * 100f).toInt(),
-                                        base,
-                                        step
+                                        filledCount = current,
+                                        baseBrightness = base,
+                                        step = step
                                     )
                                 } else {
                                     p.a.forEach { addAlert(builder, it, step) }
                                 }
                             }
                             DeviceType.PHONE2A -> {
-                                if (batteryPercentage < 20) {
+                                if (batteryPercentage < LOW_BATTERY_THRESHOLD_PERCENT) {
                                     p.a.firstOrNull()?.let { addAlert(builder, it, step) }
                                 }
                             }
                             DeviceType.PHONE3A -> {
-                                if (batteryPercentage < 20 && current > 0) {
+                                if (batteryPercentage < LOW_BATTERY_THRESHOLD_PERCENT && current > 0) {
                                     addAlert(builder, bar[current - 1], step)
                                 }
                             }
@@ -1126,12 +1005,10 @@ class GlyphAnimationManager @Inject constructor(
                 }
 
                 glyphManager.mGM?.toggle(builder.build())
-                delay(delayTime)
+                delay(BATTERY_STEP_DELAY.milliseconds)
                 step++
             } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                Log.e(TAG, "Battery animation error: ${e.message}")
-                delay(BATTERY_STEP_DELAY)
+                handleAnimationError(e, "Battery animation error", BATTERY_STEP_DELAY)
                 step++
             }
         }
@@ -1139,8 +1016,8 @@ class GlyphAnimationManager @Inject constructor(
 
     private fun calculateBaseBrightness(batteryPercentage: Int, isCharging: Boolean): Int {
         return when {
-            batteryPercentage < 20 -> maxBrightness / 3
             isCharging -> maxBrightness
+            batteryPercentage < LOW_BATTERY_THRESHOLD_PERCENT -> maxBrightness / 3
             else -> (maxBrightness * 0.7f).toInt()
         }
     }
@@ -1169,7 +1046,7 @@ class GlyphAnimationManager @Inject constructor(
         builder.buildChannel(channel, brightness.coerceIn(0, maxBrightness))
     }
 
-    private fun addPlayfulGlow(
+    private fun addPlayfulBarGlow(
         builder: GlyphFrame.Builder,
         bar: List<Int>,
         batteryPercentage: Int,
@@ -1195,13 +1072,13 @@ class GlyphAnimationManager @Inject constructor(
         if (step % 20 == 0) {
             val unused = bar.indices.filter { it >= filled.toInt() }
             if (unused.isNotEmpty()) {
-                val twinkleChannel = bar[unused[Random.nextInt(unused.size)]]
+                val twinkleChannel = bar[unused.random()]
                 builder.buildChannel(twinkleChannel, (maxBrightness * 0.5f).toInt())
             }
         }
     }
 
-    private fun addPlayfulGlowPhone2(
+    private fun addPlayfulAccentGlow(
         builder: GlyphFrame.Builder,
         p: DeviceProfile,
         step: Int
@@ -1216,12 +1093,11 @@ class GlyphAnimationManager @Inject constructor(
     private fun addWaveAnimation(
         builder: GlyphFrame.Builder,
         segments: List<Int>,
-        batteryPercentage: Int,
+        filledCount: Int,
         baseBrightness: Int,
         step: Int
     ) {
-        val total = segments.size.toFloat()
-        val filledLevel = batteryPercentage / 100f * total
+        val filledLevel = filledCount.toFloat()
 
         for (i in segments.indices) {
             val base = when {
@@ -1240,47 +1116,24 @@ class GlyphAnimationManager @Inject constructor(
 
     // endregion
 
-    // region Selection helpers
+    // region Dispatch and mapping
 
-    private suspend fun playAnimation(
-        id: String,
-        durationMs: Long,
-        fallback: suspend (Int) -> Unit
-    ) {
-        val cycles = (durationMs / 500L).toInt().coerceAtLeast(1)
-        val key = id.trim().uppercase(java.util.Locale.ROOT)
+    private suspend fun playAnimation(id: String, durationMs: Long) {
+        val cycles = (durationMs / CYCLE_MS).toInt().coerceAtLeast(1)
 
-        when (key) {
+        when (id.trim().uppercase(Locale.ROOT)) {
             "C1" -> runC1SequentialAnimation()
             "WAVE" -> runWaveAnimation()
             "BEEDAH" -> runBeedahAnimation()
             "LOCK" -> runLockPulseAnimation()
-            "PULSE" -> runPulseEffect(cycles)
             "SPIRAL" -> runSpiralAnimation()
             "HEARTBEAT" -> runHeartbeatAnimation()
             "MATRIX" -> runMatrixRainAnimation()
             "FIREWORKS" -> runFireworksAnimation()
             "DNA" -> runDNAHelixAnimation()
-            else -> fallback(cycles)
+            // "PULSE" and any unknown id fall back to the pulse effect.
+            else -> runPulseEffect(cycles)
         }
     }
-
-    private fun mapC1Index(p: DeviceProfile, c1Index: Int): Int {
-        return when (p.type) {
-            DeviceType.PHONE1 -> if (c1Index in 1..4) c1Index + 1 else -1
-            DeviceType.PHONE2 -> if (c1Index in 1..16) p.c1SeqMain[c1Index - 1] else -1
-            DeviceType.PHONE2A -> if (c1Index in 1..24) c1Index - 1 else -1
-            DeviceType.PHONE3A -> if (c1Index in 1..20) c1Index - 1 else -1
-        }
-    }
-
-    private fun isGlyphServiceEnabled(): Boolean {
-        val enabled = settingsRepository.getGlyphServiceEnabled()
-        if (!enabled) {
-            Log.d(TAG, "Glyph service disabled – animation call ignored")
-        }
-        return enabled
-    }
-
     // endregion
 }

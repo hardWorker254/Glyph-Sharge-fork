@@ -30,11 +30,11 @@ data class PowerPeekConfig(
 
 @Composable
 fun PowerPeekConfirmationDialog(
+    modifier: Modifier = Modifier,
     onTestPowerPeek: () -> Unit,
     onEnablePowerPeek: () -> Unit,
     onDisablePowerPeek: () -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
     settingsRepository: SettingsRepository
 ) {
     var showSettingsDialog by remember { mutableStateOf(false) }
@@ -97,17 +97,17 @@ fun PowerPeekConfirmationDialog(
 
     if (showSettingsDialog) {
         PowerPeekEnableDialog(
-            onConfirm = { config ->
+            onConfirm = { _ ->
                 onEnablePowerPeek()
                 showSettingsDialog = false
                 onDismiss()
             },
-            onDismiss = { showSettingsDialog = false },
             onDisable = {
                 onDisablePowerPeek()
                 showSettingsDialog = false
                 onDismiss()
             },
+            onDismiss = { showSettingsDialog = false },
             settingsRepository = settingsRepository
         )
     }
@@ -115,22 +115,24 @@ fun PowerPeekConfirmationDialog(
 
 @Composable
 fun PowerPeekEnableDialog(
+    modifier: Modifier = Modifier,
     onConfirm: (PowerPeekConfig) -> Unit,
     onDismiss: () -> Unit,
     onDisable: () -> Unit,
-    modifier: Modifier = Modifier,
     settingsRepository: SettingsRepository
 ) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
 
     val currentlyEnabled = remember { settingsRepository.isPowerPeekEnabled() }
-    var enableWhenScreenOff by remember { mutableStateOf(true) }
-    var shakeThreshold by remember { mutableFloatStateOf(settingsRepository.getShakeThreshold()) }
-    var durationSeconds by remember {
-        mutableFloatStateOf((settingsRepository.getDisplayDuration() / 1000f).coerceIn(2f, 10f))
-    }
     var isSaving by remember { mutableStateOf(false) }
+
+    var enableWhenScreenOff by remember { mutableStateOf(true) }
+
+    var shakeThreshold by remember { mutableFloatStateOf(settingsRepository.getPowerPeekThreshold()) }
+    var durationSeconds by remember {
+        mutableFloatStateOf((settingsRepository.getPowerPeekDuration() / 1000f).coerceIn(2f, 10f))
+    }
 
     val cardColor = themeCardContainerColor()
     val accent = themePrimaryActionColor()
@@ -285,8 +287,8 @@ fun PowerPeekEnableDialog(
                 onSave = {
                     isSaving = true
                     val newDuration = (durationSeconds * 1000).toLong()
-                    settingsRepository.saveShakeThreshold(shakeThreshold)
-                    settingsRepository.saveDisplayDuration(newDuration)
+                    settingsRepository.savePowerPeekThreshold(shakeThreshold)
+                    settingsRepository.savePowerPeekDuration(newDuration)
                     onConfirm(
                         PowerPeekConfig(
                             isEnabled = true,

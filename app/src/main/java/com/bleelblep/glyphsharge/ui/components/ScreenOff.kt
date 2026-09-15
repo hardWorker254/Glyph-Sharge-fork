@@ -213,7 +213,7 @@ fun ScreenOffEnableDialog(
                                             "MATRIX"    -> glyphAnimationManager.runMatrixRainAnimation()
                                             "FIREWORKS" -> glyphAnimationManager.runFireworksAnimation()
                                             "DNA"       -> glyphAnimationManager.runDNAHelixAnimation()
-                                            else        -> glyphAnimationManager.playScreenOffAnimation(selectedAnimation.id)
+                                            else        -> glyphAnimationManager.playScreenOffAnimation()
                                         }
                                     } catch (e: Exception) {
                                         Log.e("ScreenOffConfig", "Error testing animation: ${e.message}")

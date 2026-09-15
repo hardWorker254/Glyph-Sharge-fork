@@ -34,6 +34,7 @@ import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.sqrt
+import kotlin.time.Duration.Companion.milliseconds
 
 @AndroidEntryPoint
 class PowerPeekService : Service(), SensorEventListener {
@@ -198,7 +199,7 @@ class PowerPeekService : Service(), SensorEventListener {
         }
         if (!isRestingOnTable) return
         val horizontalAcceleration = sqrt((x * x + y * y).toDouble()).toFloat()
-        val baseThreshold = settingsRepository.getShakeThreshold()
+        val baseThreshold = settingsRepository.getPowerPeekThreshold()
         val horizontalThreshold = max(3.0f, baseThreshold - SensorManager.STANDARD_GRAVITY)
 
         if (horizontalAcceleration > horizontalThreshold) {
@@ -228,7 +229,7 @@ class PowerPeekService : Service(), SensorEventListener {
             if (!featureCoordinator.acquire(GlyphFeature.POWER_PEEK)) return@launch
 
             lastTriggerTime = System.currentTimeMillis()
-            val duration = settingsRepository.getDisplayDuration()
+            val duration = settingsRepository.getPowerPeekDuration()
 
             Log.d(TAG, "Power Peek: Horizontal shake on table detected! Duration=${duration}ms")
 
@@ -240,14 +241,13 @@ class PowerPeekService : Service(), SensorEventListener {
 
             try {
                 val animJob = launch(Dispatchers.Default) {
-                    glyphAnimationManager.playBatteryStatusAnimation(
-                        this@PowerPeekService,
-                        duration
+                    glyphAnimationManager.playPowerPeekAnimation(
+                        this@PowerPeekService
                     )
                 }
 
                 val watchdogJob = launch {
-                    delay(duration)
+                    delay(duration.milliseconds)
                     animJob.cancelAndJoin()
                     glyphAnimationManager.stopAnimations()
                 }

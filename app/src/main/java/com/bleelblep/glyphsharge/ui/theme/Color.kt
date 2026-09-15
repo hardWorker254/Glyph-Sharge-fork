@@ -3,8 +3,8 @@ package com.bleelblep.glyphsharge.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // App Primary Colors
-val GlyphZenRed = Color(0xFFd71921)  // User requested red color
-val GlyphZenRedDark = Color(0xFFa01419)  // Darker variant for dark theme
+val GlyphZenRed = Color(0xFFd71921)
+val GlyphZenRedDark = Color(0xFFa01419)
 
 // Nothing Phone Colors
 val NothingRed = Color(0xFFD71921)

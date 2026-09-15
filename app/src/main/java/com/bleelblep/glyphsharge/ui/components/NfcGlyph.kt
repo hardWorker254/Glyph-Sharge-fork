@@ -225,7 +225,7 @@ fun NfcGlyphEnableDialog(
                                 HapticUtils.triggerMediumFeedback(haptic, context)
                                 scope.launch {
                                     testAnimation(selectedAnimation.id, glyphAnimationManager) {
-                                        glyphAnimationManager.playNfcAnimation(it)
+                                        glyphAnimationManager.playNfcAnimation()
                                     }
                                 }
                             },

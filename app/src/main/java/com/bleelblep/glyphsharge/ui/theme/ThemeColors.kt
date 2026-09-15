@@ -27,28 +27,6 @@ fun themePrimaryActionColor(): Color {
 }
 
 @Composable
-fun themeCancelButtonColor(): Color {
-    val t = LocalThemeState.current
-    return when (t.themeStyle) {
-        AppThemeStyle.AMOLED  -> Color(0xFF38393B)
-        AppThemeStyle.CLASSIC -> Color(0xFFFFDBD7)
-        AppThemeStyle.NEON    -> Color(0xFF00FF00)
-        else -> MaterialTheme.colorScheme.errorContainer
-    }
-}
-
-@Composable
-fun themeCancelButtonContentColor(): Color {
-    val t = LocalThemeState.current
-    return when (t.themeStyle) {
-        AppThemeStyle.AMOLED  -> Color.White
-        AppThemeStyle.NEON    -> Color.Black
-        AppThemeStyle.CLASSIC -> Color.Black
-        else -> Color.Black
-    }
-}
-
-@Composable
 fun themeSettingsButtonColor(): Color {
     val t = LocalThemeState.current
     return when (t.themeStyle) {
@@ -65,57 +43,6 @@ fun themeSettingsButtonContentColor(): Color {
         AppThemeStyle.AMOLED  -> Color.White
         AppThemeStyle.CLASSIC -> Color.White
         else -> MaterialTheme.colorScheme.onSecondaryContainer
-    }
-}
-
-@Composable
-fun themeBadgeContainerColor(): Color {
-    val t = LocalThemeState.current
-    return when (t.themeStyle) {
-        AppThemeStyle.AMOLED  -> Color(0xFF2D2D2D)
-        AppThemeStyle.CLASSIC -> if (t.isDarkTheme) MaterialTheme.colorScheme.primaryContainer
-        else Color(0xFFE8DEF8)
-        else -> MaterialTheme.colorScheme.primaryContainer
-    }
-}
-
-@Composable
-fun themeBadgeContentColor(): Color {
-    val t = LocalThemeState.current
-    return when (t.themeStyle) {
-        AppThemeStyle.AMOLED  -> Color.White
-        AppThemeStyle.CLASSIC -> Color(0xFF674FA3)
-        else -> MaterialTheme.colorScheme.onPrimaryContainer
-    }
-}
-
-@Composable
-fun themeSliderThumbColor(): Color {
-    val t = LocalThemeState.current
-    return when (t.themeStyle) {
-        AppThemeStyle.AMOLED  -> Color(0xFF4CAF50)
-        AppThemeStyle.CLASSIC -> Color(0xFF674FA3)
-        else -> MaterialTheme.colorScheme.primary
-    }
-}
-
-@Composable
-fun themeSurfaceVariantButtonColor(): Color {
-    val t = LocalThemeState.current
-    return when (t.themeStyle) {
-        AppThemeStyle.AMOLED  -> Color(0xFF2D2D2D)
-        AppThemeStyle.CLASSIC -> Color(0xFFE8E1F5)
-        else -> MaterialTheme.colorScheme.surfaceVariant
-    }
-}
-
-@Composable
-fun themeSurfaceVariantButtonContentColor(): Color {
-    val t = LocalThemeState.current
-    return when (t.themeStyle) {
-        AppThemeStyle.AMOLED  -> Color.White
-        AppThemeStyle.CLASSIC -> Color(0xFF674FA3)
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 }
 

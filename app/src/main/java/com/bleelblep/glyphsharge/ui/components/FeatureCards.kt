@@ -16,16 +16,16 @@ import com.bleelblep.glyphsharge.data.SettingsRepository
 
 @Composable
 fun PowerPeekCard(
+    modifier: Modifier = Modifier,
+    title: String = stringResource(id = R.string.power_peek_title),
+    description: String = stringResource(id = R.string.power_peek_description),
     icon: Painter,
+    iconSize: Int = 32,
+    isServiceActive: Boolean = true,
     onTestPowerPeek: () -> Unit,
     onEnablePowerPeek: () -> Unit,
     onDisablePowerPeek: () -> Unit,
     settingsRepository: SettingsRepository,
-    modifier: Modifier = Modifier,
-    title: String = stringResource(id = R.string.power_peek_title),
-    description: String = stringResource(id = R.string.power_peek_description),
-    iconSize: Int = 32,
-    isServiceActive: Boolean = true
 ) {
     val context = LocalContext.current
     var showDialog by remember { mutableStateOf(false) }
@@ -64,16 +64,16 @@ fun PowerPeekCard(
 
 @Composable
 fun PulseLockCard(
+    modifier: Modifier = Modifier,
+    title: String = stringResource(id = R.string.pulse_lock_title),
+    description: String = stringResource(id = R.string.pulse_lock_description),
     icon: Painter,
+    iconSize: Int = 32,
+    isServiceActive: Boolean = true,
     onTestPulseLock: () -> Unit,
     onEnablePulseLock: () -> Unit,
     onDisablePulseLock: () -> Unit,
     settingsRepository: SettingsRepository,
-    modifier: Modifier = Modifier,
-    title: String = stringResource(id = R.string.pulse_lock_title),
-    description: String = stringResource(id = R.string.pulse_lock_description),
-    iconSize: Int = 32,
-    isServiceActive: Boolean = true
 ) {
     val context = LocalContext.current
     var showDialog by remember { mutableStateOf(false) }
@@ -101,7 +101,7 @@ fun PulseLockCard(
 
     if (showDialog && isServiceActive) {
         PulseLockConfirmationDialog(
-            onTestPulseLock = onTestPulseLock,
+            onTestPulseLock = { onTestPulseLock(); showDialog = false },
             onEnablePulseLock = { onEnablePulseLock(); isEnabled = true; showDialog = false },
             onDisablePulseLock = { onDisablePulseLock(); isEnabled = false; showDialog = false },
             onDismiss = { showDialog = false },
@@ -112,14 +112,16 @@ fun PulseLockCard(
 
 @Composable
 fun LowBatteryAlertCard(
-    onTestAlert: () -> Unit,
-    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
     title: String = stringResource(id = R.string.low_battery_alert_title),
     description: String = stringResource(id = R.string.low_battery_alert_description),
-    icon: Painter = rememberVectorPainter(Icons.Default.BatteryAlert),
+    icon: Painter,
     iconSize: Int = 32,
-    isServiceActive: Boolean = true
+    isServiceActive: Boolean = true,
+    onTestAlert: () -> Unit,
+    onEnableLowBattery: () -> Unit,
+    onDisableLowBattery: () -> Unit,
+    settingsRepository: SettingsRepository,
 ) {
     val context = LocalContext.current
     var showDialog by remember { mutableStateOf(false) }
@@ -148,20 +150,19 @@ fun LowBatteryAlertCard(
     if (showDialog && isServiceActive) {
         LowBatteryAlertConfirmationDialog(
             onTestAlert = { onTestAlert(); showDialog = false },
-            onEnableAlert = { showDialog = false; showSettingsDialog = true },
+            onEnableAlert = {
+                showDialog = false
+                settingsRepository.saveLowBatteryEnabled(true)
+                onEnableLowBattery()
+                showSettingsDialog = true
+            },
             onDisableAlert = {
                 isEnabled = false
                 settingsRepository.saveLowBatteryEnabled(false)
+                onDisableLowBattery()
                 showDialog = false
             },
             onDismiss = { showDialog = false },
-            onConfirm = { config ->
-                settingsRepository.saveLowBatteryEnabled(config.isEnabled)
-                settingsRepository.saveLowBatteryThreshold(config.threshold)
-                settingsRepository.saveLowBatteryAnimationId(config.animationId)
-                isEnabled = config.isEnabled
-                showDialog = false
-            },
             settingsRepository = settingsRepository
         )
     }
@@ -191,16 +192,16 @@ fun LowBatteryAlertCard(
 
 @Composable
 fun ScreenOffCard(
-    onTestScreenOff: () -> Unit,
-    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
-    onEnableScreenOff: () -> Unit,
-    onDisableScreenOff: () -> Unit,
     title: String = stringResource(id = R.string.screen_off_title),
     description: String = stringResource(id = R.string.screen_off_description),
-    icon: Painter = rememberVectorPainter(Icons.Default.PowerSettingsNew),
+    icon: Painter,
     iconSize: Int = 32,
-    isServiceActive: Boolean = true
+    isServiceActive: Boolean = true,
+    onTestScreenOff: () -> Unit,
+    onEnableScreenOff: () -> Unit,
+    onDisableScreenOff: () -> Unit,
+    settingsRepository: SettingsRepository,
 ) {
     val context = LocalContext.current
     var showConfirmDialog by remember { mutableStateOf(false) }
@@ -269,16 +270,16 @@ fun ScreenOffCard(
 
 @Composable
 fun NfcGlyphCard(
+    modifier: Modifier = Modifier,
+    title: String = stringResource(id = R.string.nfc_glyph_title),
+    description: String = stringResource(id = R.string.nfc_glyph_description),
+    icon: Painter,
+    iconSize: Int = 32,
+    isServiceActive: Boolean = true,
     onTestNfc: () -> Unit,
     onEnableNfc: () -> Unit,
     onDisableNfc: () -> Unit,
     settingsRepository: SettingsRepository,
-    modifier: Modifier = Modifier,
-    title: String = stringResource(id = R.string.nfc_glyph_title),
-    description: String = stringResource(id = R.string.nfc_glyph_description),
-    icon: Painter = rememberVectorPainter(Icons.Default.Nfc),
-    iconSize: Int = 32,
-    isServiceActive: Boolean = true
 ) {
     val context = LocalContext.current
     var showConfirmDialog by remember { mutableStateOf(false) }
@@ -349,16 +350,16 @@ fun NfcGlyphCard(
 
 @Composable
 fun ChargingAnimationCard(
+    modifier: Modifier = Modifier,
+    title: String = stringResource(id = R.string.charging_animation_title),
+    description: String = stringResource(id = R.string.charging_animation_description),
     icon: Painter,
+    iconSize: Int = 32,
+    isServiceActive: Boolean = true,
     onTestAnimation: () -> Unit,
     onEnableAnimation: () -> Unit,
     onDisableAnimation: () -> Unit,
     settingsRepository: SettingsRepository,
-    modifier: Modifier = Modifier,
-    title: String = stringResource(id = R.string.charging_animation_title),
-    description: String = stringResource(id = R.string.charging_animation_description),
-    iconSize: Int = 32,
-    isServiceActive: Boolean = true
 ) {
     val context = LocalContext.current
     var showDialog by remember { mutableStateOf(false) }
