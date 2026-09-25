@@ -26,6 +26,7 @@ import android.content.Context
 import android.text.format.DateFormat
 
 import com.bleelblep.glyphsharge.ui.components.*
+import com.bleelblep.glyphsharge.ui.components.layout.SettingsScaffold
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import dagger.hilt.android.AndroidEntryPoint
@@ -42,8 +43,6 @@ fun QuietHoursSettingsScreen(
     settingsRepository: SettingsRepository
 ) {
     val context = LocalContext.current
-    val haptic = LocalHapticFeedback.current
-    val scrollState = rememberLazyListState()
 
     val quietHoursEnabled by remember { 
         mutableStateOf(settingsRepository.isQuietHoursEnabled()) 
@@ -77,58 +76,10 @@ fun QuietHoursSettingsScreen(
         settingsRepository.saveQuietHoursEndMinute(endMinute)
     }
 
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
-
-    Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            LargeTopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(id = R.string.settings_card_quiet_hours),
-                        style = MaterialTheme.typography.headlineLarge.copy(
-                            fontSize = 42.sp
-                        )
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { 
-                        HapticUtils.triggerLightFeedback(haptic, context)
-                        onBackClick() 
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = stringResource(id = R.string.settings_back_content_description)
-                        )
-                    }
-                },
-                actions = {},
-                scrollBehavior = scrollBehavior,
-                windowInsets = WindowInsets.statusBars,
-                colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets(0.dp)
-    ) { paddingValues ->
-        LazyColumn(
-            state = scrollState,
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .padding(paddingValues),
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = 16.dp,
-                bottom = 16.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-            ),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            userScrollEnabled = true
-        ) {
+    SettingsScaffold(
+        title = stringResource(id = R.string.settings_card_quiet_hours),
+        onBackClick = onBackClick
+    ) {
             // Status Header
             item {
                 Card(
@@ -320,7 +271,6 @@ fun QuietHoursSettingsScreen(
                         }
                     }
                 }
-            }
         }
     }
 }
