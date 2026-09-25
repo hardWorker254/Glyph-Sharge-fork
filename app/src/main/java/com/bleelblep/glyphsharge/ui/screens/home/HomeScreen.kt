@@ -10,8 +10,8 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bleelblep.glyphsharge.data.SettingsRepository
-import com.bleelblep.glyphsharge.ui.components.GlyphControlCard
-import com.bleelblep.glyphsharge.ui.components.HomeSectionHeader
+import com.bleelblep.glyphsharge.ui.components.cards.GlyphControlCard
+import com.bleelblep.glyphsharge.ui.components.layout.HomeSectionHeader
 import com.bleelblep.glyphsharge.ui.components.layout.SettingsScaffold
 import com.bleelblep.glyphsharge.ui.viewmodel.HomeViewModel
 

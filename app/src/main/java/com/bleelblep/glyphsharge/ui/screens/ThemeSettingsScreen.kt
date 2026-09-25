@@ -1,6 +1,10 @@
 package com.bleelblep.glyphsharge.ui.screens
 
 import androidx.compose.foundation.layout.*
+import com.bleelblep.glyphsharge.ui.components.cards.ContentCard
+import com.bleelblep.glyphsharge.ui.components.cards.FeatureCard
+import com.bleelblep.glyphsharge.ui.components.cards.SquareFeatureCard
+import com.bleelblep.glyphsharge.ui.components.layout.FeatureGrid
 import com.bleelblep.glyphsharge.ui.components.layout.SettingsScaffold
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -9,15 +13,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.WindowInsets
-import com.bleelblep.glyphsharge.ui.components.SquareFeatureCard
-import com.bleelblep.glyphsharge.ui.components.FeatureGrid
 import com.bleelblep.glyphsharge.R
 import androidx.compose.ui.res.painterResource
 import com.bleelblep.glyphsharge.ui.theme.LocalThemeState
-import com.bleelblep.glyphsharge.ui.components.FeatureCard
 import androidx.compose.ui.graphics.painter.Painter
 import com.bleelblep.glyphsharge.ui.theme.AppThemeStyle
-import com.bleelblep.glyphsharge.ui.components.ContentCard
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils

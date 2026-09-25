@@ -38,8 +38,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
-import com.bleelblep.glyphsharge.ui.components.MorphingToggleButton
-import com.bleelblep.glyphsharge.ui.components.ThreeStateFontMorphingButton
+import com.bleelblep.glyphsharge.ui.components.controls.MorphingToggleButton
+import com.bleelblep.glyphsharge.ui.components.controls.ThreeStateFontMorphingButton
 import com.bleelblep.glyphsharge.ui.components.layout.DraggableSettingsCard
 import com.bleelblep.glyphsharge.ui.components.layout.SettingsScaffold
 import com.bleelblep.glyphsharge.ui.theme.AppThemeStyle

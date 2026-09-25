@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
+import com.bleelblep.glyphsharge.ui.components.cards.WideFeatureCardWithToggle
 
 /**
  * The six feature cards shown on the home screen.

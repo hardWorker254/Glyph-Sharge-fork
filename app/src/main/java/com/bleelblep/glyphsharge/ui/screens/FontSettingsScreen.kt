@@ -11,9 +11,9 @@ import androidx.compose.ui.unit.dp
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.ui.components.FontPreview
 import com.bleelblep.glyphsharge.ui.components.FontSizeControls
-import com.bleelblep.glyphsharge.ui.components.HomeSectionHeader
 import com.bleelblep.glyphsharge.ui.components.SimpleFontSelector
 import com.bleelblep.glyphsharge.ui.components.ToggleCard
+import com.bleelblep.glyphsharge.ui.components.layout.HomeSectionHeader
 import com.bleelblep.glyphsharge.ui.components.layout.SettingsScaffold
 import com.bleelblep.glyphsharge.ui.theme.FontState
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
