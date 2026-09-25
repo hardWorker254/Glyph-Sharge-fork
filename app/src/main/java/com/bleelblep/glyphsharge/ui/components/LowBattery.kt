@@ -16,10 +16,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
+import com.bleelblep.glyphsharge.ui.components.dialogs.FeatureConfirmationFlow
 import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
@@ -42,82 +42,33 @@ fun LowBatteryAlertConfirmationDialog(
     onDismiss: () -> Unit,
     settingsRepository: SettingsRepository
 ) {
-    var showSettingsDialog by remember { mutableStateOf(false) }
+    // The configuration is threaded through the flow rather than dropped, so
+    // the card receives the threshold, animation and duration the user picked.
+    var pendingConfig by remember { mutableStateOf<LowBatteryAlertConfig?>(null) }
 
-    if (!showSettingsDialog) {
-        AlertDialog(
-            onDismissRequest = { /* non-dismissible */ },
-            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
-            title = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = stringResource(R.string.low_battery_alert_title),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = stringResource(R.string.low_battery_alert_description),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            },
-            text = {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = themeCardContainerColor()),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = stringResource(R.string.low_battery_alert_how_it_works_title),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = stringResource(R.string.low_battery_alert_how_it_works_description),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = 20.sp
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                FeatureConfirmationButtons(
-                    primaryLabel = stringResource(R.string.low_battery_alert_button_test),
-                    onPrimary = onTestAlert,
-                    onSettings = { showSettingsDialog = true },
-                    onCancel = onDismiss
-                )
-            },
-            dismissButton = {},
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(24.dp),
-            modifier = modifier
-        )
-    }
-
-    if (showSettingsDialog) {
-        LowBatteryAlertEnableDialog(
-            // The configuration is handed on rather than dropped: the card
-            // needs the threshold, animation and duration to persist them.
-            onConfirm = { config ->
-                onEnableAlert(config)
-                showSettingsDialog = false
-                onDismiss()
-            },
-            onDisable = {
-                onDisableAlert()
-                showSettingsDialog = false
-                onDismiss()
-            },
-            onDismiss = { showSettingsDialog = false },
-            settingsRepository = settingsRepository
-        )
-    }
+    FeatureConfirmationFlow(
+        title = stringResource(R.string.low_battery_alert_title),
+        subtitle = stringResource(R.string.low_battery_alert_description),
+        howItWorksTitle = stringResource(R.string.low_battery_alert_how_it_works_title),
+        howItWorksDescription = stringResource(R.string.low_battery_alert_how_it_works_description),
+        testLabel = stringResource(R.string.low_battery_alert_button_test),
+        onTest = onTestAlert,
+        onEnable = { pendingConfig?.let(onEnableAlert) },
+        onDisable = onDisableAlert,
+        onDismiss = onDismiss,
+        modifier = modifier,
+        settings = { onConfirm, onDisable, onDismissSettings ->
+            LowBatteryAlertEnableDialog(
+                onConfirm = { config ->
+                    pendingConfig = config
+                    onConfirm()
+                },
+                onDisable = onDisable,
+                onDismiss = onDismissSettings,
+                settingsRepository = settingsRepository
+            )
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)

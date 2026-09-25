@@ -16,10 +16,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
+import com.bleelblep.glyphsharge.ui.components.dialogs.FeatureConfirmationFlow
 import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
@@ -35,81 +35,30 @@ fun ScreenOffConfirmationDialog(
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
-    var showSettingsDialog by remember { mutableStateOf(false) }
-
-    if (!showSettingsDialog) {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true),
-            title = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = stringResource(id = R.string.screen_off_title),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = stringResource(id = R.string.screen_off_dialog_subtitle),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            },
-            text = {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = themeCardContainerColor())
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = stringResource(id = R.string.screen_off_how_it_works_title),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = stringResource(id = R.string.screen_off_how_it_works_description),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = 20.sp
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                FeatureConfirmationButtons(
-                    primaryLabel = stringResource(id = R.string.screen_off_button_test),
-                    onPrimary = onTest,
-                    onSettings = { showSettingsDialog = true },
-                    onCancel = onDismiss
-                )
-            },
-            dismissButton = {},
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(24.dp),
-            modifier = modifier
-        )
-    }
-
-    if (showSettingsDialog) {
-        ScreenOffEnableDialog(
-            onDismiss = { showSettingsDialog = false },
-            onEnable = {
-                onEnable()
-                showSettingsDialog = false
-                onDismiss()
-            },
-            onDisable = {
-                onDisable()
-                showSettingsDialog = false
-                onDismiss()
-            },
-            settingsRepository = settingsRepository,
-            modifier = modifier
-        )
-    }
+    FeatureConfirmationFlow(
+        title = stringResource(id = R.string.screen_off_title),
+        subtitle = stringResource(id = R.string.screen_off_dialog_subtitle),
+        howItWorksTitle = stringResource(id = R.string.screen_off_how_it_works_title),
+        howItWorksDescription = stringResource(id = R.string.screen_off_how_it_works_description),
+        testLabel = stringResource(id = R.string.screen_off_button_test),
+        onTest = onTest,
+        onEnable = onEnable,
+        onDisable = onDisable,
+        onDismiss = onDismiss,
+        modifier = modifier,
+        // Screen Off is the one feature whose confirmation can be dismissed
+        // with back or an outside tap.
+        dismissible = true,
+        settings = { onConfirm, onDisable, onDismissSettings ->
+            ScreenOffEnableDialog(
+                onDismiss = onDismissSettings,
+                onEnable = onConfirm,
+                onDisable = onDisable,
+                settingsRepository = settingsRepository,
+                modifier = modifier
+            )
+        }
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)

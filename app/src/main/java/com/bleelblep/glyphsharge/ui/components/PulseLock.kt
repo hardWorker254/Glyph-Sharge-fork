@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
+import com.bleelblep.glyphsharge.ui.components.dialogs.FeatureConfirmationFlow
 import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
@@ -40,80 +41,26 @@ fun PulseLockConfirmationDialog(
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
-    var showSettingsDialog by remember { mutableStateOf(false) }
-
-    if (!showSettingsDialog) {
-        AlertDialog(
-            onDismissRequest = { /* non-dismissible */ },
-            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
-            title = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = stringResource(R.string.pulse_lock_title),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = stringResource(R.string.pulse_lock_dialog_subtitle),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            },
-            text = {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = themeCardContainerColor()),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = stringResource(R.string.pulse_lock_how_it_works_title),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = stringResource(R.string.pulse_lock_how_it_works_description),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = 20.sp
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                FeatureConfirmationButtons(
-                    primaryLabel = stringResource(R.string.pulse_lock_button_test),
-                    onPrimary = onTestPulseLock,
-                    onSettings = { showSettingsDialog = true },
-                    onCancel = onDismiss
-                )
-            },
-            dismissButton = {},
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(24.dp),
-            modifier = modifier
-        )
-    }
-
-    if (showSettingsDialog) {
-        PulseLockEnableDialog(
-            settingsRepository = settingsRepository,
-            onConfirm = { _ ->
-                onEnablePulseLock()
-                showSettingsDialog = false
-                onDismiss()
-            },
-            onDisable = {
-                onDisablePulseLock()
-                showSettingsDialog = false
-                onDismiss()
-            },
-            onDismiss = { showSettingsDialog = false }
-        )
-    }
+    FeatureConfirmationFlow(
+        title = stringResource(R.string.pulse_lock_title),
+        subtitle = stringResource(R.string.pulse_lock_dialog_subtitle),
+        howItWorksTitle = stringResource(R.string.pulse_lock_how_it_works_title),
+        howItWorksDescription = stringResource(R.string.pulse_lock_how_it_works_description),
+        testLabel = stringResource(R.string.pulse_lock_button_test),
+        onTest = onTestPulseLock,
+        onEnable = onEnablePulseLock,
+        onDisable = onDisablePulseLock,
+        onDismiss = onDismiss,
+        modifier = modifier,
+        settings = { onConfirm, onDisable, onDismissSettings ->
+            PulseLockEnableDialog(
+                settingsRepository = settingsRepository,
+                onConfirm = { onConfirm() },
+                onDisable = onDisable,
+                onDismiss = onDismissSettings
+            )
+        }
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)

@@ -13,9 +13,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.data.SettingsRepository
+import com.bleelblep.glyphsharge.ui.components.dialogs.FeatureConfirmationFlow
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import kotlin.math.roundToInt
@@ -37,80 +37,26 @@ fun PowerPeekConfirmationDialog(
     onDismiss: () -> Unit,
     settingsRepository: SettingsRepository
 ) {
-    var showSettingsDialog by remember { mutableStateOf(false) }
-
-    if (!showSettingsDialog) {
-        AlertDialog(
-            onDismissRequest = { /* non-dismissible */ },
-            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
-            title = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = stringResource(R.string.power_peek_title),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = stringResource(R.string.power_peek_description),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            },
-            text = {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = themeCardContainerColor()),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = stringResource(R.string.power_peek_how_it_works_title),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = stringResource(R.string.power_peek_how_it_works_description),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = 20.sp
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                FeatureConfirmationButtons(
-                    primaryLabel = stringResource(R.string.power_peek_button_test),
-                    onPrimary = onTestPowerPeek,
-                    onSettings = { showSettingsDialog = true },
-                    onCancel = onDismiss
-                )
-            },
-            dismissButton = {},
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(24.dp),
-            modifier = modifier
-        )
-    }
-
-    if (showSettingsDialog) {
-        PowerPeekEnableDialog(
-            onConfirm = { _ ->
-                onEnablePowerPeek()
-                showSettingsDialog = false
-                onDismiss()
-            },
-            onDisable = {
-                onDisablePowerPeek()
-                showSettingsDialog = false
-                onDismiss()
-            },
-            onDismiss = { showSettingsDialog = false },
-            settingsRepository = settingsRepository
-        )
-    }
+    FeatureConfirmationFlow(
+        title = stringResource(R.string.power_peek_title),
+        subtitle = stringResource(R.string.power_peek_description),
+        howItWorksTitle = stringResource(R.string.power_peek_how_it_works_title),
+        howItWorksDescription = stringResource(R.string.power_peek_how_it_works_description),
+        testLabel = stringResource(R.string.power_peek_button_test),
+        onTest = onTestPowerPeek,
+        onEnable = onEnablePowerPeek,
+        onDisable = onDisablePowerPeek,
+        onDismiss = onDismiss,
+        modifier = modifier,
+        settings = { onConfirm, onDisable, onDismissSettings ->
+            PowerPeekEnableDialog(
+                onConfirm = { onConfirm() },
+                onDisable = onDisable,
+                onDismiss = onDismissSettings,
+                settingsRepository = settingsRepository
+            )
+        }
+    )
 }
 
 @Composable

@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
+import com.bleelblep.glyphsharge.ui.components.dialogs.FeatureConfirmationFlow
 import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
@@ -54,80 +55,26 @@ fun NfcGlyphConfirmationDialog(
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
-    var showSettingsDialog by remember { mutableStateOf(false) }
-
-    if (!showSettingsDialog) {
-        AlertDialog(
-            onDismissRequest = { /* non-dismissible */ },
-            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
-            title = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = stringResource(R.string.nfc_glyph_title),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = stringResource(R.string.nfc_glyph_description),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            },
-            text = {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = themeCardContainerColor())
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = stringResource(R.string.nfc_glyph_how_it_works_title),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = stringResource(R.string.nfc_glyph_how_it_works_description),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = 20.sp
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                FeatureConfirmationButtons(
-                    primaryLabel = stringResource(R.string.nfc_glyph_button_test),
-                    onPrimary = onTest,
-                    onSettings = { showSettingsDialog = true },
-                    onCancel = onDismiss
-                )
-            },
-            dismissButton = {},
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(24.dp),
-            modifier = modifier
-        )
-    }
-
-    if (showSettingsDialog) {
-        NfcGlyphEnableDialog(
-            onDismiss = { showSettingsDialog = false },
-            onEnable = {
-                onEnable()
-                showSettingsDialog = false
-                onDismiss()
-            },
-            onDisable = {
-                onDisable()
-                showSettingsDialog = false
-                onDismiss()
-            },
-            settingsRepository = settingsRepository
-        )
-    }
+    FeatureConfirmationFlow(
+        title = stringResource(R.string.nfc_glyph_title),
+        subtitle = stringResource(R.string.nfc_glyph_description),
+        howItWorksTitle = stringResource(R.string.nfc_glyph_how_it_works_title),
+        howItWorksDescription = stringResource(R.string.nfc_glyph_how_it_works_description),
+        testLabel = stringResource(R.string.nfc_glyph_button_test),
+        onTest = onTest,
+        onEnable = onEnable,
+        onDisable = onDisable,
+        onDismiss = onDismiss,
+        modifier = modifier,
+        settings = { onConfirm, onDisable, onDismissSettings ->
+            NfcGlyphEnableDialog(
+                onDismiss = onDismissSettings,
+                onEnable = onConfirm,
+                onDisable = onDisable,
+                settingsRepository = settingsRepository
+            )
+        }
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)
