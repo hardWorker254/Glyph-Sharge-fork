@@ -29,14 +29,15 @@ import kotlinx.coroutines.launch
 data class LowBatteryAlertConfig(
     val isEnabled: Boolean = false,
     val threshold: Int = 20,
-    val animationId: String = "PULSE"
+    val animationId: String = "PULSE",
+    val durationMs: Long = 10000L
 )
 
 @Composable
 fun LowBatteryAlertConfirmationDialog(
     modifier: Modifier = Modifier,
     onTestAlert: () -> Unit,
-    onEnableAlert: () -> Unit,
+    onEnableAlert: (LowBatteryAlertConfig) -> Unit,
     onDisableAlert: () -> Unit,
     onDismiss: () -> Unit,
     settingsRepository: SettingsRepository
@@ -101,8 +102,10 @@ fun LowBatteryAlertConfirmationDialog(
 
     if (showSettingsDialog) {
         LowBatteryAlertEnableDialog(
-            onConfirm = { _ ->
-                onEnableAlert()
+            // The configuration is handed on rather than dropped: the card
+            // needs the threshold, animation and duration to persist them.
+            onConfirm = { config ->
+                onEnableAlert(config)
                 showSettingsDialog = false
                 onDismiss()
             },
@@ -336,7 +339,8 @@ fun LowBatteryAlertEnableDialog(
                         LowBatteryAlertConfig(
                             isEnabled = true,
                             threshold = threshold.toInt(),
-                            animationId = selectedAnimation.id
+                            animationId = selectedAnimation.id,
+                            durationMs = (durationSeconds * 1000).toLong()
                         )
                     )
                 },

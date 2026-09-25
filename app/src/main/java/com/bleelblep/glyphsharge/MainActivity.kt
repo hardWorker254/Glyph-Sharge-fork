@@ -1,11 +1,9 @@
 package com.bleelblep.glyphsharge
 
-import android.Manifest
 import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Color
 import android.net.Uri
 import android.nfc.NfcAdapter
@@ -23,8 +21,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.sp
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.bleelblep.glyphsharge.data.SettingsRepository
@@ -94,8 +90,6 @@ class MainActivity : ComponentActivity() {
 
         Log.d(TAG, "=== App startup - checking settings persistence ===")
         settingsRepository.dumpAllSettings()
-
-        requestNotificationPermission()
 
         // NFC foreground dispatch needs the Activity, so the ViewModel calls
         // back into us when the NFC feature is toggled.
@@ -172,13 +166,6 @@ class MainActivity : ComponentActivity() {
     }
 
     // ── Initialisation helpers ────────────────────────────────────────────────
-    private fun requestNotificationPermission() {
-        val perm = Manifest.permission.POST_NOTIFICATIONS
-        if (ContextCompat.checkSelfPermission(this, perm) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(perm), REQ_NOTIFICATION)
-        }
-    }
-
     private fun initializeGlyphService() {
         glyphManager.initialize()
         // The SDK is the source of truth for the session; mirror it into the
@@ -289,7 +276,6 @@ class MainActivity : ComponentActivity() {
     // ── Constants ─────────────────────────────────────────────────────────────
     companion object {
         private const val TAG                   = "MainActivity"
-        private const val REQ_NOTIFICATION      = 1001
         private const val STARTUP_DELAY_MS      = 100L
     }
 }

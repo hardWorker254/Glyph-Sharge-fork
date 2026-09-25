@@ -132,7 +132,6 @@ fun LowBatteryAlertCard(
 ) {
     val context = LocalContext.current
     var showDialog by remember { mutableStateOf(false) }
-    var showSettingsDialog by remember { mutableStateOf(false) }
     val toastText = stringResource(id = R.string.low_battery_alert_toast)
 
     WideFeatureCardWithToggle(
@@ -153,35 +152,22 @@ fun LowBatteryAlertCard(
     if (showDialog && isServiceActive) {
         LowBatteryAlertConfirmationDialog(
             onTestAlert = { onTestAlert(); showDialog = false },
-            onEnableAlert = {
+            // Enabling closes the dialog and returns to the home screen; the
+            // configuration dialog is reached through the dialog's own
+            // settings button and is owned by the confirmation dialog.
+            onEnableAlert = { config ->
+                settingsRepository.saveLowBatteryEnabled(config.isEnabled)
+                settingsRepository.saveLowBatteryThreshold(config.threshold)
+                settingsRepository.saveLowBatteryAnimationId(config.animationId)
+                settingsRepository.saveLowBatteryDuration(config.durationMs)
+                onEnabledChange(config.isEnabled)
                 showDialog = false
-                onEnabledChange(true)
-                showSettingsDialog = true
             },
             onDisableAlert = {
                 onEnabledChange(false)
                 showDialog = false
             },
             onDismiss = { showDialog = false },
-            settingsRepository = settingsRepository
-        )
-    }
-
-    if (showSettingsDialog && isServiceActive) {
-        LowBatteryAlertEnableDialog(
-            onConfirm = { config ->
-                settingsRepository.saveLowBatteryEnabled(config.isEnabled)
-                settingsRepository.saveLowBatteryThreshold(config.threshold)
-                settingsRepository.saveLowBatteryAnimationId(config.animationId)
-                settingsRepository.saveLowBatteryDuration(config.durationMs)
-                onEnabledChange(config.isEnabled)
-                showSettingsDialog = false
-            },
-            onDismiss = { showSettingsDialog = false },
-            onDisable = {
-                onEnabledChange(false)
-                showSettingsDialog = false
-            },
             settingsRepository = settingsRepository
         )
     }
