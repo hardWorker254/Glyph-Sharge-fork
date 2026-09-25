@@ -684,10 +684,8 @@ fun MainScreen(
         composable("settings") {
             SettingsScreen(
                 onBackClick               = { navController.popBackStack() },
-                onHiddenSettingsAccess    = { navController.navigate("hidden_settings") },
                 onThemeSettingsClick      = { navController.navigate("theme_settings") },
                 onFontSettingsClick       = { navController.navigate("font_settings") },
-                onVibrationSettingsClick  = { navController.navigate("vibration_settings") },
                 onQuietHoursSettingsClick = { navController.navigate("quiet_hours_settings") },
                 onLanguageSettingsClick   = { navController.navigate("language_settings") },
                 settingsRepository = settingsRepository
