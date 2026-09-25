@@ -19,28 +19,22 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.*
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Color as ComposeColor
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.*
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
-import androidx.navigation.compose.*
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import com.bleelblep.glyphsharge.glyph.*
 import com.bleelblep.glyphsharge.services.*
-import com.bleelblep.glyphsharge.ui.components.*
-import com.bleelblep.glyphsharge.ui.screens.*
+import com.bleelblep.glyphsharge.ui.components.WatermarkBox
+import com.bleelblep.glyphsharge.ui.navigation.GlyphNavHost
+import com.bleelblep.glyphsharge.ui.screens.applyLocale
+import com.bleelblep.glyphsharge.ui.screens.home.HomeActions
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.utils.WatermarkHelper
 import dagger.hilt.android.AndroidEntryPoint
@@ -245,42 +239,30 @@ class MainActivity : ComponentActivity() {
                 val bgColor = MaterialTheme.colorScheme.background
                 WatermarkBox(enabled = false, text = "TESTING", alpha = 0.5f, fontSize = 20.sp) {
                     Surface(modifier = Modifier.fillMaxSize(), color = bgColor) {
-                        MainScreen(
-                            glyphServiceEnabled        = glyphServiceState.value,
-                            onGlyphServiceToggle       = ::toggleGlyphService,
-
-                            // Power Peek
-                            onTestPowerPeek            = ::testPowerPeek,
-                            onEnablePowerPeek          = ::enablePowerPeek,
-                            onDisablePowerPeek         = ::disablePowerPeek,
-
-                            // Pulse Lock
-                            onTestPulseLock            = ::testPulseLock,
-                            onEnablePulseLock          = ::enablePulseLock,
-                            onDisablePulseLock         = ::disablePulseLock,
-
-                            // Screen Off
-                            onTestScreenOff            = ::testScreenOffAnimation,
-                            onEnableScreenOff          = ::enableScreenOffFeature,
-                            onDisableScreenOff         = ::disableScreenOffFeature,
-
-                            // NFC
-                            onTestNfc                  = ::testNfcAnimation,
-                            onEnableNfc                = ::enableNfcFeature,
-                            onDisableNfc               = ::disableNfcFeature,
-
-                            // Charging Animation
-                            onTestChargingAnimation    = ::testChargingAnimation,
-                            onEnableChargingAnimation  = ::enableChargingAnimation,
-                            onDisableChargingAnimation = ::disableChargingAnimation,
-
-                            // Low Battery
-                            onTestLowBattery           = ::testLowBattery,
-                            onEnableLowBattery         = ::onEnableLowBattery,
-                            onDisableLowBattery        = ::onDisableLowBattery,
-
-                            backgroundColorMain        = bgColor,
-                            settingsRepository         = settingsRepository
+                        GlyphNavHost(
+                            glyphServiceEnabled = glyphServiceState.value,
+                            onGlyphServiceToggle = ::toggleGlyphService,
+                            actions = HomeActions(
+                                onTestPowerPeek = ::testPowerPeek,
+                                onEnablePowerPeek = ::enablePowerPeek,
+                                onDisablePowerPeek = ::disablePowerPeek,
+                                onTestPulseLock = ::testPulseLock,
+                                onEnablePulseLock = ::enablePulseLock,
+                                onDisablePulseLock = ::disablePulseLock,
+                                onTestScreenOff = ::testScreenOffAnimation,
+                                onEnableScreenOff = ::enableScreenOffFeature,
+                                onDisableScreenOff = ::disableScreenOffFeature,
+                                onTestNfc = ::testNfcAnimation,
+                                onEnableNfc = ::enableNfcFeature,
+                                onDisableNfc = ::disableNfcFeature,
+                                onTestChargingAnimation = ::testChargingAnimation,
+                                onEnableChargingAnimation = ::enableChargingAnimation,
+                                onDisableChargingAnimation = ::disableChargingAnimation,
+                                onTestLowBattery = ::testLowBattery,
+                                onEnableLowBattery = ::onEnableLowBattery,
+                                onDisableLowBattery = ::onDisableLowBattery
+                            ),
+                            settingsRepository = settingsRepository
                         )
                     }
                 }
@@ -491,236 +473,4 @@ class MainActivity : ComponentActivity() {
         private const val REQ_NOTIFICATION      = 1001
         private const val STARTUP_DELAY_MS      = 100L
     }
-}
-
-
-// ── MainScreen ────────────────────────────────────────────────────────────────
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun MainScreen(
-    glyphServiceEnabled: Boolean,
-    onGlyphServiceToggle: (Boolean) -> Unit,
-
-    // Power Peek
-    onTestPowerPeek: () -> Unit,
-    onEnablePowerPeek: () -> Unit,
-    onDisablePowerPeek: () -> Unit,
-
-    // Pulse Lock
-    onTestPulseLock: () -> Unit,
-    onEnablePulseLock: () -> Unit,
-    onDisablePulseLock: () -> Unit,
-
-    // Screen Off
-    onTestScreenOff: () -> Unit,
-    onEnableScreenOff: () -> Unit,
-    onDisableScreenOff: () -> Unit,
-
-    // NFC
-    onTestNfc: () -> Unit,
-    onEnableNfc: () -> Unit,
-    onDisableNfc: () -> Unit,
-
-    // Charging Animation
-    onTestChargingAnimation: () -> Unit,
-    onEnableChargingAnimation: () -> Unit,
-    onDisableChargingAnimation: () -> Unit,
-
-    // Low Battery
-    onTestLowBattery: () -> Unit,
-    onEnableLowBattery: () -> Unit,
-    onDisableLowBattery: () -> Unit,
-
-    backgroundColorMain: ComposeColor,
-    settingsRepository: SettingsRepository
-) {
-    val navController = rememberNavController()
-    val context = androidx.compose.ui.platform.LocalContext.current
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) onEnablePowerPeek()
-        else Toast.makeText(context, "Permission denied. PowerPeek cannot run without it.", Toast.LENGTH_LONG).show()
-    }
-
-    NavHost(
-        navController = navController,
-        startDestination = "home",
-        enterTransition    = { MaterialSharedAxisZ.enterTransition() },
-        exitTransition     = { MaterialSharedAxisZ.exitTransition() },
-        popEnterTransition = { MaterialSharedAxisZ.popEnterTransition() },
-        popExitTransition  = { MaterialSharedAxisZ.popExitTransition() }
-    ) {
-        composable("home") {
-            val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
-
-            Scaffold(
-                modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-                topBar = {
-                    LargeTopAppBar(
-                        title = { Text("Glyph Sharge", style = MaterialTheme.typography.headlineLarge.copy(fontSize = 42.sp)) },
-                        actions = {
-                            IconButton(onClick = { navController.navigate("settings") }) {
-                                Icon(Icons.Default.Settings, contentDescription = "Settings")
-                            }
-                        },
-                        scrollBehavior = scrollBehavior,
-                        windowInsets = WindowInsets.statusBars,
-                        colors = TopAppBarDefaults.largeTopAppBarColors(
-                            containerColor = Color.Transparent,
-                            scrolledContainerColor = MaterialTheme.colorScheme.surface
-                        )
-                    )
-                },
-                containerColor = backgroundColorMain,
-                contentWindowInsets = WindowInsets(0.dp)
-            ) { padding ->
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(backgroundColorMain)
-                        .padding(padding),
-                    contentPadding = PaddingValues(
-                        start = 16.dp, end = 16.dp, top = 16.dp,
-                        bottom = 16.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    item {
-                        GlyphControlCard(
-                            enabled = glyphServiceEnabled,
-                            onEnabledChange = onGlyphServiceToggle
-                        )
-                    }
-                    item { HomeSectionHeader(title = "Features") }
-
-                    item {
-                        ChargingAnimationCard(
-                            icon = rememberVectorPainter(image = Icons.Default.BatteryChargingFull),
-                            modifier = Modifier.fillMaxWidth(),
-                            iconSize = 32,
-                            isServiceActive = glyphServiceEnabled,
-                            onTestAnimation = onTestChargingAnimation,
-                            onEnableAnimation = onEnableChargingAnimation,
-                            onDisableAnimation = onDisableChargingAnimation,
-                            settingsRepository = settingsRepository
-                        )
-                    }
-
-                    item {
-                        PowerPeekCard(
-                            icon = painterResource(id = R.drawable._44),
-                            modifier = Modifier.fillMaxWidth(),
-                            iconSize = 32,
-                            isServiceActive = glyphServiceEnabled,
-                            onTestPowerPeek = onTestPowerPeek,
-                            onEnablePowerPeek = {
-                                when (ContextCompat.checkSelfPermission(context, Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE)) {
-                                    PackageManager.PERMISSION_GRANTED -> onEnablePowerPeek()
-                                    else -> permissionLauncher.launch(Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE)
-                                }
-                            },
-                            onDisablePowerPeek = onDisablePowerPeek,
-                            settingsRepository = settingsRepository
-                        )
-                    }
-                    item {
-                        PulseLockCard(
-                            icon = rememberVectorPainter(image = Icons.Default.Lock),
-                            modifier = Modifier.fillMaxWidth(),
-                            iconSize = 32,
-                            isServiceActive = glyphServiceEnabled,
-                            onTestPulseLock = onTestPulseLock,
-                            onEnablePulseLock = onEnablePulseLock,
-                            onDisablePulseLock = onDisablePulseLock,
-                            settingsRepository = settingsRepository
-                        )
-                    }
-
-                    item {
-                        ScreenOffCard(
-                            icon = rememberVectorPainter(image = Icons.Default.PowerSettingsNew),
-                            modifier = Modifier.fillMaxWidth(),
-                            iconSize = 32,
-                            isServiceActive = glyphServiceEnabled,
-                            onTestScreenOff    = onTestScreenOff,
-                            onEnableScreenOff = onEnableScreenOff,
-                            onDisableScreenOff = onDisableScreenOff,
-                            settingsRepository = settingsRepository
-                        )
-                    }
-
-                    item {
-                        NfcGlyphCard(
-                            icon = rememberVectorPainter(image = Icons.Default.Nfc),
-                            modifier = Modifier.fillMaxWidth(),
-                            iconSize = 32,
-                            isServiceActive = glyphServiceEnabled,
-                            onTestNfc    = onTestNfc,
-                            onEnableNfc  = onEnableNfc,
-                            onDisableNfc = onDisableNfc,
-                            settingsRepository = settingsRepository
-                        )
-                    }
-
-                    item {
-                        LowBatteryAlertCard(
-                            icon = rememberVectorPainter(image = Icons.Default.BatteryAlert),
-                            modifier = Modifier.fillMaxWidth(),
-                            iconSize = 32,
-                            isServiceActive = glyphServiceEnabled,
-                            onTestAlert = onTestLowBattery,
-                            onEnableLowBattery = onEnableLowBattery,
-                            onDisableLowBattery = onDisableLowBattery,
-                            settingsRepository = settingsRepository
-                        )
-                    }
-                }
-            }
-        }
-
-        // ── Settings branches ─────────────────────────────────────────────────
-        composable("settings") {
-            SettingsScreen(
-                onBackClick               = { navController.popBackStack() },
-                onThemeSettingsClick      = { navController.navigate("theme_settings") },
-                onFontSettingsClick       = { navController.navigate("font_settings") },
-                onQuietHoursSettingsClick = { navController.navigate("quiet_hours_settings") },
-                onLanguageSettingsClick   = { navController.navigate("language_settings") },
-                settingsRepository = settingsRepository
-            )
-        }
-        composable("theme_settings")   { ThemeSettingsScreen(onBackClick = { navController.popBackStack() }) }
-        composable("font_settings")    { FontSettingsScreen(fontState = LocalFontState.current, onNavigateBack = { navController.popBackStack() }) }
-        composable("quiet_hours_settings") { QuietHoursSettingsScreen(onBackClick = { navController.popBackStack() }, settingsRepository = settingsRepository) }
-        composable("language_settings") {
-            LanguageSettingsScreen(
-                onBackClick = { navController.popBackStack() },
-                settingsRepository = settingsRepository,
-                onLanguageChanged = {
-                    (context as? ComponentActivity)?.let { activity ->
-                        activity.intent.apply {
-                            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        activity.startActivity(activity.intent)
-                        activity.finish()
-                    }
-                }
-            )
-        }
-    }
-}
-
-// ── Shared-axis Z transition ──────────────────────────────────────────────────
-object MaterialSharedAxisZ {
-    private const val ENTER_DURATION  = 200
-    private const val EXIT_DURATION   = 120
-    private const val SCALE_ENTER     = 0.98f
-    private const val SCALE_EXIT      = 1.02f
-
-    fun enterTransition(): EnterTransition = fadeIn(tween(ENTER_DURATION, easing = FastOutSlowInEasing)) + scaleIn(tween(ENTER_DURATION, easing = FastOutSlowInEasing), initialScale = SCALE_ENTER)
-    fun exitTransition(): ExitTransition = fadeOut(tween(EXIT_DURATION, easing = EaseOut)) + scaleOut(tween(EXIT_DURATION, easing = EaseOut), targetScale = SCALE_EXIT)
-    fun popEnterTransition(): EnterTransition = fadeIn(tween(ENTER_DURATION, easing = FastOutSlowInEasing)) + scaleIn(tween(ENTER_DURATION, easing = FastOutSlowInEasing), initialScale = SCALE_EXIT)
-    fun popExitTransition(): ExitTransition = fadeOut(tween(EXIT_DURATION, easing = EaseOut)) + scaleOut(tween(EXIT_DURATION, easing = EaseOut), targetScale = SCALE_ENTER)
 }
