@@ -3,6 +3,7 @@ package com.bleelblep.glyphsharge.ui.navigation
 import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -14,9 +15,9 @@ import com.bleelblep.glyphsharge.ui.screens.LanguageSettingsScreen
 import com.bleelblep.glyphsharge.ui.screens.QuietHoursSettingsScreen
 import com.bleelblep.glyphsharge.ui.screens.SettingsScreen
 import com.bleelblep.glyphsharge.ui.screens.ThemeSettingsScreen
-import com.bleelblep.glyphsharge.ui.screens.home.HomeActions
 import com.bleelblep.glyphsharge.ui.screens.home.HomeScreen
 import com.bleelblep.glyphsharge.ui.theme.LocalFontState
+import com.bleelblep.glyphsharge.ui.viewmodel.HomeViewModel
 
 /**
  * The whole navigation graph.
@@ -28,10 +29,8 @@ import com.bleelblep.glyphsharge.ui.theme.LocalFontState
  */
 @Composable
 fun GlyphNavHost(
-    glyphServiceEnabled: Boolean,
-    onGlyphServiceToggle: (Boolean) -> Unit,
-    actions: HomeActions,
     settingsRepository: SettingsRepository,
+    homeViewModel: HomeViewModel,
     navController: NavHostController = rememberNavController()
 ) {
     val context = LocalContext.current
@@ -46,11 +45,9 @@ fun GlyphNavHost(
     ) {
         composable(Routes.HOME) {
             HomeScreen(
-                glyphServiceEnabled = glyphServiceEnabled,
-                onGlyphServiceToggle = onGlyphServiceToggle,
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                actions = actions,
-                settingsRepository = settingsRepository
+                settingsRepository = settingsRepository,
+                viewModel = homeViewModel
             )
         }
 

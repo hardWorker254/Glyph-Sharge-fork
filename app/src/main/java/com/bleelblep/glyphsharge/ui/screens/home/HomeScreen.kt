@@ -5,24 +5,31 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.ui.components.GlyphControlCard
 import com.bleelblep.glyphsharge.ui.components.HomeSectionHeader
 import com.bleelblep.glyphsharge.ui.components.layout.SettingsScaffold
+import com.bleelblep.glyphsharge.ui.viewmodel.HomeViewModel
 
 /**
  * The landing screen: the master glyph switch plus one card per feature.
+ *
+ * State is observed from [HomeViewModel]; the screen itself holds nothing but
+ * the layout.
  */
 @Composable
 fun HomeScreen(
-    glyphServiceEnabled: Boolean,
-    onGlyphServiceToggle: (Boolean) -> Unit,
     onOpenSettings: () -> Unit,
-    actions: HomeActions,
     settingsRepository: SettingsRepository,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    viewModel: HomeViewModel = hiltViewModel()
 ) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
     SettingsScaffold(
         title = "Glyph Sharge",
         modifier = modifier,
@@ -34,17 +41,17 @@ fun HomeScreen(
     ) {
         item {
             GlyphControlCard(
-                enabled = glyphServiceEnabled,
-                onEnabledChange = onGlyphServiceToggle
+                enabled = uiState.glyphServiceEnabled,
+                onEnabledChange = viewModel::toggleGlyphService
             )
         }
 
         item { HomeSectionHeader(title = "Features") }
 
         homeFeatureCards(
-            glyphServiceEnabled = glyphServiceEnabled,
+            uiState = uiState,
             settingsRepository = settingsRepository,
-            actions = actions
+            viewModel = viewModel
         )
     }
 }
