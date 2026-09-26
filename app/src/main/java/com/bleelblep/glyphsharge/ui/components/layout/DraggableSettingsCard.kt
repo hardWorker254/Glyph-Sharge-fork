@@ -8,6 +8,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -59,6 +60,9 @@ import kotlin.math.roundToInt
  *
  * @param onNavigate called once the card snaps back after a full swipe. When
  *   `null` the card is inert and does not respond to drags.
+ * @param onClick optional tap target. The studio entry point needs it: it
+ *   opens a different Activity, and a swipe is too easy to miss for something
+ *   with no other route in.
  * @param subtitle optional second line under the title.
  * @param subtitleColor applied to [subtitle] only; leave as [Color.Unspecified]
  *   to inherit the theme's default.
@@ -71,6 +75,7 @@ fun DraggableSettingsCard(
     subtitle: String? = null,
     subtitleColor: Color = Color.Unspecified,
     onNavigate: (() -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
@@ -152,6 +157,7 @@ fun DraggableSettingsCard(
         modifier = modifier
             .fillMaxWidth()
             .height(100.dp)
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
             .then(dragModifier),
         colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(defaultElevation = animatedElevation),

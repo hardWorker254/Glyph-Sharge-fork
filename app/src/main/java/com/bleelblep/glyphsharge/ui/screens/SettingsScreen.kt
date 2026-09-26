@@ -23,6 +23,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,7 +38,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bleelblep.glyphsharge.R
+import com.bleelblep.glyphsharge.CustomAnimationsActivity
 import com.bleelblep.glyphsharge.data.SettingsRepository
+import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.components.controls.MorphingToggleButton
 import com.bleelblep.glyphsharge.ui.components.controls.ThreeStateFontMorphingButton
 import com.bleelblep.glyphsharge.ui.components.layout.DraggableSettingsCard
@@ -45,6 +48,8 @@ import com.bleelblep.glyphsharge.ui.components.layout.SettingsScaffold
 import com.bleelblep.glyphsharge.ui.theme.AppThemeStyle
 import com.bleelblep.glyphsharge.ui.theme.LocalFontState
 import com.bleelblep.glyphsharge.ui.theme.LocalThemeState
+import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.flow.map
 
 /**
  * Settings screen for the GlyphZen app.
@@ -65,6 +70,16 @@ fun SettingsScreen(
 ) {
     val fontState = LocalFontState.current
     val themeState = LocalThemeState.current
+    val context = LocalContext.current
+
+    // The studio is a separate Activity, so the count is read straight from the
+    // repository rather than through a callback from GlyphNavHost.
+    val customAnimationCount by remember {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            GlyphComponent::class.java
+        ).customAnimationRepository().animations.map { it.size }
+    }.collectAsState(initial = 0)
 
     SettingsScaffold(
         title = stringResource(id = R.string.settings_title),
@@ -109,9 +124,38 @@ fun SettingsScreen(
         }
 
         item {
+            CustomAnimationsCard(
+                animationCount = customAnimationCount,
+                onClick = {
+                    context.startActivity(CustomAnimationsActivity.intent(context))
+                }
+            )
+        }
+
+        item {
             AppInfoSection()
         }
     }
+}
+
+@Composable
+private fun CustomAnimationsCard(
+    animationCount: Int,
+    onClick: () -> Unit
+) {
+    DraggableSettingsCard(
+        title = stringResource(id = R.string.settings_card_custom_animations),
+        subtitle = if (animationCount == 0) {
+            stringResource(id = R.string.settings_card_custom_animations_subtitle)
+        } else {
+            stringResource(
+                id = R.string.settings_card_custom_animations_count,
+                animationCount
+            )
+        },
+        onNavigate = onClick,
+        onClick = onClick
+    )
 }
 
 @Composable

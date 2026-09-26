@@ -79,8 +79,17 @@ fun PulseLockEnableDialog(
     val currentlyEnabled = remember { settingsRepository.isPulseLockEnabled() }
     var isSaving by remember { mutableStateOf(false) }
 
+    // Built-ins plus whatever the studio currently holds, so a script saved
+    // while this dialog is open shows up in the chip row.
+    val animationOptions = rememberAnimationOptions()
+
     var selectedAnimation by remember {
-        mutableStateOf(GlyphAnimations.getById(settingsRepository.getPulseLockAnimationId()))
+        mutableStateOf(
+            GlyphAnimations.getById(
+                settingsRepository.getPulseLockAnimationId(),
+                animationOptions
+            )
+        )
     }
     var durationSeconds by remember {
         mutableFloatStateOf((settingsRepository.getPulseLockDuration() / 1000f).coerceIn(1f, 10f))
@@ -137,7 +146,7 @@ fun PulseLockEnableDialog(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
-                            GlyphAnimations.list.forEach { anim ->
+                            animationOptions.forEach { anim ->
                                 FilterChip(
                                     selected = anim == selectedAnimation,
                                     onClick = {
@@ -158,7 +167,13 @@ fun PulseLockEnableDialog(
                                 HapticUtils.triggerMediumFeedback(haptic, context)
                                 scope.launch {
                                     try {
-                                        when (selectedAnimation.id) {
+                                        when {
+                                        selectedAnimation.isCustom ->
+                                            glyphAnimationManager.playCustomAnimation(
+                                                selectedAnimation.id
+                                            )
+
+                                        else -> when (selectedAnimation.id) {
                                             "SPIRAL"    -> glyphAnimationManager.runSpiralAnimation()
                                             "HEARTBEAT" -> glyphAnimationManager.runHeartbeatAnimation()
                                             "MATRIX"    -> glyphAnimationManager.runMatrixRainAnimation()
@@ -166,6 +181,7 @@ fun PulseLockEnableDialog(
                                             "DNA"       -> glyphAnimationManager.runDNAHelixAnimation()
                                             else        -> glyphAnimationManager.playPulseLockAnimation()
                                         }
+                                    }
                                     } catch (e: Exception) {
                                         Log.e("PulseLock", "Error testing animation: ${e.message}")
                                     }
@@ -184,43 +200,48 @@ fun PulseLockEnableDialog(
                     }
                 }
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = cardColor),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(R.string.pulse_lock_duration_title),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.weight(1f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                // Not shown for a user's script: a script lasts exactly as long as
+                // its own code, so a duration here would be a control that
+                // changes nothing.
+                if (!selectedAnimation.isCustom) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = cardColor),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.pulse_lock_duration_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                ThemedValueBadge("${durationSeconds.toInt()}" + stringResource(id = R.string.glyph_seconds))
+                            }
+
+                            Slider(
+                                value = durationSeconds,
+                                onValueChange = {
+                                    HapticUtils.triggerLightFeedback(haptic, context)
+                                    durationSeconds = it
+                                },
+                                valueRange = 1f..10f,
+                                steps = 8,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = SliderDefaults.colors(thumbColor = accent)
                             )
-                            ThemedValueBadge("${durationSeconds.toInt()}" + stringResource(id = R.string.glyph_seconds))
-                        }
 
-                        Slider(
-                            value = durationSeconds,
-                            onValueChange = {
-                                HapticUtils.triggerLightFeedback(haptic, context)
-                                durationSeconds = it
-                            },
-                            valueRange = 1f..10f,
-                            steps = 8,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = SliderDefaults.colors(thumbColor = accent)
-                        )
-
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(stringResource(R.string.pulse_lock_duration_min), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(stringResource(R.string.pulse_lock_duration_max), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(stringResource(R.string.pulse_lock_duration_min), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(stringResource(R.string.pulse_lock_duration_max), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }

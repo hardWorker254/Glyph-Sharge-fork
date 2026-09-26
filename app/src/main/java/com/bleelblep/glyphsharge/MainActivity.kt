@@ -109,12 +109,24 @@ class MainActivity : ComponentActivity() {
         startPersistentGlyphService()
     }
 
+    override fun onStart() {
+        super.onStart()
+        // Every time, not only in `onCreate`.
+        //
+        // A feature service can be gone — killed by the system, or shut itself
+        // down after the Glyph service was off for a moment — and nothing
+        // noticed: the card still said "on" and the trigger the service listens
+        // for was never registered, so the animation silently stopped coming.
+        // Re-starting an already running service just calls `onStartCommand`
+        // again, which is what keeps the card and the truth together.
+        startEnabledFeatureServices()
+    }
+
     override fun onStop() {
         super.onStop()
         wasServiceEnabled = glyphManager.isSessionActive
         cancelRunningAnimations()
         if (!settingsRepository.getGlyphServiceEnabled()) {
-            glyphManager.cancelAllAnimations()
             glyphAnimationManager.stopAnimations()
             if (wasServiceEnabled) glyphManager.closeSession()
         }

@@ -3,6 +3,7 @@ package com.bleelblep.glyphsharge.services
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.ui.state.GlyphFeature
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -24,6 +25,9 @@ class FeatureServiceController @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val settingsRepository: SettingsRepository
 ) {
+    private companion object {
+        const val TAG = "FeatureServices"
+    }
 
     private fun serviceOf(feature: GlyphFeature): Class<out Service> = when (feature) {
         GlyphFeature.CHARGING_ANIMATION -> ChargingAnimationService::class.java
@@ -68,7 +72,21 @@ class FeatureServiceController @Inject constructor(
     fun readAll(): Map<GlyphFeature, Boolean> =
         GlyphFeature.entries.associateWith { isEnabled(it) }
 
+    /**
+     * Starts a feature's service.
+     *
+     * Refused while the master Glyph service is off. Every one of these
+     * services checks the same thing in `onStartCommand` and calls `shutDown()`
+     * — so starting one anyway produced a service that lived for a few
+     * milliseconds, registered no trigger, and left the card claiming to be on
+     * while nothing could ever happen. The Screen Off service survived that
+     * only because it had been started while the Glyph service was still on.
+     */
     fun start(feature: GlyphFeature) {
+        if (!settingsRepository.getGlyphServiceEnabled()) {
+            Log.w(TAG, "Not starting ${feature.name}: the Glyph service is off")
+            return
+        }
         context.startForegroundService(Intent(context, serviceOf(feature)))
     }
 

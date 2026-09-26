@@ -98,6 +98,16 @@ class HomeViewModel @Inject constructor(
             if (glyphManager.isSessionActive == enabled) {
                 _uiState.update { it.copy(glyphServiceEnabled = enabled) }
                 settingsRepository.saveGlyphServiceEnabled(enabled)
+                // Reconcile the services even when the session was already in the
+                // requested state.
+                //
+                // A feature switched on while the Glyph service was off has a
+                // dead service: it shut itself down on start and registered no
+                // trigger. The switch can then read "on" while nothing works,
+                // and returning early here left it that way — the feature cards
+                // said "on" and the animation never played, with no way out
+                // except switching the Glyph service off and on again.
+                if (enabled) serviceController.startAllEnabled() else serviceController.stopAll()
                 emit("Glyph service is already ${if (enabled) "enabled" else "disabled"}")
                 return
             }
@@ -142,6 +152,15 @@ class HomeViewModel @Inject constructor(
     fun setFeatureEnabled(feature: GlyphFeature, enabled: Boolean) {
         if (feature == GlyphFeature.NFC && enabled && !canUseNfc()) return
 
+        // A feature cannot run without the master Glyph service: its service
+        // shuts itself down on start and never registers its trigger. Refusing
+        // here, rather than only in the service, is what keeps the card honest
+        // — otherwise it sits there saying "on" and nothing ever happens.
+        if (enabled && !settingsRepository.getGlyphServiceEnabled()) {
+            reject(context.getString(serviceOffMessageOf(feature)))
+            return
+        }
+
         serviceController.apply(feature, enabled)
         _uiState.update { state ->
             state.copy(
@@ -151,6 +170,20 @@ class HomeViewModel @Inject constructor(
         }
 
         if (feature == GlyphFeature.NFC) nfcDispatchHook?.invoke(enabled)
+    }
+
+    /**
+     * The toast each feature already shows when its dialog is opened while the
+     * Glyph service is off. Reusing them keeps one wording per feature instead
+     * of adding a second, slightly different message.
+     */
+    private fun serviceOffMessageOf(feature: GlyphFeature): Int = when (feature) {
+        GlyphFeature.PULSE_LOCK -> R.string.pulse_lock_toast
+        GlyphFeature.POWER_PEEK -> R.string.power_peek_toast
+        GlyphFeature.SCREEN_OFF -> R.string.screen_off_toast
+        GlyphFeature.NFC -> R.string.nfc_glyph_toast
+        GlyphFeature.LOW_BATTERY -> R.string.low_battery_alert_toast
+        GlyphFeature.CHARGING_ANIMATION -> R.string.charging_animation_toast
     }
 
     private fun canUseNfc(): Boolean {

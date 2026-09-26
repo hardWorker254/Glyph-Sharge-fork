@@ -11,9 +11,10 @@ Complete reference guide for all UI elements, components, and styling systems.
 3. [Core Card Components](#core-card-components)
 4. [Custom Animations & Visual Effects](#custom-animations--visual-effects)
 5. [Specialized Components](#specialized-components)
-6. [Utility Systems](#utility-systems)
-7. [Usage Examples](#usage-examples)
-8. [Integration Guide](#integration-guide)
+6. [Animation Studio (Lua)](#animation-studio-lua)
+7. [Utility Systems](#utility-systems)
+8. [Usage Examples](#usage-examples)
+9. [Integration Guide](#integration-guide)
 
 ---
 
@@ -27,6 +28,7 @@ Complete reference guide for all UI elements, components, and styling systems.
 - Custom animations with Canvas API
 - Hardware-accelerated haptic feedback
 - Dynamic theming system
+- LuaJ 3.0.1 for the user-written animation studio (see [Animation Studio (Lua)](#animation-studio-lua))
 
 ---
 
@@ -740,6 +742,260 @@ ThreeStateFontToggle(
 
 ---
 
+## Animation Studio (Lua)
+
+The studio is where the user writes their own glyph animations in Lua. It is reached from
+**Settings → Custom Animations** and hosted by its own Activity rather than the settings
+`NavHost`. The full script language reference lives in
+[the main documentation](docs/DOCUMENTATION_EN.md#13-custom-animations-lua); this section
+covers the UI pieces.
+
+### 1. CustomAnimationsActivity - Studio Host
+
+**Location:** `app/src/main/java/com/bleelblep/glyphsharge/CustomAnimationsActivity.kt`
+
+```kotlin
+@AndroidEntryPoint
+class CustomAnimationsActivity : ComponentActivity() {
+
+    companion object {
+        /** The entry point used by the settings card. */
+        fun intent(context: Context): Intent =
+            Intent(context, CustomAnimationsActivity::class.java)
+    }
+}
+```
+
+**Features:**
+- `android:exported="false"` with `parentActivityName=".MainActivity"` — nothing outside the app can open a code editor
+- Own `ActivityResultLauncher`s: `OpenDocument` for import, `CreateDocument` for "Export to a file…"
+- `BackHandler` between the list and the editor, so the system back always means "leave this screen" and never "fall into the settings graph"
+- Platform `AlertDialog` for renaming (the row is a target, not a form)
+- Applies the chosen locale in `attachBaseContext`, like `MainActivity` does
+- Stops any running preview in `onStop()` and `onDestroy()` — leaving the studio must never leave the strip lit
+
+**Why a separate Activity:** the studio has its own back stack, its own system file pickers
+and a code editor. None of that belongs in the shared settings navigation, and it keeps the
+blast radius small — a script run here goes through the same `GlyphAnimationManager` the
+feature services use, but nothing on this screen can change a feature's configuration.
+
+### 2. AnimationListScreen - Saved Scripts
+
+**Location:** `app/src/main/java/com/bleelblep/glyphsharge/ui/screens/animations/AnimationListScreen.kt`
+
+```kotlin
+@Composable
+fun AnimationListScreen(
+    animations: List<ScriptAnimation>,
+    onBackClick: () -> Unit,
+    onOpen: (String) -> Unit,
+    onCreate: () -> Unit,
+    onDelete: (String) -> Unit,
+    onDuplicate: (String) -> Unit,
+    onRename: (String, String) -> Unit,
+    onPickImportFile: () -> Unit,
+    onExportToDownloads: (String) -> Unit,
+    onExportToFile: (String) -> Unit,
+    modifier: Modifier = Modifier
+)
+```
+
+**Features:**
+- One row per saved script: name, character count, and the last edit time
+- Per-row overflow menu: open, rename, duplicate, delete, save to Downloads, export to a file
+- New and Import actions in the top bar
+- Empty state with a call to action instead of a blank list
+
+**Usage Example:**
+```kotlin
+AnimationListScreen(
+    animations = state.animations,
+    onBackClick = { finish() },
+    onOpen = viewModel::open,
+    onCreate = { viewModel.newAnimation() },
+    onDelete = viewModel::delete,
+    onDuplicate = viewModel::duplicate,
+    onRename = { id, currentName -> promptRename(id, currentName) },
+    onPickImportFile = { importLauncher.launch(IMPORT_MIME_TYPES) },
+    onExportToDownloads = viewModel::exportToDownloads,
+    onExportToFile = { id -> promptExport(id) }
+)
+```
+
+### 3. AnimationEditorScreen - Code, Preview, Console
+
+**Location:** `app/src/main/java/com/bleelblep/glyphsharge/ui/screens/animations/AnimationEditorScreen.kt`
+
+```kotlin
+@Composable
+fun AnimationEditorScreen(
+    name: String,
+    source: String,
+    profile: DeviceProfile,
+    previewLevels: Map<Int, Int>,
+    console: List<ConsoleLine>,
+    isDirty: Boolean,
+    isRunning: Boolean,
+    isPreviewing: Boolean,
+    onBackClick: () -> Unit,
+    onNameChange: (String) -> Unit,
+    onSourceChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onCheck: () -> Unit,
+    onRunPreview: () -> Unit,
+    onRunGlyph: () -> Unit,
+    onStop: () -> Unit,
+    modifier: Modifier = Modifier
+)
+```
+
+**Features:**
+- **Check** compiles the source and prints the first syntax error; nothing is drawn
+- **Screen** runs it against a recording host, so the preview canvas animates while the phone's glyph stays dark — works on any phone and on an emulator
+- **Glyph** runs it for real through `GlyphAnimationManager.previewScript`
+- The active run button becomes **Stop**; `isPreviewing` tells the two apart
+- `BasicTextField` code surface: monospace, scrolls in both axes, no floating form decoration
+- Collapsible `glyph API reference` card listing every call and what it does — its contents are the private `API_REFERENCE` list next to the composable, so adding a binding in `GlyphLuaApi.kt` and documenting it here stays one edit
+- Title shows a "•" when there are unsaved changes
+
+> [!NOTE]
+> The cheat sheet is an abbreviated index, not the contract. It writes `glyph.running` and
+> `glyph.battery / .charging` without parentheses, but in `GlyphLuaApi.kt` all five
+> runtime-state accessors are bound as Lua **functions** — a script must call
+> `glyph.running()`, `glyph.battery()` and `glyph.charging()`. Without the parentheses a
+> value like `glyph.running` is always truthy, so a `while` loop never winds down.
+> `glyph.MAX` and `glyph.device` really are plain values. The full reference, and the full
+> list of calls, are in
+> [the main documentation](docs/DOCUMENTATION_EN.md#13-custom-animations-lua).
+
+**Usage Example:**
+```kotlin
+AnimationEditorScreen(
+    name = state.name,
+    source = state.source,
+    // The preview always has a layout to draw, even with no glyph hardware.
+    profile = DeviceProfileFactory.forPreview(),
+    previewLevels = state.previewLevels,
+    console = state.console,
+    isDirty = state.isDirty,
+    isRunning = state.isRunning,
+    isPreviewing = state.isPreviewing,
+    onBackClick = { viewModel.closeEditor() },
+    onNameChange = viewModel::updateName,
+    onSourceChange = viewModel::updateSource,
+    onSave = viewModel::save,
+    onCheck = viewModel::check,
+    onRunPreview = { viewModel.runPreview() },
+    onRunGlyph = { viewModel.runOnGlyph() },
+    onStop = viewModel::stop
+)
+```
+
+### 4. GlyphPreview - On-Screen Glyph Rendering
+
+**Location:** `app/src/main/java/com/bleelblep/glyphsharge/ui/screens/animations/GlyphPreview.kt`
+
+```kotlin
+@Composable
+fun GlyphPreview(
+    levels: Map<Int, Int>,   // channel → brightness
+    profile: DeviceProfile,  // the layout to draw against
+    modifier: Modifier = Modifier
+)
+```
+
+**Features:**
+- Draws the recorded frames with Canvas, no hardware involved
+- Lays out the channel groups of a `DeviceProfile` (the C strip, the A/B/D/E dots, the circular segments)
+- Brightness maps to a colour ramp: a dark channel is not drawn, a lit one glows
+- Idles with a hint until the first run fills `levels`
+
+**Usage Example:**
+```kotlin
+GlyphPreview(
+    levels = state.previewLevels,          // filled by PreviewHost during a Screen run
+    profile = DeviceProfileFactory.forPreview(),
+    modifier = Modifier.fillMaxWidth().height(150.dp)
+)
+```
+
+### 5. AnimationStudioViewModel - Studio State
+
+**Location:** `app/src/main/java/com/bleelblep/glyphsharge/ui/viewmodel/AnimationStudioViewModel.kt`
+
+```kotlin
+@HiltViewModel
+class AnimationStudioViewModel @Inject constructor(
+    private val repository: CustomAnimationRepository,
+    private val glyphAnimationManager: GlyphAnimationManager
+) : ViewModel() {
+
+    val uiState: StateFlow<StudioUiState>
+    val messages: StateFlow<String?>
+
+    fun newAnimation(); fun open(id: String); fun closeEditor()
+    fun updateName(name: String); fun updateSource(source: String); fun save()
+    fun check()
+    fun runPreview(durationMs: Long = PREVIEW_DURATION_MS)
+    fun runOnGlyph(durationMs: Long = PREVIEW_DURATION_MS)
+    fun stop()
+    fun importFrom(uri: Uri)
+    fun exportTo(uri: Uri, id: String)
+    fun exportToDownloads(id: String)
+    fun consumeMessage()
+
+    companion object {
+        const val PREVIEW_DURATION_MS = 8_000L
+        const val PREVIEW_BATTERY_PERCENT = 72
+    }
+}
+```
+
+**State:**
+```kotlin
+data class StudioUiState(
+    val animations: List<ScriptAnimation> = emptyList(),
+    val editing: ScriptAnimation? = null,
+    val name: String = "",
+    val source: String = "",
+    val isDirty: Boolean = false,
+    val console: List<ConsoleLine> = emptyList(),
+    val isRunning: Boolean = false,
+    val previewLevels: Map<Int, Int> = emptyMap(),   // channel → brightness
+    val isPreviewing: Boolean = false
+) {
+    val isEditing: Boolean get() = editing != null
+}
+
+data class ConsoleLine(val text: String, val isError: Boolean = false)
+```
+
+**Features:**
+- Collects `repository.animations` into the UI state, so the list updates as soon as a script is saved
+- **Screen** mode runs the script against a private `PreviewHost` that records frames instead of lighting LEDs
+- **Glyph** mode goes through `GlyphAnimationManager.previewScript` — the real path
+- Turns a `ScriptRunResult` into console lines: frame count and elapsed time, or the error message
+- `PREVIEW_BATTERY_PERCENT = 72` is what `glyph.battery()` returns in a preview, and `glyph.charging()` returns `true`, since on screen there is no battery to read
+- Messages flow through a `StateFlow<String?>` consumed once by the Activity and shown as a Toast
+
+**How a saved script reaches the feature cards:**
+```kotlin
+// Inside any feature dialog (PulseLock, LowBattery, NfcGlyph, ScreenOff):
+val animationOptions = rememberAnimationOptions()          // built-ins + the user's scripts
+var selectedAnimation by remember {
+    mutableStateOf(GlyphAnimations.getById(settingsRepository.getPulseLockAnimationId(), animationOptions))
+}
+
+// Test button:
+if (selectedAnimation.isCustom) {
+    glyphAnimationManager.playCustomAnimation(selectedAnimation.id, durationMs)
+} else {
+    /* the existing built-in branch */
+}
+```
+
+---
+
 ## Utility Systems
 
 ### 1. HapticUtils - Comprehensive Vibration Management
@@ -1343,29 +1599,39 @@ LinearWavyProgressIndicator(
 ### Main Component Files
 
 ```
-app/src/main/java/com/bleelblep/glyphsharge/ui/
-├── components/
-│   ├── StandardCard.kt (272 lines) - Core card system
-│   ├── WavyProgressIndicator.kt (317 lines) - Custom animations
-│   ├── HapticTestCard.kt (250 lines) - Vibration integration
-│   ├── FontSettingsComponents.kt (500+ lines) - Font management
-│   ├── PowerPeekComponents.kt (1000+ lines) - Shake detection
-│   ├── PulseLockComponents.kt (1300+ lines) - Unlock animations
-│   ├── LowBatteryAlertComponents.kt (1300+ lines) - Battery alerts
-│   ├── CardExamples.kt (2100+ lines) - Usage examples
-│   ├── HomeCardTemplates.kt (5100+ lines) - Template variations
-│   ├── TransparentTopAppBar.kt (65 lines) - App bar
-│   ├── WatermarkBox.kt (92 lines) - Watermark overlay
-│   └── EmojiPainter.kt (42 lines) - Emoji support
-├── theme/
-│   ├── Color.kt - Color definitions
-│   ├── Type.kt - Typography configuration
-│   ├── Shape.kt - Shape definitions
-│   ├── FontState.kt - Font state management
-│   └── Theme.kt - Complete theme system (6 styles)
-└── utils/
-    ├── HapticUtils.kt (377 lines) - Vibration system
-    └── AnimationUtils.kt (98 lines) - Animation helpers
+app/src/main/java/com/bleelblep/glyphsharge/
+├── CustomAnimationsActivity.kt (240 lines) - Animation studio host
+└── ui/
+    ├── components/
+    │   ├── StandardCard.kt (272 lines) - Core card system
+    │   ├── WavyProgressIndicator.kt (317 lines) - Custom animations
+    │   ├── GlyphAnimations.kt (100 lines) - Animation catalogue + custom scripts
+    │   ├── HapticTestCard.kt (250 lines) - Vibration integration
+    │   ├── FontSettingsComponents.kt (500+ lines) - Font management
+    │   ├── PowerPeekComponents.kt (1000+ lines) - Shake detection
+    │   ├── PulseLockComponents.kt (1300+ lines) - Unlock animations
+    │   ├── LowBatteryAlertComponents.kt (1300+ lines) - Battery alerts
+    │   ├── CardExamples.kt (2100+ lines) - Usage examples
+    │   ├── HomeCardTemplates.kt (5100+ lines) - Template variations
+    │   ├── TransparentTopAppBar.kt (65 lines) - App bar
+    │   ├── WatermarkBox.kt (92 lines) - Watermark overlay
+    │   └── EmojiPainter.kt (42 lines) - Emoji support
+    ├── screens/animations/         # Animation studio screens
+    │   ├── AnimationListScreen.kt (287 lines) - Saved scripts
+    │   ├── AnimationEditorScreen.kt (401 lines) - Code, preview, console
+    │   └── GlyphPreview.kt (219 lines) - On-screen glyph rendering
+    ├── viewmodel/
+    │   ├── HomeViewModel.kt
+    │   └── AnimationStudioViewModel.kt (350 lines) - Studio state, Screen / Glyph runs
+    ├── theme/
+    │   ├── Color.kt - Color definitions
+    │   ├── Type.kt - Typography configuration
+    │   ├── Shape.kt - Shape definitions
+    │   ├── FontState.kt - Font state management
+    │   └── Theme.kt - Complete theme system (6 styles)
+    └── utils/
+        ├── HapticUtils.kt (377 lines) - Vibration system
+        └── AnimationUtils.kt (98 lines) - Animation helpers
 ```
 
 ---
@@ -1406,6 +1672,8 @@ This codebase uses official Nothing Phone fonts and follows Material Design 3 gu
 - [Jetpack Compose Documentation](https://developer.android.com/jetpack/compose)
 - [Android Haptic Feedback Best Practices](https://developer.android.com/develop/ui/views/haptics)
 - [Canvas Drawing in Compose](https://developer.android.com/jetpack/compose/graphics/draw/overview)
+- [LuaJ](https://github.com/luaj/luaj) — the Lua 5.2 VM behind the animation studio
+- [Lua 5.2 Reference Manual](https://www.lua.org/manual/5.2/) — the language the `glyph` API sits in
 
 ---
 

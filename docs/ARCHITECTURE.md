@@ -73,7 +73,17 @@ MainActivity
         ├── FontSettingsScreen
         ├── LanguageSettingsScreen
         └── QuietHoursSettingsScreen
+
+CustomAnimationsActivity          # студия анимаций на Lua, вне NavHost
+    └── BackHandler              # свой стек: список ↔ редактор
+    └── ActivityResultLauncher   # OpenDocument / CreateDocument
 ```
+
+> [!NOTE]
+> `CustomAnimationsActivity` — единственное исключение из правила одной Activity.
+> У неё собственный стек возврата и собственные системные файловые диалоги, которые
+> не должны жить в общем навграфе настроек. В манифесте она помечена
+> `android:exported="false"` и `parentActivityName=".MainActivity"`.
 
 ### 5. Unidirectional Data Flow
 
@@ -94,9 +104,12 @@ User Event → ViewModel → Repository → Data Source
 ```
 ui/
 ├── components/     # Переиспользуемые компоненты
+│                   #   + GlyphAnimations.kt (каталог + rememberAnimationOptions)
 ├── screens/        # Экраны приложения
+│   └── animations/ #   Студия Lua-анимаций: список, редактор, превью
 ├── theme/          # Темы и стили
-└── utils/          # UI утилиты
+├── utils/          # UI утилиты
+└── viewmodel/      # HomeViewModel, AnimationStudioViewModel
 ```
 
 **Ответственность:**
@@ -110,9 +123,21 @@ ui/
 
 ```
 glyph/
-├── GlyphManager.kt           # Управление сессией глифов
-├── GlyphAnimationManager.kt  # Управление анимациями
-└── GlyphFeatureCoordinator.kt # Координация функций
+├── GlyphManager.kt            # Сессия Nothing SDK
+├── GlyphAnimationManager.kt   # Точки входа анимаций
+├── GlyphFeatureCoordinator.kt # Координация функций
+├── AnimationCatalog.kt        # id анимаций
+├── device/                    # Раскладка LED и тайминги по модели
+├── engine/                    # Сборка кадров и обработка ошибок
+├── animations/                # Сами анимации
+├── script/                    # Пользовательские анимации на Lua
+│   ├── ScriptAnimation.kt     # Модель скрипта, id custom:<12 hex>
+│   ├── ScriptFileFormat.kt    # Контейнер .glyphlua
+│   ├── LuaScriptEngine.kt     # LuaJ: песочница, сторож, validate()
+│   ├── ScriptSession.kt       # Состояние прогона и прерываемые паузы
+│   ├── GlyphLuaApi.kt         # Таблица glyph — весь язык скрипта
+│   └── ScriptRunner.kt        # Связь VM с GlyphRenderer
+└── battery/                   # Анимация заряда и Power Peek
 
 services/
 ├── GlyphForegroundService.kt
@@ -137,6 +162,7 @@ services/
 ```
 data/
 ├── SettingsRepository.kt
+├── CustomAnimationRepository.kt   # Скрипты пользователя: файлы + индекс
 └── local/
     └── Migrations.kt
 ```
@@ -155,30 +181,95 @@ data/
 **Основные обязанности:**
 - Инициализация SDK
 - Управление сессией
-- Контроль каналов глифов
 - Обработка ошибок и восстановление
 
 ```kotlin
 class GlyphManager @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
     fun initialize()
     fun openSession()
     fun closeSession()
-    fun turnOnAllGlyphs()
     fun turnOffAll()
+    fun cleanup()
     // ...
 }
 ```
 
+Номера каналов он не хранит — они живут в `device/DeviceProfileFactory.kt`.
+
+### GlyphRenderer
+
+Движок отрисовки: сборка кадров, флаг `isRunning`, обработка ошибок и примитив `pulse()`.
+Единственный класс, который обращается к `GlyphManager.mGM` напрямую.
+
 ### GlyphAnimationManager
 
-Управляет анимациями глифов.
+Публичные точки входа для всех анимаций.
 
 **Основные обязанности:**
-- Регистрация анимаций
-- Воспроизведение паттернов
-- Синхронизация с сервисами
+- Проверка настроек и поддержки устройства
+- Воспроизведение сценариев фич
+- Диспетчеризация по id из настроек
+
+Сама отрисовка вынесена в `animations/` и `battery/`, пользовательские скрипты — в `script/`.
+
+### Пакет `glyph/script/` — движок пользовательских анимаций
+
+Скрипты на Lua (движок **LuaJ 3.0.1**, `org.luaj:luaj-jse`, чисто-JVM Lua 5.2) выполняются
+отдельным движком, но подключены к тому же фасаду. Идентификаторы скриптов
+пространственно именованы: `custom:<12 hex>`, поэтому `ScriptAnimation.isCustomId(id)`
+отличает их от встроенных id без таблицы соответствий.
+
+**Поток данных:**
+
+```
+настройка фичи (id custom:<12 hex>)
+  → CustomAnimationRepository          поиск исходника (файлы + индекс в SharedPreferences)
+  → GlyphAnimationManager.playAnimation
+        └─ isCustomId(id) ? playCustomAnimation() : GlyphAnimationId.of(id)
+  → ScriptRunner.runScript(source, durationMs)   Dispatchers.Default
+  → LuaScriptEngine.run                          песочница + сторож
+  → GlyphScriptHost (RendererHost)               runBlocking поверх suspend-рендерера
+  → GlyphRenderer → GlyphManager                  реальные светодиоды
+```
+
+**Границы подсистем.** Движок никогда не видит `GlyphRenderer`: он получает узкий интерфейс
+`GlyphScriptHost` (`draw`, `blank`, `batteryPercent`, `isCharging`). Это делает его
+тестируемым на обычной JVM и делает очевидным, что именно может скрипт. Единственное место,
+где VM соединяется с железом, — `ScriptRunner`.
+
+**Обход песочницы.** Окружение строится вычитанием из `JsePlatform.standardGlobals()`:
+удаляются `io`, `os`, `package`, `require`, `module`, `dofile`, `loadfile`, `load`,
+`loadstring`, **`luajava`** (рефлексивный мост в Java — настоящий выход из песочницы),
+`coroutine`, `collectgarbage`, `newproxy`. `DebugLib` загружается, сторож навешивается,
+и только затем таблица `debug` обнуляется. `print` перенаправлен в консоль студии.
+
+**Сторож.** Скрипт — произвольный код, управляющий железом из foreground-сервиса, поэтому у
+него два предела, оба проверяются из count-хука (интервал 20 000 инструкций): настенные часы
+(настройка Duration фичи) и потолок в 200 000 000 инструкций. Хук бросает
+`ScriptAbortedError : Error` — не Lua-ошибку, которую проглотил бы `pcall`. Любая пауза
+нарезается кусками по 16 мс, поэтому остановка замечается сразу, а не в конце
+`glyph.hold(60000)`.
+
+### Студия анимаций
+
+`CustomAnimationsActivity` — **отдельная Activity** (`android:exported="false"`),
+а не маршрут `GlyphNavHost`. Свои `ActivityResultLauncher` для `OpenDocument` и
+`CreateDocument`, платформенный диалог переименования и `BackHandler` между списком и
+редактором. Экраны: `ui/screens/animations/` (`AnimationListScreen`,
+`AnimationEditorScreen`, `GlyphPreview`), состояние — `AnimationStudioViewModel`.
+
+Два способа попробовать скрипт:
+
+| Режим | Хост | Работает на эмуляторе |
+|-------|------|------------------------|
+| **Screen** | `PreviewHost` — записывает кадры `Map<Int, Int>` вместо зажигания LED | Да |
+| **Glyph** | `ScriptRunner` → настоящий `GlyphRenderer` | Нет |
+
+Первый использует `DeviceProfileFactory.forPreview()` — раскладку Phone (3a) как
+универсальную сетку, чтобы превью работало на любом телефоне. Настоящие светодиоды
+этот профиль никогда не используют.
 
 ### GlyphFeatureCoordinator
 
@@ -287,6 +378,7 @@ private fun handleError(error: Exception) {
 
 Приложение структурировано по функциональным модулям:
 - glyph — управление_glyph interface
+  - glyph/script — движок пользовательских анимаций на Lua
 - services — фоновые сервисы
 - ui — пользовательский интерфейс
 - data — слой данных
@@ -302,6 +394,9 @@ private fun handleError(error: Exception) {
 1. Создание нового сервиса в `services/`
 2. Добавление UI компонентов в `ui/components/`
 3. Обновление координатора `GlyphFeatureCoordinator`
+
+Новые возможности для пользователя добавляются расширением таблицы `glyph`
+в `GlyphLuaApi.kt` — это единственное место, где описан весь язык скрипта.
 
 ---
 
