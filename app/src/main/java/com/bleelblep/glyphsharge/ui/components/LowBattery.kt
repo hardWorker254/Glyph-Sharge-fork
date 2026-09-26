@@ -16,10 +16,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
+import com.bleelblep.glyphsharge.ui.components.dialogs.FeatureConfirmationFlow
 import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
@@ -29,92 +29,46 @@ import kotlinx.coroutines.launch
 data class LowBatteryAlertConfig(
     val isEnabled: Boolean = false,
     val threshold: Int = 20,
-    val animationId: String = "PULSE"
+    val animationId: String = "PULSE",
+    val durationMs: Long = 10000L
 )
 
 @Composable
 fun LowBatteryAlertConfirmationDialog(
     modifier: Modifier = Modifier,
     onTestAlert: () -> Unit,
-    onEnableAlert: () -> Unit,
+    onEnableAlert: (LowBatteryAlertConfig) -> Unit,
     onDisableAlert: () -> Unit,
     onDismiss: () -> Unit,
     settingsRepository: SettingsRepository
 ) {
-    var showSettingsDialog by remember { mutableStateOf(false) }
+    // The configuration is threaded through the flow rather than dropped, so
+    // the card receives the threshold, animation and duration the user picked.
+    var pendingConfig by remember { mutableStateOf<LowBatteryAlertConfig?>(null) }
 
-    if (!showSettingsDialog) {
-        AlertDialog(
-            onDismissRequest = { /* non-dismissible */ },
-            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
-            title = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = stringResource(R.string.low_battery_alert_title),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = stringResource(R.string.low_battery_alert_description),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            },
-            text = {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = themeCardContainerColor()),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = stringResource(R.string.low_battery_alert_how_it_works_title),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = stringResource(R.string.low_battery_alert_how_it_works_description),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = 20.sp
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                FeatureConfirmationButtons(
-                    primaryLabel = stringResource(R.string.low_battery_alert_button_test),
-                    onPrimary = onTestAlert,
-                    onSettings = { showSettingsDialog = true },
-                    onCancel = onDismiss
-                )
-            },
-            dismissButton = {},
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(24.dp),
-            modifier = modifier
-        )
-    }
-
-    if (showSettingsDialog) {
-        LowBatteryAlertEnableDialog(
-            onConfirm = { _ ->
-                onEnableAlert()
-                showSettingsDialog = false
-                onDismiss()
-            },
-            onDisable = {
-                onDisableAlert()
-                showSettingsDialog = false
-                onDismiss()
-            },
-            onDismiss = { showSettingsDialog = false },
-            settingsRepository = settingsRepository
-        )
-    }
+    FeatureConfirmationFlow(
+        title = stringResource(R.string.low_battery_alert_title),
+        subtitle = stringResource(R.string.low_battery_alert_description),
+        howItWorksTitle = stringResource(R.string.low_battery_alert_how_it_works_title),
+        howItWorksDescription = stringResource(R.string.low_battery_alert_how_it_works_description),
+        testLabel = stringResource(R.string.low_battery_alert_button_test),
+        onTest = onTestAlert,
+        onEnable = { pendingConfig?.let(onEnableAlert) },
+        onDisable = onDisableAlert,
+        onDismiss = onDismiss,
+        modifier = modifier,
+        settings = { onConfirm, onDisable, onDismissSettings ->
+            LowBatteryAlertEnableDialog(
+                onConfirm = { config ->
+                    pendingConfig = config
+                    onConfirm()
+                },
+                onDisable = onDisable,
+                onDismiss = onDismissSettings,
+                settingsRepository = settingsRepository
+            )
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -133,8 +87,16 @@ fun LowBatteryAlertEnableDialog(
     var isSaving by remember { mutableStateOf(false) }
 
     var threshold by remember { mutableFloatStateOf(settingsRepository.getLowBatteryThreshold().toFloat()) }
+    // Built-ins plus whatever the studio currently holds.
+    val animationOptions = rememberAnimationOptions()
+
     var selectedAnimation by remember {
-        mutableStateOf(GlyphAnimations.getById(settingsRepository.getLowBatteryAnimationId()))
+        mutableStateOf(
+            GlyphAnimations.getById(
+                settingsRepository.getLowBatteryAnimationId(),
+                animationOptions
+            )
+        )
     }
     var durationSeconds by remember {
         mutableFloatStateOf((settingsRepository.getLowBatteryDuration() / 1000f).coerceIn(1f, 10f))
@@ -236,7 +198,7 @@ fun LowBatteryAlertEnableDialog(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
-                            GlyphAnimations.list.forEach { anim ->
+                            animationOptions.forEach { anim ->
                                 FilterChip(
                                     selected = anim == selectedAnimation,
                                     onClick = {
@@ -257,7 +219,13 @@ fun LowBatteryAlertEnableDialog(
                                 HapticUtils.triggerMediumFeedback(haptic, context)
                                 scope.launch {
                                     try {
-                                        when (selectedAnimation.id) {
+                                        when {
+                                        selectedAnimation.isCustom ->
+                                            glyphAnimationManager.playCustomAnimation(
+                                                selectedAnimation.id
+                                            )
+
+                                        else -> when (selectedAnimation.id) {
                                             "SPIRAL"    -> glyphAnimationManager.runSpiralAnimation()
                                             "HEARTBEAT" -> glyphAnimationManager.runHeartbeatAnimation()
                                             "MATRIX"    -> glyphAnimationManager.runMatrixRainAnimation()
@@ -265,6 +233,7 @@ fun LowBatteryAlertEnableDialog(
                                             "DNA"       -> glyphAnimationManager.runDNAHelixAnimation()
                                             else        -> glyphAnimationManager.playLowBatteryAnimation()
                                         }
+                                    }
                                     } catch (e: Exception) {
                                         Log.e("LowBatteryAlert", "Error testing animation: ${e.message}")
                                     }
@@ -283,43 +252,48 @@ fun LowBatteryAlertEnableDialog(
                     }
                 }
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = cardColor),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(id = R.string.low_battery_alert_duration_title),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.weight(1f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                // Not shown for a user's script: a script lasts exactly as long as
+                // its own code, so a duration here would be a control that
+                // changes nothing.
+                if (!selectedAnimation.isCustom) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = cardColor),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(id = R.string.low_battery_alert_duration_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                ThemedValueBadge("${durationSeconds.toInt()}" + stringResource(id = R.string.glyph_seconds))
+                            }
+
+                            Slider(
+                                value = durationSeconds,
+                                onValueChange = {
+                                    HapticUtils.triggerLightFeedback(haptic, context)
+                                    durationSeconds = it
+                                },
+                                valueRange = 1f..10f,
+                                steps = 8,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = SliderDefaults.colors(thumbColor = accent)
                             )
-                            ThemedValueBadge("${durationSeconds.toInt()}" + stringResource(id = R.string.glyph_seconds))
-                        }
 
-                        Slider(
-                            value = durationSeconds,
-                            onValueChange = {
-                                HapticUtils.triggerLightFeedback(haptic, context)
-                                durationSeconds = it
-                            },
-                            valueRange = 1f..10f,
-                            steps = 8,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = SliderDefaults.colors(thumbColor = accent)
-                        )
-
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(stringResource(id = R.string.low_battery_alert_duration_min), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(stringResource(id = R.string.low_battery_alert_duration_max), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(stringResource(id = R.string.low_battery_alert_duration_min), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(stringResource(id = R.string.low_battery_alert_duration_max), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }
@@ -336,7 +310,8 @@ fun LowBatteryAlertEnableDialog(
                         LowBatteryAlertConfig(
                             isEnabled = true,
                             threshold = threshold.toInt(),
-                            animationId = selectedAnimation.id
+                            animationId = selectedAnimation.id,
+                            durationMs = (durationSeconds * 1000).toLong()
                         )
                     )
                 },

@@ -1,35 +1,52 @@
 package com.bleelblep.glyphsharge.ui.components
 
 import android.widget.Toast
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BatteryAlert
-import androidx.compose.material.icons.filled.Nfc
-import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
-import com.bleelblep.glyphsharge.R
 import androidx.compose.ui.res.stringResource
+import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
+import com.bleelblep.glyphsharge.ui.components.cards.WideFeatureCardWithToggle
+
+/**
+ * The six feature cards shown on the home screen.
+ *
+ * Each card used to keep its own `isEnabled` state, read the repository on
+ * every composition and write to it from three different places — the toggle,
+ * the confirmation dialog and the settings dialog. State now arrives as
+ * [isEnabled] and leaves through [onEnabledChange], so the repository is
+ * touched only by whoever owns the state.
+ *
+ * [onEnabledChange] covers both persisting the preference and starting or
+ * stopping the backing service, which is why the cards no longer take a
+ * separate enable and disable callback.
+ *
+ * The repository is still threaded through because each card's configuration
+ * dialog reads and writes per-feature settings such as durations and
+ * thresholds.
+ */
 
 @Composable
 fun PowerPeekCard(
+    isEnabled: Boolean,
+    isServiceActive: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    onTestPowerPeek: () -> Unit,
+    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
     title: String = stringResource(id = R.string.power_peek_title),
     description: String = stringResource(id = R.string.power_peek_description),
     icon: Painter,
     iconSize: Int = 32,
-    isServiceActive: Boolean = true,
-    onTestPowerPeek: () -> Unit,
-    onEnablePowerPeek: () -> Unit,
-    onDisablePowerPeek: () -> Unit,
-    settingsRepository: SettingsRepository,
 ) {
     val context = LocalContext.current
     var showDialog by remember { mutableStateOf(false) }
-    var isEnabled by remember { mutableStateOf(settingsRepository.isPowerPeekEnabled()) }
     val toastText = stringResource(id = R.string.power_peek_toast)
 
     WideFeatureCardWithToggle(
@@ -38,11 +55,7 @@ fun PowerPeekCard(
         icon = icon,
         isServiceActive = isServiceActive,
         isFeatureEnabled = isEnabled,
-        onFeatureToggle = { enabled ->
-            isEnabled = enabled
-            settingsRepository.savePowerPeekEnabled(enabled)
-            if (enabled) onEnablePowerPeek() else onDisablePowerPeek()
-        },
+        onFeatureToggle = onEnabledChange,
         onCardClick = {
             if (isServiceActive) showDialog = true
             else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
@@ -54,8 +67,8 @@ fun PowerPeekCard(
     if (showDialog && isServiceActive) {
         PowerPeekConfirmationDialog(
             onTestPowerPeek = { onTestPowerPeek(); showDialog = false },
-            onEnablePowerPeek = { onEnablePowerPeek(); isEnabled = true; showDialog = false },
-            onDisablePowerPeek = { onDisablePowerPeek(); isEnabled = false; showDialog = false },
+            onEnablePowerPeek = { onEnabledChange(true); showDialog = false },
+            onDisablePowerPeek = { onEnabledChange(false); showDialog = false },
             onDismiss = { showDialog = false },
             settingsRepository = settingsRepository
         )
@@ -64,20 +77,19 @@ fun PowerPeekCard(
 
 @Composable
 fun PulseLockCard(
+    isEnabled: Boolean,
+    isServiceActive: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    onTestPulseLock: () -> Unit,
+    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
     title: String = stringResource(id = R.string.pulse_lock_title),
     description: String = stringResource(id = R.string.pulse_lock_description),
     icon: Painter,
     iconSize: Int = 32,
-    isServiceActive: Boolean = true,
-    onTestPulseLock: () -> Unit,
-    onEnablePulseLock: () -> Unit,
-    onDisablePulseLock: () -> Unit,
-    settingsRepository: SettingsRepository,
 ) {
     val context = LocalContext.current
     var showDialog by remember { mutableStateOf(false) }
-    var isEnabled by remember { mutableStateOf(settingsRepository.isPulseLockEnabled()) }
     val toastText = stringResource(id = R.string.pulse_lock_toast)
 
     WideFeatureCardWithToggle(
@@ -86,11 +98,7 @@ fun PulseLockCard(
         icon = icon,
         isServiceActive = isServiceActive,
         isFeatureEnabled = isEnabled,
-        onFeatureToggle = { enabled ->
-            isEnabled = enabled
-            settingsRepository.savePulseLockEnabled(enabled)
-            if (enabled) onEnablePulseLock() else onDisablePulseLock()
-        },
+        onFeatureToggle = onEnabledChange,
         onCardClick = {
             if (isServiceActive) showDialog = true
             else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
@@ -102,8 +110,8 @@ fun PulseLockCard(
     if (showDialog && isServiceActive) {
         PulseLockConfirmationDialog(
             onTestPulseLock = { onTestPulseLock(); showDialog = false },
-            onEnablePulseLock = { onEnablePulseLock(); isEnabled = true; showDialog = false },
-            onDisablePulseLock = { onDisablePulseLock(); isEnabled = false; showDialog = false },
+            onEnablePulseLock = { onEnabledChange(true); showDialog = false },
+            onDisablePulseLock = { onEnabledChange(false); showDialog = false },
             onDismiss = { showDialog = false },
             settingsRepository = settingsRepository
         )
@@ -112,21 +120,19 @@ fun PulseLockCard(
 
 @Composable
 fun LowBatteryAlertCard(
+    isEnabled: Boolean,
+    isServiceActive: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    onTestAlert: () -> Unit,
+    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
     title: String = stringResource(id = R.string.low_battery_alert_title),
     description: String = stringResource(id = R.string.low_battery_alert_description),
     icon: Painter,
     iconSize: Int = 32,
-    isServiceActive: Boolean = true,
-    onTestAlert: () -> Unit,
-    onEnableLowBattery: () -> Unit,
-    onDisableLowBattery: () -> Unit,
-    settingsRepository: SettingsRepository,
 ) {
     val context = LocalContext.current
     var showDialog by remember { mutableStateOf(false) }
-    var showSettingsDialog by remember { mutableStateOf(false) }
-    var isEnabled by remember { mutableStateOf(settingsRepository.isLowBatteryEnabled()) }
     val toastText = stringResource(id = R.string.low_battery_alert_toast)
 
     WideFeatureCardWithToggle(
@@ -135,10 +141,7 @@ fun LowBatteryAlertCard(
         icon = icon,
         isServiceActive = isServiceActive,
         isFeatureEnabled = isEnabled,
-        onFeatureToggle = { enabled ->
-            isEnabled = enabled
-            settingsRepository.saveLowBatteryEnabled(enabled)
-        },
+        onFeatureToggle = onEnabledChange,
         onCardClick = {
             if (isServiceActive) showDialog = true
             else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
@@ -150,41 +153,22 @@ fun LowBatteryAlertCard(
     if (showDialog && isServiceActive) {
         LowBatteryAlertConfirmationDialog(
             onTestAlert = { onTestAlert(); showDialog = false },
-            onEnableAlert = {
-                showDialog = false
-                settingsRepository.saveLowBatteryEnabled(true)
-                onEnableLowBattery()
-                showSettingsDialog = true
-            },
-            onDisableAlert = {
-                isEnabled = false
-                settingsRepository.saveLowBatteryEnabled(false)
-                onDisableLowBattery()
-                showDialog = false
-            },
-            onDismiss = { showDialog = false },
-            settingsRepository = settingsRepository
-        )
-    }
-
-    if (showSettingsDialog && isServiceActive) {
-        LowBatteryAlertEnableDialog(
-            onConfirm = { config ->
+            // Enabling closes the dialog and returns to the home screen; the
+            // configuration dialog is reached through the dialog's own
+            // settings button and is owned by the confirmation dialog.
+            onEnableAlert = { config ->
                 settingsRepository.saveLowBatteryEnabled(config.isEnabled)
                 settingsRepository.saveLowBatteryThreshold(config.threshold)
                 settingsRepository.saveLowBatteryAnimationId(config.animationId)
-                isEnabled = config.isEnabled
-                showSettingsDialog = false
+                settingsRepository.saveLowBatteryDuration(config.durationMs)
+                onEnabledChange(config.isEnabled)
+                showDialog = false
             },
-            onDismiss = {
-                showSettingsDialog = false
-                isEnabled = settingsRepository.isLowBatteryEnabled()
+            onDisableAlert = {
+                onEnabledChange(false)
+                showDialog = false
             },
-            onDisable = {
-                isEnabled = false
-                settingsRepository.saveLowBatteryEnabled(false)
-                showSettingsDialog = false
-            },
+            onDismiss = { showDialog = false },
             settingsRepository = settingsRepository
         )
     }
@@ -192,21 +176,19 @@ fun LowBatteryAlertCard(
 
 @Composable
 fun ScreenOffCard(
+    isEnabled: Boolean,
+    isServiceActive: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    onTestScreenOff: () -> Unit,
+    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
     title: String = stringResource(id = R.string.screen_off_title),
     description: String = stringResource(id = R.string.screen_off_description),
     icon: Painter,
     iconSize: Int = 32,
-    isServiceActive: Boolean = true,
-    onTestScreenOff: () -> Unit,
-    onEnableScreenOff: () -> Unit,
-    onDisableScreenOff: () -> Unit,
-    settingsRepository: SettingsRepository,
 ) {
     val context = LocalContext.current
     var showConfirmDialog by remember { mutableStateOf(false) }
-    var showSettingsDialog by remember { mutableStateOf(false) }
-    var isEnabled by remember { mutableStateOf(settingsRepository.isScreenOffFeatureEnabled()) }
     val toastText = stringResource(id = R.string.screen_off_toast)
 
     WideFeatureCardWithToggle(
@@ -215,10 +197,7 @@ fun ScreenOffCard(
         icon = icon,
         isServiceActive = isServiceActive,
         isFeatureEnabled = isEnabled,
-        onFeatureToggle = { enabled ->
-            isEnabled = enabled
-            settingsRepository.saveScreenOffFeatureEnabled(enabled)
-        },
+        onFeatureToggle = onEnabledChange,
         onCardClick = {
             if (isServiceActive) showConfirmDialog = true
             else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
@@ -232,36 +211,12 @@ fun ScreenOffCard(
             onTest = { onTestScreenOff(); showConfirmDialog = false },
             onDismiss = { showConfirmDialog = false },
             onEnable = {
-                isEnabled = true
-                settingsRepository.saveScreenOffFeatureEnabled(true)
-                onEnableScreenOff()
+                onEnabledChange(true)
                 showConfirmDialog = false
             },
             onDisable = {
-                isEnabled = false
-                settingsRepository.saveScreenOffFeatureEnabled(false)
-                onDisableScreenOff()
+                onEnabledChange(false)
                 showConfirmDialog = false
-            },
-            settingsRepository = settingsRepository
-        )
-    }
-
-    if (showSettingsDialog && isServiceActive) {
-        ScreenOffEnableDialog(
-            onEnable = {
-                isEnabled = true
-                onEnableScreenOff()
-                showSettingsDialog = false
-            },
-            onDisable = {
-                isEnabled = false
-                onDisableScreenOff()
-                showSettingsDialog = false
-            },
-            onDismiss = {
-                showSettingsDialog = false
-                isEnabled = settingsRepository.isScreenOffFeatureEnabled()
             },
             settingsRepository = settingsRepository
         )
@@ -270,21 +225,19 @@ fun ScreenOffCard(
 
 @Composable
 fun NfcGlyphCard(
+    isEnabled: Boolean,
+    isServiceActive: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    onTestNfc: () -> Unit,
+    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
     title: String = stringResource(id = R.string.nfc_glyph_title),
     description: String = stringResource(id = R.string.nfc_glyph_description),
     icon: Painter,
     iconSize: Int = 32,
-    isServiceActive: Boolean = true,
-    onTestNfc: () -> Unit,
-    onEnableNfc: () -> Unit,
-    onDisableNfc: () -> Unit,
-    settingsRepository: SettingsRepository,
 ) {
     val context = LocalContext.current
     var showConfirmDialog by remember { mutableStateOf(false) }
-    var showSettingsDialog by remember { mutableStateOf(false) }
-    var isEnabled by remember { mutableStateOf(settingsRepository.isNfcFeatureEnabled()) }
     val toastText = stringResource(id = R.string.nfc_glyph_toast)
 
     WideFeatureCardWithToggle(
@@ -293,11 +246,7 @@ fun NfcGlyphCard(
         icon = icon,
         isServiceActive = isServiceActive,
         isFeatureEnabled = isEnabled,
-        onFeatureToggle = { enabled ->
-            isEnabled = enabled
-            settingsRepository.saveNfcFeatureEnabled(enabled)
-            if (enabled) onEnableNfc() else onDisableNfc()
-        },
+        onFeatureToggle = onEnabledChange,
         onCardClick = {
             if (isServiceActive) showConfirmDialog = true
             else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
@@ -305,44 +254,19 @@ fun NfcGlyphCard(
         modifier = modifier,
         iconSize = iconSize
     )
+
     if (showConfirmDialog && isServiceActive) {
         NfcGlyphConfirmationDialog(
             onTest = { onTestNfc(); showConfirmDialog = false },
             onEnable = {
-                isEnabled = true
-                settingsRepository.saveNfcFeatureEnabled(true)
-                onEnableNfc()
+                onEnabledChange(true)
                 showConfirmDialog = false
             },
             onDisable = {
-                isEnabled = false
-                settingsRepository.saveNfcFeatureEnabled(false)
-                onDisableNfc()
+                onEnabledChange(false)
                 showConfirmDialog = false
             },
             onDismiss = { showConfirmDialog = false },
-            settingsRepository = settingsRepository
-        )
-    }
-
-    if (showSettingsDialog) {
-        NfcGlyphEnableDialog(
-            onDismiss = {
-                showSettingsDialog = false
-                isEnabled = settingsRepository.isNfcFeatureEnabled()
-            },
-            onEnable = {
-                isEnabled = true
-                settingsRepository.saveNfcFeatureEnabled(true)
-                onEnableNfc()
-                showSettingsDialog = false
-            },
-            onDisable = {
-                isEnabled = false
-                settingsRepository.saveNfcFeatureEnabled(false)
-                onDisableNfc()
-                showSettingsDialog = false
-            },
             settingsRepository = settingsRepository
         )
     }
@@ -350,20 +274,19 @@ fun NfcGlyphCard(
 
 @Composable
 fun ChargingAnimationCard(
+    isEnabled: Boolean,
+    isServiceActive: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    onTestAnimation: () -> Unit,
+    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
     title: String = stringResource(id = R.string.charging_animation_title),
     description: String = stringResource(id = R.string.charging_animation_description),
     icon: Painter,
     iconSize: Int = 32,
-    isServiceActive: Boolean = true,
-    onTestAnimation: () -> Unit,
-    onEnableAnimation: () -> Unit,
-    onDisableAnimation: () -> Unit,
-    settingsRepository: SettingsRepository,
 ) {
     val context = LocalContext.current
     var showDialog by remember { mutableStateOf(false) }
-    var isEnabled by remember { mutableStateOf(settingsRepository.isChargingAnimationEnabled()) }
     val toastText = stringResource(id = R.string.charging_animation_toast)
 
     WideFeatureCardWithToggle(
@@ -372,17 +295,10 @@ fun ChargingAnimationCard(
         icon = icon,
         isServiceActive = isServiceActive,
         isFeatureEnabled = isEnabled,
-        onFeatureToggle = { enabled ->
-            isEnabled = enabled
-            settingsRepository.saveChargingAnimationEnabled(enabled)
-            if (enabled) onEnableAnimation() else onDisableAnimation()
-        },
+        onFeatureToggle = onEnabledChange,
         onCardClick = {
-            if (isServiceActive) {
-                showDialog = true
-            } else {
-                Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
-            }
+            if (isServiceActive) showDialog = true
+            else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
         },
         modifier = modifier,
         iconSize = iconSize
@@ -390,22 +306,9 @@ fun ChargingAnimationCard(
 
     if (showDialog && isServiceActive) {
         ChargingAnimationConfirmationDialog(
-            onTestAnimation = {
-                onTestAnimation()
-                showDialog = false
-            },
-            onEnableAnimation = {
-                onEnableAnimation()
-                isEnabled = true
-                settingsRepository.saveChargingAnimationEnabled(true)
-                showDialog = false
-            },
-            onDisableAnimation = {
-                onDisableAnimation()
-                isEnabled = false
-                settingsRepository.saveChargingAnimationEnabled(false)
-                showDialog = false
-            },
+            onTestAnimation = { onTestAnimation(); showDialog = false },
+            onEnableAnimation = { onEnabledChange(true); showDialog = false },
+            onDisableAnimation = { onEnabledChange(false); showDialog = false },
             onDismiss = { showDialog = false },
             settingsRepository = settingsRepository
         )

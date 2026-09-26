@@ -7,7 +7,7 @@
 **Power. Protect. Personalize. All through light.**
 
 [![Download](https://img.shields.io/badge/Download-Latest-red?style=for-the-badge)](https://github.com/hardWorker254/Glyph-Sharge-fork/releases/)
-[![Version](https://img.shields.io/badge/Version-1.0.30-blue?style=for-the-badge)](https://github.com/hardWorker254/Glyph-Sharge-fork/releases)
+[![Version](https://img.shields.io/badge/Version-1.0.31-blue?style=for-the-badge)](https://github.com/hardWorker254/Glyph-Sharge-fork/releases)
 [![Platform](https://img.shields.io/badge/Platform-Android%2014+-green?style=for-the-badge)](https://www.android.com/)
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9.10-purple?style=for-the-badge&logo=kotlin)](https://kotlinlang.org/)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
@@ -56,12 +56,14 @@ Whether you're checking charge levels or activating security features, Glyph Sha
 - Custom font support with official Nothing fonts (NType Headline, NDot 57 Caps)
 - Scalable text sizes for accessibility
 - Material You dynamic theming
+- **Custom animations written in Lua** — a built-in animation studio (Settings → Custom Animations) with a sandboxed editor, on-screen and on-glyph preview, and `.glyphlua` import/export
 
 ### ⚙️ Advanced Controls
 - Quiet Hours mode for scheduled silence
 - Custom glyph patterns and animations
 - Boot-on-start service persistence
 - Comprehensive logging system
+- Your own scripts appear in the animation picker of Pulse Lock, Low Battery, NFC and Screen Off
 
 ---
 
@@ -82,7 +84,7 @@ Whether you're checking charge levels or activating security features, Glyph Sha
 
 - **Android Studio** Hedgehog (2023.1.1) or newer
 - **JDK** version 17 or higher
-- **Android SDK** API 34+ (Android 14+)
+- **Android SDK** API 36 for compiling, API 34+ (Android 14+) minimum
 - **Nothing Phone** with Glyph Interface support
 
 ### Installation
@@ -114,7 +116,18 @@ app/
 │   │   ├── glyph/                       # Glyph Interface Management
 │   │   │   ├── GlyphManager.kt
 │   │   │   ├── GlyphAnimationManager.kt
-│   │   │   └── GlyphFeatureCoordinator.kt
+│   │   │   ├── GlyphFeatureCoordinator.kt
+│   │   │   ├── device/                   # Per-model LED layout and timings
+│   │   │   ├── engine/                   # Frame drawing, run flag, error handling
+│   │   │   ├── animations/               # The animations
+│   │   │   ├── script/                   # User-written Lua animations (LuaJ sandbox)
+│   │   │   │   ├── LuaScriptEngine.kt    #   Sandbox, watchdog, validate()
+│   │   │   │   ├── GlyphLuaApi.kt        #   The `glyph` table — the whole script language
+│   │ │   │   ├── ScriptSession.kt       #   Per-run state and interruptible waits
+│   │   │   │   ├── ScriptRunner.kt       #   The only bridge from the VM to the LEDs
+│   │   │   │   ├── ScriptFileFormat.kt   #   The .glyphlua container
+│   │   │   │   └── ScriptAnimation.kt    #   Model, custom:<12 hex> ids
+│   │   │   └── battery/                  # Charging / Power Peek bar
 │   │   │
 │   │   ├── services/                    # Background Services
 │   │   │   ├── GlyphForegroundService.kt
@@ -128,12 +141,16 @@ app/
 │   │   │
 │   │   ├── ui/                          # UI Components
 │   │   │   ├── components/              # Reusable Composables
+│   │   │   │   └── GlyphAnimations.kt  # Animation catalogue + custom scripts
 │   │   │   ├── screens/                 # App Screens
+│   │   │   │   └── animations/         # Animation studio: list, editor, preview
+│   │   │   ├── viewmodel/               # HomeViewModel, AnimationStudioViewModel
 │   │   │   ├── theme/                   # Themes & Styling
 │   │   │   └── utils/                   # UI Utilities
 │   │   │
 │   │   ├── data/                        # Data Layer
 │   │   │   ├── SettingsRepository.kt
+│   │   │   ├── CustomAnimationRepository.kt  # User scripts: files + index, import/export
 │   │   │   └── local/                   # Room Database
 │   │   │
 │   │   ├── receiver/                    # Broadcast Receivers
@@ -144,7 +161,8 @@ app/
 │   │   │   └── WatermarkHelper.kt
 │   │   │
 │   │   ├── GlyphZenApplication.kt       # Application Class
-│   │   └── MainActivity.kt              # Main Activity
+│   │   ├── MainActivity.kt              # Main Activity
+│   │   └── CustomAnimationsActivity.kt  # Animation Studio (separate Activity)
 │   │
 │   ├── res/                             # Android Resources
 │   └── AndroidManifest.xml
@@ -161,8 +179,9 @@ Glyph Sharge follows modern Android development best practices:
 - **MVVM (Model-View-ViewModel)** — Separation of concerns
 - **Dependency Injection** — Hilt for scalable DI
 - **Repository Pattern** — Abstracted data access
-- **Single Activity Architecture** — Jetpack Compose Navigation
+- **Single Activity Architecture** — Jetpack Compose Navigation (plus one dedicated Activity for the animation studio, which owns its own file pickers and back stack)
 - **Unidirectional Data Flow** — Predictable state management
+- **Script runtime** — user-written Lua animations run on [LuaJ](https://github.com/luaj/luaj) 3.0.1 (`org.luaj:luaj-jse`, a pure-JVM Lua 5.2) in a sandbox stripped of `io`, `os`, `luajava`, `load`/`dofile`/`require`, `coroutine` and `debug`, with a watchdog that enforces the feature's Duration setting and a 200,000,000-instruction ceiling
 
 ---
 
@@ -223,6 +242,15 @@ Official Nothing fonts with dynamic scaling:
 
 Comprehensive documentation is available in the [`docs/`](docs/) folder:
 
+### 📘 Full Documentation (recommended starting point)
+
+| Document | Description | Language |
+|----------|-------------|----------|
+| **[🇷🇺 Полная документация](docs/DOCUMENTATION_RU.md)** | Полное техническое руководство: архитектура, все слои, сервисы, **Quickstart по добавлению нового сервиса**, **справочник по своим анимациям на Lua**, подводные камни | 🇷🇺 Russian |
+| **[🇬🇧 Full Documentation](docs/DOCUMENTATION_EN.md)** | Complete technical guide: architecture, all layers, services, **service Quickstart**, **custom Lua animations reference**, gotchas | 🇬🇧 English |
+
+### 📄 Supplementary Documents
+
 | Document | Description | Language |
 |----------|-------------|----------|
 | [🏗 Architecture](docs/ARCHITECTURE.md) | Architectural decisions and patterns | 🇷🇺 Russian |
@@ -232,10 +260,19 @@ Comprehensive documentation is available in the [`docs/`](docs/) folder:
 
 ### Documentation Overview
 
-- **Architecture** — MVVM pattern, dependency injection, repository pattern, and service architecture
+- **Full Documentation** — the primary reference. Covers the build setup, the Glyph / Data / Services / UI layers, the service lifecycle contract, a step-by-step **"Adding a new service"** walkthrough for all 13 touchpoints, the **custom Lua animations** section (editor, full `glyph` API reference, sandbox and watchdog, `.glyphlua` format), and a catalogue of known issues
+- **Architecture** — MVVM pattern, dependency injection, repository pattern, the Lua script engine, and service architecture
 - **Getting Started** — Environment setup, build commands, debugging tips, and common issues
 - **Main Documentation** — Full feature documentation, API reference, and usage examples
-- **UI Components** — Theme system, card components, custom animations, and styling guide
+- **UI Components** — Theme system, card components, custom animations, the animation studio screens, and a styling guide
+
+> 💡 **Writing a custom animation?** Start with the Lua section:
+> [RU](docs/DOCUMENTATION_RU.md#13-пользовательские-анимации-lua) ·
+> [EN](docs/DOCUMENTATION_EN.md#13-custom-animations-lua)
+
+> 💡 **Adding a new feature?** Start with the Quickstart section:
+> [RU](docs/DOCUMENTATION_RU.md#7-добавление-нового-сервиса-quickstart) ·
+> [EN](docs/DOCUMENTATION_EN.md#7-adding-a-new-service-quickstart)
 
 ---
 
@@ -247,6 +284,6 @@ The app uses an official Nothing API key for Glyph Interface functionality.
 
 ---
 
-*Documentation last updated for version 1.0.30*
+*Documentation last updated for version 1.0.31*
 
 Made with ⚡ for Nothing Phone community

@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.data.SettingsRepository
+import com.bleelblep.glyphsharge.ui.components.layout.SettingsScaffold
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.ui.res.stringResource
@@ -63,8 +64,6 @@ fun LanguageSettingsScreen(
 ) {
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
-    val scrollState = rememberLazyListState()
 
     // Current language state
     var currentLanguageCode by remember {
@@ -78,53 +77,11 @@ fun LanguageSettingsScreen(
             ?: availableLanguages.first { it.code == "system" }
     }
 
-    Scaffold(
-        modifier = modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            LargeTopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(R.string.language_selector_title),
-                        style = MaterialTheme.typography.headlineLarge.copy(fontSize = 42.sp)
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        HapticUtils.triggerLightFeedback(haptic, context)
-                        onBackClick()
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = stringResource(R.string.settings_back_content_description)
-                        )
-                    }
-                },
-                scrollBehavior = scrollBehavior,
-                windowInsets = WindowInsets.statusBars,
-                colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets(0.dp)
-    ) { paddingValues ->
-        LazyColumn(
-            state = scrollState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = 16.dp,
-                bottom = 16.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-            ),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+    SettingsScaffold(
+        title = stringResource(R.string.language_selector_title),
+        modifier = modifier,
+        onBackClick = onBackClick
+    ) {
             // Status Card
             item {
                 Card(
@@ -282,7 +239,6 @@ fun LanguageSettingsScreen(
                     }
                 }
             }
-        }
     }
 }
 

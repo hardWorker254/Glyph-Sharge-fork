@@ -131,13 +131,19 @@ class ScreenOffGlyphService : Service() {
                 return@launch
             }
 
-            if (!featureCoordinator.acquire(GlyphFeature.SCREEN_OFF)) {
-                Log.d(TAG, "LEDs busy (owner: ${featureCoordinator.currentOwner.value}) – skipping")
+            // Symmetric with Glow Gate: locking the phone is a thing the user
+            // just did, so it interrupts a leftover animation rather than
+            // being skipped by it.
+            if (!featureCoordinator.acquireNow(GlyphFeature.SCREEN_OFF)) {
+                Log.d(TAG, "Strip still busy after interrupt (owner: ${featureCoordinator.currentOwner.value}) – skipping")
                 return@launch
             }
 
-            val animationId  = settingsRepository.getScreenOffAnimationId()
-            val duration     = settingsRepository.getScreenOffDuration()
+            val animationId = settingsRepository.getScreenOffAnimationId()
+            val duration = glyphAnimationManager.runCapMs(
+                animationId,
+                settingsRepository.getScreenOffDuration()
+            )
 
             Log.d(TAG, "Sequence start – anim=$animationId duration=${duration}ms")
 

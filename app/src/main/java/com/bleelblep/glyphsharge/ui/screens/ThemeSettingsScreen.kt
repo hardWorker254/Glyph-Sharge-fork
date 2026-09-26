@@ -1,8 +1,11 @@
 package com.bleelblep.glyphsharge.ui.screens
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
+import com.bleelblep.glyphsharge.ui.components.cards.ContentCard
+import com.bleelblep.glyphsharge.ui.components.cards.FeatureCard
+import com.bleelblep.glyphsharge.ui.components.cards.SquareFeatureCard
+import com.bleelblep.glyphsharge.ui.components.layout.FeatureGrid
+import com.bleelblep.glyphsharge.ui.components.layout.SettingsScaffold
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -10,15 +13,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.WindowInsets
-import com.bleelblep.glyphsharge.ui.components.SquareFeatureCard
-import com.bleelblep.glyphsharge.ui.components.FeatureGrid
 import com.bleelblep.glyphsharge.R
 import androidx.compose.ui.res.painterResource
 import com.bleelblep.glyphsharge.ui.theme.LocalThemeState
-import com.bleelblep.glyphsharge.ui.components.FeatureCard
 import androidx.compose.ui.graphics.painter.Painter
 import com.bleelblep.glyphsharge.ui.theme.AppThemeStyle
-import com.bleelblep.glyphsharge.ui.components.ContentCard
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
@@ -152,63 +151,15 @@ fun ThemeSettingsScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
-    val scrollState = rememberLazyListState()
     val themeState = LocalThemeState.current
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
 
-    Scaffold(
-        modifier = modifier
-            .fillMaxSize()
-            .nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            LargeTopAppBar(
-                title = {
-                    Text(
-                        text = stringResource(id = R.string.theme_settings_title),
-                        style = MaterialTheme.typography.headlineLarge.copy(
-                            fontSize = 42.sp
-                        )
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = { 
-                        HapticUtils.triggerLightFeedback(haptic, context)
-                        onBackClick() 
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            contentDescription = stringResource(id = R.string.settings_back_content_description)
-                        )
-                    }
-                },
-                actions = {},
-                scrollBehavior = scrollBehavior,
-                windowInsets = WindowInsets.statusBars,
-                colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface
-                )
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets(0.dp)
-    ) { paddingValues ->
-        LazyColumn(
-            state = scrollState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = 16.dp,
-                bottom = 16.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-            ),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            userScrollEnabled = true
-        ) {
+    SettingsScaffold(
+        title = stringResource(id = R.string.theme_settings_title),
+        modifier = modifier,
+        onBackClick = onBackClick
+    ) {
             // Theme Mode Section Header
             item {
                 Text(
@@ -402,6 +353,5 @@ fun ThemeSettingsScreen(
                     )
                 }
             }
-        }
     }
 } 

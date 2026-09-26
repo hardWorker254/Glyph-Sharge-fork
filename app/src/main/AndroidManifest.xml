@@ -2,7 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
@@ -71,6 +70,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Animation studio: its own back stack and its own file pickers, so it
+             is a separate Activity rather than a route in the settings NavHost.
+             Not exported: nothing outside the app may open a code editor. -->
+        <activity
+            android:name=".CustomAnimationsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.GlyphSharge"
+            android:windowSoftInputMode="adjustResize"
+            android:hardwareAccelerated="true"
+            android:parentActivityName=".MainActivity" />
 
         <receiver
             android:name=".receiver.BootCompletedReceiver"

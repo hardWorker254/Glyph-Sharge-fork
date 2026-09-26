@@ -9,7 +9,6 @@ import com.bleelblep.glyphsharge.ui.theme.AppThemeStyle
 import com.bleelblep.glyphsharge.ui.theme.FontSizeSettings
 import com.bleelblep.glyphsharge.ui.theme.FontVariant
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.flow.MutableStateFlow
 import java.util.Calendar
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,17 +18,26 @@ import javax.inject.Singleton
  */
 @Singleton
 class SettingsRepository @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
     private val prefs: SharedPreferences = context.getSharedPreferences(
         PREFS_NAME, Context.MODE_PRIVATE
     )
 
-    private val _vibrationIntensityFlow = MutableStateFlow(getVibrationIntensity())
-
     init {
         applyFirstRunDefaults()
         applyVersionMigrations()
+        normalizeLegacyVibrationIntensity()
+    }
+
+    /**
+     * Vibration intensity used to be persisted on a 1..255 scale. Normalising it once at
+     * startup keeps [getVibrationIntensity] a side-effect free getter.
+     */
+    private fun normalizeLegacyVibrationIntensity() {
+        val stored = prefs.getFloat(KEY_VIBRATION_INTENSITY, DEFAULT_VIBRATION_INTENSITY)
+        if (stored <= 1.0f) return
+        saveVibrationIntensity(((stored - 1f) / 254f).coerceIn(0.1f, 1.0f))
     }
 
     companion object {
@@ -52,11 +60,12 @@ class SettingsRepository @Inject constructor(
         private const val KEY_IS_DARK_THEME = "is_dark_theme"
         private const val KEY_THEME_STYLE = "theme_style"
         private const val KEY_GLYPH_SERVICE_ENABLED = "glyph_service_enabled"
+    private const val KEY_USER_PRESENT_EXPECTED = "user_present_expected"
 
         private const val KEY_VIBRATION_INTENSITY = "vibration_intensity"
-        private const val KEY_BATTERY_STORY_ENABLED = "battery_story_enabled"
 
-        // Power Peek
+        // Power Peek. Threshold/duration keep their legacy storage names on purpose:
+        // renaming the stored strings would silently reset the values of existing users.
         private const val KEY_POWER_PEEK_ENABLED = "power_peek_enabled"
         private const val KEY_POWER_PEEK_THRESHOLD = "shake_threshold"
         private const val KEY_POWER_PEEK_DURATION = "display_duration"
@@ -91,11 +100,11 @@ class SettingsRepository @Inject constructor(
 
         // Battery Charging
         private const val KEY_CHARGING_ANIMATION_ENABLED = "charging_animation_enabled"
-        private const val KEY_CHARGING_ANIMATION_ID = "charging_animation_id"
         private const val KEY_CHARGING_ANIMATION_DURATION = "charging_animation_duration"
 
         // Defaults
         private const val DEFAULT_VIBRATION_INTENSITY = 0.66f
+        private const val DEFAULT_POWER_PEEK_DURATION = 3000L
         private const val DEFAULT_PULSE_LOCK_DURATION = 5000L
         private const val DEFAULT_LOW_BATTERY_DURATION = 10000L
         private const val DEFAULT_SCREEN_OFF_DURATION = 3000L
@@ -120,7 +129,6 @@ class SettingsRepository @Inject constructor(
         prefs.edit {
             putBoolean(KEY_POWER_PEEK_ENABLED, false)
             putBoolean(KEY_GLYPH_SERVICE_ENABLED, false)
-            putBoolean(KEY_BATTERY_STORY_ENABLED, false)
             putBoolean(KEY_PULSE_LOCK_ENABLED, false)
             putBoolean(KEY_LOW_BATTERY_ENABLED, false)
             putBoolean(KEY_SCREEN_OFF_ENABLED, false)
@@ -133,7 +141,7 @@ class SettingsRepository @Inject constructor(
             putFloat(KEY_FONT_SIZE_BODY_SCALE, 1.0f)
             putFloat(KEY_FONT_SIZE_LABEL_SCALE, 1.0f)
             putBoolean(KEY_FIRST_RUN_COMPLETED, true)
-            putInt(KEY_LAST_MIGRATED_VERSION, 111)
+            putInt(KEY_LAST_MIGRATED_VERSION, 112)
         }
         Log.i(TAG, "First-run defaults applied")
     }
@@ -142,18 +150,20 @@ class SettingsRepository @Inject constructor(
         val lastMigrated = prefs.getInt(KEY_LAST_MIGRATED_VERSION, 0)
 
         if (lastMigrated < 109) {
+            // Guarded on purpose: a bare reset here wipes the toggles of every feature at once
+            // whenever the version marker is lost or rolled back.
             prefs.edit {
-                putBoolean(KEY_POWER_PEEK_ENABLED, false)
-                putBoolean(KEY_GLYPH_SERVICE_ENABLED, false)
-                putBoolean(KEY_BATTERY_STORY_ENABLED, false)
-                putBoolean(KEY_PULSE_LOCK_ENABLED, false)
-                putBoolean(KEY_LOW_BATTERY_ENABLED, false)
-                putString(KEY_FONT_VARIANT, FontVariant.HEADLINE.name)
-                putBoolean(KEY_USE_CUSTOM_FONTS, true)
-                putFloat(KEY_FONT_SIZE_DISPLAY_SCALE, 1.0f)
-                putFloat(KEY_FONT_SIZE_TITLE_SCALE, 1.0f)
-                putFloat(KEY_FONT_SIZE_BODY_SCALE, 1.0f)
-                putFloat(KEY_FONT_SIZE_LABEL_SCALE, 1.0f)
+                if (!prefs.contains(KEY_POWER_PEEK_ENABLED)) putBoolean(KEY_POWER_PEEK_ENABLED, false)
+                if (!prefs.contains(KEY_GLYPH_SERVICE_ENABLED)) putBoolean(KEY_GLYPH_SERVICE_ENABLED, false)
+                if (!prefs.contains(KEY_PULSE_LOCK_ENABLED)) putBoolean(KEY_PULSE_LOCK_ENABLED, false)
+                if (!prefs.contains(KEY_LOW_BATTERY_ENABLED)) putBoolean(KEY_LOW_BATTERY_ENABLED, false)
+                if (!prefs.contains(KEY_FONT_VARIANT)) putString(KEY_FONT_VARIANT, FontVariant.HEADLINE.name)
+                if (!prefs.contains(KEY_USE_CUSTOM_FONTS)) putBoolean(KEY_USE_CUSTOM_FONTS, true)
+                if (!prefs.contains(KEY_FONT_SIZE_DISPLAY_SCALE)) putFloat(KEY_FONT_SIZE_DISPLAY_SCALE, 1.0f)
+                if (!prefs.contains(KEY_FONT_SIZE_TITLE_SCALE)) putFloat(KEY_FONT_SIZE_TITLE_SCALE, 1.0f)
+                if (!prefs.contains(KEY_FONT_SIZE_BODY_SCALE)) putFloat(KEY_FONT_SIZE_BODY_SCALE, 1.0f)
+                if (!prefs.contains(KEY_FONT_SIZE_LABEL_SCALE)) putFloat(KEY_FONT_SIZE_LABEL_SCALE, 1.0f)
+                putBoolean(KEY_FONT_SIZE_CUSTOMIZED, false)
                 putInt(KEY_LAST_MIGRATED_VERSION, 109)
             }
             Log.i(TAG, "Migration to 109 applied")
@@ -266,7 +276,7 @@ class SettingsRepository @Inject constructor(
         val styleName = prefs.getString(KEY_THEME_STYLE, AppThemeStyle.CLASSIC.name)
         return try {
             AppThemeStyle.valueOf(styleName ?: AppThemeStyle.CLASSIC.name)
-        } catch (e: IllegalArgumentException) {
+        } catch (_: IllegalArgumentException) {
             AppThemeStyle.CLASSIC
         }
     }
@@ -280,6 +290,30 @@ class SettingsRepository @Inject constructor(
 
     fun getGlyphServiceEnabled(): Boolean =
         prefs.getBoolean(KEY_GLYPH_SERVICE_ENABLED, false)
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Glow Gate: what "unlocked" looks like on this phone
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Whether to wait for `ACTION_USER_PRESENT` before giving up on it.
+     *
+     * The honest trigger for Glow Gate is "the user got past the keyguard". On
+     * some phones that broadcast simply never arrives — the keyguard never
+     * presents, or the system does not send it — and then every unlock waits
+     * out a grace period for an event that is never coming, which is latency
+     * on the one thing the user is looking at.
+     *
+     * So the answer is learned rather than assumed. The first unlock waits,
+     * which is the only way to find out; every unlock after that goes straight
+     * to the animation. If a real unlock ever does show up, this flips back and
+     * the wait resumes.
+     */
+    fun isUserPresentExpected(): Boolean = prefs.getBoolean(KEY_USER_PRESENT_EXPECTED, true)
+
+    fun markUserPresentSeen() = prefs.edit { putBoolean(KEY_USER_PRESENT_EXPECTED, true) }
+
+    fun markUserPresentMissing() = prefs.edit { putBoolean(KEY_USER_PRESENT_EXPECTED, false) }
 
     // ─────────────────────────────────────────────────────────────────────────
     // Power Peek
@@ -310,20 +344,13 @@ class SettingsRepository @Inject constructor(
         prefs.edit { putLong(KEY_POWER_PEEK_DURATION, duration) }
 
     fun getPowerPeekDuration(): Long =
-        prefs.getLong(KEY_POWER_PEEK_DURATION, 3000L)
+        prefs.getLong(KEY_POWER_PEEK_DURATION, DEFAULT_POWER_PEEK_DURATION)
 
-    fun saveVibrationIntensity(intensity: Float) {
+    fun saveVibrationIntensity(intensity: Float) =
         prefs.edit { putFloat(KEY_VIBRATION_INTENSITY, intensity) }
-        _vibrationIntensityFlow.value = intensity
-    }
 
-    fun getVibrationIntensity(): Float {
-        val storedValue = prefs.getFloat(KEY_VIBRATION_INTENSITY, DEFAULT_VIBRATION_INTENSITY)
-        if (storedValue <= 1.0f) return storedValue
-        val converted = ((storedValue - 1f) / 254f).coerceIn(0.1f, 1.0f)
-        saveVibrationIntensity(converted)
-        return converted
-    }
+    fun getVibrationIntensity(): Float =
+        prefs.getFloat(KEY_VIBRATION_INTENSITY, DEFAULT_VIBRATION_INTENSITY)
 
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -429,12 +456,6 @@ class SettingsRepository @Inject constructor(
 
     fun isChargingAnimationEnabled(): Boolean =
         prefs.getBoolean(KEY_CHARGING_ANIMATION_ENABLED, false)
-
-    fun saveChargingAnimationId(id: String) =
-        prefs.edit { putString(KEY_CHARGING_ANIMATION_ID, id) }
-
-    fun getChargingAnimationId(): String =
-        prefs.getString(KEY_CHARGING_ANIMATION_ID, "C1") ?: "C1"
 
     fun saveChargingAnimationDuration(durationMs: Long) =
         prefs.edit { putLong(KEY_CHARGING_ANIMATION_DURATION, durationMs) }

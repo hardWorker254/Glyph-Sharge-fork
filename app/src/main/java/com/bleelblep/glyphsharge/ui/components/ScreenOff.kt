@@ -16,10 +16,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
+import com.bleelblep.glyphsharge.ui.components.dialogs.FeatureConfirmationFlow
 import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
@@ -35,81 +35,30 @@ fun ScreenOffConfirmationDialog(
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
-    var showSettingsDialog by remember { mutableStateOf(false) }
-
-    if (!showSettingsDialog) {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true),
-            title = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = stringResource(id = R.string.screen_off_title),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = stringResource(id = R.string.screen_off_dialog_subtitle),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            },
-            text = {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = themeCardContainerColor())
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = stringResource(id = R.string.screen_off_how_it_works_title),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = stringResource(id = R.string.screen_off_how_it_works_description),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = 20.sp
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                FeatureConfirmationButtons(
-                    primaryLabel = stringResource(id = R.string.screen_off_button_test),
-                    onPrimary = onTest,
-                    onSettings = { showSettingsDialog = true },
-                    onCancel = onDismiss
-                )
-            },
-            dismissButton = {},
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(24.dp),
-            modifier = modifier
-        )
-    }
-
-    if (showSettingsDialog) {
-        ScreenOffEnableDialog(
-            onDismiss = { showSettingsDialog = false },
-            onEnable = {
-                onEnable()
-                showSettingsDialog = false
-                onDismiss()
-            },
-            onDisable = {
-                onDisable()
-                showSettingsDialog = false
-                onDismiss()
-            },
-            settingsRepository = settingsRepository,
-            modifier = modifier
-        )
-    }
+    FeatureConfirmationFlow(
+        title = stringResource(id = R.string.screen_off_title),
+        subtitle = stringResource(id = R.string.screen_off_dialog_subtitle),
+        howItWorksTitle = stringResource(id = R.string.screen_off_how_it_works_title),
+        howItWorksDescription = stringResource(id = R.string.screen_off_how_it_works_description),
+        testLabel = stringResource(id = R.string.screen_off_button_test),
+        onTest = onTest,
+        onEnable = onEnable,
+        onDisable = onDisable,
+        onDismiss = onDismiss,
+        modifier = modifier,
+        // Screen Off is the one feature whose confirmation can be dismissed
+        // with back or an outside tap.
+        dismissible = true,
+        settings = { onConfirm, onDisable, onDismissSettings ->
+            ScreenOffEnableDialog(
+                onDismiss = onDismissSettings,
+                onEnable = onConfirm,
+                onDisable = onDisable,
+                settingsRepository = settingsRepository,
+                modifier = modifier
+            )
+        }
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -125,11 +74,19 @@ fun ScreenOffEnableDialog(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // Built-ins plus whatever the studio currently holds.
+    val animationOptions = rememberAnimationOptions()
+
     var durationSeconds by remember {
         mutableFloatStateOf((settingsRepository.getScreenOffDuration() / 1000f).coerceIn(1f, 10f))
     }
     var selectedAnimation by remember {
-        mutableStateOf(GlyphAnimations.getById(settingsRepository.getScreenOffAnimationId()))
+        mutableStateOf(
+            GlyphAnimations.getById(
+                settingsRepository.getScreenOffAnimationId(),
+                animationOptions
+            )
+        )
     }
     val currentlyEnabled = remember { settingsRepository.isScreenOffFeatureEnabled() }
     var isSaving by remember { mutableStateOf(false) }
@@ -185,7 +142,7 @@ fun ScreenOffEnableDialog(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
-                            GlyphAnimations.list.forEach { anim ->
+                            animationOptions.forEach { anim ->
                                 FilterChip(
                                     selected = anim == selectedAnimation,
                                     onClick = {
@@ -207,7 +164,13 @@ fun ScreenOffEnableDialog(
                                 HapticUtils.triggerMediumFeedback(haptic, context)
                                 scope.launch {
                                     try {
-                                        when (selectedAnimation.id) {
+                                        when {
+                                        selectedAnimation.isCustom ->
+                                            glyphAnimationManager.playCustomAnimation(
+                                                selectedAnimation.id
+                                            )
+
+                                        else -> when (selectedAnimation.id) {
                                             "SPIRAL"    -> glyphAnimationManager.runSpiralAnimation()
                                             "HEARTBEAT" -> glyphAnimationManager.runHeartbeatAnimation()
                                             "MATRIX"    -> glyphAnimationManager.runMatrixRainAnimation()
@@ -215,6 +178,7 @@ fun ScreenOffEnableDialog(
                                             "DNA"       -> glyphAnimationManager.runDNAHelixAnimation()
                                             else        -> glyphAnimationManager.playScreenOffAnimation()
                                         }
+                                    }
                                     } catch (e: Exception) {
                                         Log.e("ScreenOffConfig", "Error testing animation: ${e.message}")
                                     }
@@ -233,43 +197,48 @@ fun ScreenOffEnableDialog(
                     }
                 }
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = cardColor),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(id = R.string.screen_off_duration_title),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.weight(1f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                // Not shown for a user's script: a script lasts exactly as long as
+                // its own code, so a duration here would be a control that
+                // changes nothing.
+                if (!selectedAnimation.isCustom) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = cardColor),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(id = R.string.screen_off_duration_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                ThemedValueBadge("${durationSeconds.toInt()}" + stringResource(id = R.string.glyph_seconds))
+                            }
+
+                            Slider(
+                                value = durationSeconds,
+                                onValueChange = {
+                                    HapticUtils.triggerLightFeedback(haptic, context)
+                                    durationSeconds = it
+                                },
+                                valueRange = 1f..10f,
+                                steps = 8,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = SliderDefaults.colors(thumbColor = accent)
                             )
-                            ThemedValueBadge("${durationSeconds.toInt()}" + stringResource(id = R.string.glyph_seconds))
-                        }
 
-                        Slider(
-                            value = durationSeconds,
-                            onValueChange = {
-                                HapticUtils.triggerLightFeedback(haptic, context)
-                                durationSeconds = it
-                            },
-                            valueRange = 1f..10f,
-                            steps = 8,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = SliderDefaults.colors(thumbColor = accent)
-                        )
-
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(stringResource(id = R.string.screen_off_duration_min), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(stringResource(id = R.string.screen_off_duration_max), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(stringResource(id = R.string.screen_off_duration_min), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(stringResource(id = R.string.screen_off_duration_max), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }

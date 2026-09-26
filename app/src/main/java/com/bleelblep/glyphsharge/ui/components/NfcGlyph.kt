@@ -20,10 +20,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
+import com.bleelblep.glyphsharge.ui.components.dialogs.FeatureConfirmationFlow
 import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import dagger.hilt.android.EntryPointAccessors
+import com.bleelblep.glyphsharge.glyph.script.ScriptAnimation
 import kotlinx.coroutines.launch
 
 private suspend fun testAnimation(
@@ -32,13 +34,20 @@ private suspend fun testAnimation(
     fallback: suspend (String) -> Unit
 ) {
     try {
-        when (animId) {
-            "SPIRAL"    -> manager.runSpiralAnimation()
-            "HEARTBEAT" -> manager.runHeartbeatAnimation()
-            "MATRIX"    -> manager.runMatrixRainAnimation()
-            "FIREWORKS" -> manager.runFireworksAnimation()
-            "DNA"       -> manager.runDNAHelixAnimation()
-            else        -> fallback(animId)
+        when {
+            // A custom script goes through the same path a feature uses, so the
+            // test button exercises the real dispatch rather than a shortcut.
+            animId.startsWith(ScriptAnimation.ID_PREFIX) ->
+                manager.playCustomAnimation(animId)
+
+            else -> when (animId) {
+                "SPIRAL"    -> manager.runSpiralAnimation()
+                "HEARTBEAT" -> manager.runHeartbeatAnimation()
+                "MATRIX"    -> manager.runMatrixRainAnimation()
+                "FIREWORKS" -> manager.runFireworksAnimation()
+                "DNA"       -> manager.runDNAHelixAnimation()
+                else        -> fallback(animId)
+            }
         }
     } catch (e: Exception) {
         Log.e("NfcGlyphCard", "Error testing animation: ${e.message}")
@@ -54,80 +63,26 @@ fun NfcGlyphConfirmationDialog(
     settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
-    var showSettingsDialog by remember { mutableStateOf(false) }
-
-    if (!showSettingsDialog) {
-        AlertDialog(
-            onDismissRequest = { /* non-dismissible */ },
-            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
-            title = {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = stringResource(R.string.nfc_glyph_title),
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
-                    Text(
-                        text = stringResource(R.string.nfc_glyph_description),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            },
-            text = {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = themeCardContainerColor())
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = stringResource(R.string.nfc_glyph_how_it_works_title),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = stringResource(R.string.nfc_glyph_how_it_works_description),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = 20.sp
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                FeatureConfirmationButtons(
-                    primaryLabel = stringResource(R.string.nfc_glyph_button_test),
-                    onPrimary = onTest,
-                    onSettings = { showSettingsDialog = true },
-                    onCancel = onDismiss
-                )
-            },
-            dismissButton = {},
-            containerColor = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(24.dp),
-            modifier = modifier
-        )
-    }
-
-    if (showSettingsDialog) {
-        NfcGlyphEnableDialog(
-            onDismiss = { showSettingsDialog = false },
-            onEnable = {
-                onEnable()
-                showSettingsDialog = false
-                onDismiss()
-            },
-            onDisable = {
-                onDisable()
-                showSettingsDialog = false
-                onDismiss()
-            },
-            settingsRepository = settingsRepository
-        )
-    }
+    FeatureConfirmationFlow(
+        title = stringResource(R.string.nfc_glyph_title),
+        subtitle = stringResource(R.string.nfc_glyph_description),
+        howItWorksTitle = stringResource(R.string.nfc_glyph_how_it_works_title),
+        howItWorksDescription = stringResource(R.string.nfc_glyph_how_it_works_description),
+        testLabel = stringResource(R.string.nfc_glyph_button_test),
+        onTest = onTest,
+        onEnable = onEnable,
+        onDisable = onDisable,
+        onDismiss = onDismiss,
+        modifier = modifier,
+        settings = { onConfirm, onDisable, onDismissSettings ->
+            NfcGlyphEnableDialog(
+                onDismiss = onDismissSettings,
+                onEnable = onConfirm,
+                onDisable = onDisable,
+                settingsRepository = settingsRepository
+            )
+        }
+    )
 }
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -143,8 +98,16 @@ fun NfcGlyphEnableDialog(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // Built-ins plus whatever the studio currently holds.
+    val animationOptions = rememberAnimationOptions()
+
     var selectedAnimation by remember {
-        mutableStateOf(GlyphAnimations.getById(settingsRepository.getNfcAnimationId()))
+        mutableStateOf(
+            GlyphAnimations.getById(
+                settingsRepository.getNfcAnimationId(),
+                animationOptions
+            )
+        )
     }
     var durationSeconds by remember {
         mutableFloatStateOf((settingsRepository.getNfcAnimationDuration() / 1000f).coerceIn(1f, 10f))
@@ -203,7 +166,7 @@ fun NfcGlyphEnableDialog(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
-                            GlyphAnimations.list.forEach { anim ->
+                            animationOptions.forEach { anim ->
                                 FilterChip(
                                     selected = anim == selectedAnimation,
                                     onClick = {
@@ -224,7 +187,10 @@ fun NfcGlyphEnableDialog(
                             onClick = {
                                 HapticUtils.triggerMediumFeedback(haptic, context)
                                 scope.launch {
-                                    testAnimation(selectedAnimation.id, glyphAnimationManager) {
+                                    testAnimation(
+                        selectedAnimation.id,
+                        glyphAnimationManager
+                    ) {
                                         glyphAnimationManager.playNfcAnimation()
                                     }
                                 }
@@ -242,43 +208,48 @@ fun NfcGlyphEnableDialog(
                     }
                 }
 
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = cardColor),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(R.string.nfc_glyph_duration_title),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.weight(1f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                // Not shown for a user's script: a script lasts exactly as long as
+                // its own code, so a duration here would be a control that
+                // changes nothing.
+                if (!selectedAnimation.isCustom) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = cardColor),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.nfc_glyph_duration_title),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                ThemedValueBadge("${durationSeconds.toInt()}" + stringResource(id = R.string.glyph_seconds))
+                            }
+
+                            Slider(
+                                value = durationSeconds,
+                                onValueChange = {
+                                    HapticUtils.triggerLightFeedback(haptic, context)
+                                    durationSeconds = it
+                                },
+                                valueRange = 1f..10f,
+                                steps = 8,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = SliderDefaults.colors(thumbColor = accent)
                             )
-                            ThemedValueBadge("${durationSeconds.toInt()}" + stringResource(id = R.string.glyph_seconds))
-                        }
 
-                        Slider(
-                            value = durationSeconds,
-                            onValueChange = {
-                                HapticUtils.triggerLightFeedback(haptic, context)
-                                durationSeconds = it
-                            },
-                            valueRange = 1f..10f,
-                            steps = 8,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = SliderDefaults.colors(thumbColor = accent)
-                        )
-
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(stringResource(R.string.nfc_glyph_duration_min), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(stringResource(R.string.nfc_glyph_duration_max), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(stringResource(R.string.nfc_glyph_duration_min), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(stringResource(R.string.nfc_glyph_duration_max), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
                         }
                     }
                 }

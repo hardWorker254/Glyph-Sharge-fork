@@ -138,6 +138,72 @@
     <string name="settings_card_quiet_hours">Quiet Hours</string>
     <string name="settings_section_app_info">App Information</string>
     <string name="settings_card_about">About</string>
+
+  <!-- Animation Studio -->
+  <string name="settings_card_custom_animations">Custom Animations</string>
+  <string name="settings_card_custom_animations_subtitle">Write your own in Lua</string>
+  <string name="settings_card_custom_animations_count">%1$d saved</string>
+  <string name="studio_title">Animation Studio</string>
+  <string name="studio_new">New</string>
+  <string name="studio_import">Import</string>
+  <string name="studio_empty_title">No animations yet</string>
+  <string name="studio_empty_body">Write a Lua script, or import a .glyphlua file you exported earlier. Once saved, your animations appear next to the built-in ones on every feature card.</string>
+  <string name="studio_row_meta">%1$d characters · edited %2$s</string>
+  <string name="studio_row_menu">Animation actions</string>
+  <string name="studio_action_open">Open</string>
+  <string name="studio_action_duplicate">Duplicate</string>
+  <string name="studio_action_rename">Rename</string>
+  <string name="studio_action_delete">Delete</string>
+  <string name="studio_action_save">Save</string>
+  <string name="studio_action_export_downloads">Save to Downloads</string>
+  <string name="studio_action_export_file">Export to a file…</string>
+  <string name="studio_action_check">Check</string>
+  <string name="studio_action_run_glyph">Glyph</string>
+  <string name="studio_action_stop">Stop</string>
+  <string name="studio_running_hint">Playing on the glyph — press Stop to end it</string>
+  <string name="studio_editor_title">Edit animation</string>
+  <string name="studio_editor_title_dirty">Edit animation •</string>
+  <string name="studio_name_label">Name</string>
+  <string name="studio_reference_title">glyph API reference</string>
+
+  <!-- Studio: console, toasts and defaults -->
+  <string name="studio_msg_new_script">New script. Press Check, then Glyph.</string>
+  <string name="studio_msg_syntax_ok">Looks good — no syntax errors.</string>
+  <string name="studio_msg_syntax_error">Syntax error: %1$s</string>
+  <string name="studio_msg_done">Done — %1$d frames in %2$d ms.</string>
+  <string name="studio_msg_timeout">Stopped at the duration limit.</string>
+  <string name="studio_msg_stopped">Stopped.</string>
+  <string name="studio_msg_runtime_error">Error: %1$s</string>
+  <string name="studio_msg_no_glyph">This phone has no Glyph interface, so a script cannot be played.</string>
+  <string name="studio_msg_session_closed">The Glyph session is closed. Turn the Glyph service on from the home screen.</string>
+  <string name="studio_msg_saved">Saved “%1$s”</string>
+  <string name="studio_msg_deleted">Deleted</string>
+  <string name="studio_msg_copied">Copied to “%1$s”</string>
+  <string name="studio_msg_imported">Imported “%1$s”</string>
+  <string name="studio_msg_import_failed">Could not import: %1$s</string>
+  <string name="studio_msg_export_failed">Could not export: %1$s</string>
+  <string name="studio_msg_exported">Exported “%1$s”</string>
+  <string name="studio_msg_exported_downloads">Saved to Downloads/%1$s</string>
+  <string name="studio_msg_downloads_failed">Could not write to Downloads.</string>
+  <string name="studio_msg_missing">That animation no longer exists.</string>
+  <string name="studio_msg_unknown_error">unknown error</string>
+  <string name="studio_default_name">My animation</string>
+  <string name="studio_untitled">Untitled</string>
+  <string name="studio_default_import_name">Imported</string>
+  <string name="studio_copy_suffix">copy</string>
+
+  <!-- The template a new animation starts from. Only the comments differ per
+       locale; the Lua is byte-for-byte identical. -->
+  <string name="studio_starter_script">-- A wave along the long C strip.\n-- The whole file is the animation: write plain Lua here.\n-- It plays once, and stops when the code runs out.\n-- Try changing 60 to 120, or glyph.MAX to 2000.\n\nlocal strip = glyph.ch.c\nlocal step = 60\n\nfor i = 1, #strip do\n  glyph.set({ strip[i] }, glyph.MAX)\n  glyph.hold(step)\nend\n\n-- Fade the whole strip out, one segment at a time.\nfor i = #strip, 1, -1 do\n  glyph.set({ strip[i] }, 1500)\n  glyph.hold(step)\nend</string>
+
+  <!-- Lua error text that reaches the console -->
+  <string name="studio_lua_unknown_group">unknown channel group ‘%1$s’</string>
+  <string name="studio_lua_bad_channels">expected a channel list, a channel number or a group name</string>
+
+  <!-- Notification for the Glow Gate service -->
+  <string name="pulse_lock_notification_channel">Glow Gate Service</string>
+  <string name="pulse_lock_notification_title">✨ Glow Gate Active</string>
+  <string name="pulse_lock_notification_text">Unlocking will play your chosen animation.</string>
     <string name="settings_about_version">v%1$s (%2$d)</string>
     <string name="settings_about_beta_notice">🧪 You\'re using a public release build. Expect occasional quirks and bugs.</string>
     <string name="settings_about_beta_alt">Special thanks to beedah for the countless installs and quick beta testing.</string>

@@ -76,9 +76,14 @@ app/
 │   │   │   └── GlyphComponent.kt  # Компоненты DI
 │   │   │
 │   │   ├── glyph/                 # Управление Glyph Interface
-│   │   │   ├── GlyphManager.kt          # Основной менеджер глифов
-│   │   │   ├── GlyphAnimationManager.kt # Менеджер анимаций
-│   │   │   └── GlyphFeatureCoordinator.kt # Координатор функций
+│   │   │   ├── GlyphManager.kt          # Сессия Nothing SDK
+│   │   │   ├── GlyphAnimationManager.kt # Точки входа анимаций
+│   │   │   ├── GlyphFeatureCoordinator.kt # Координатор функций
+│   │   │   ├── AnimationCatalog.kt     # id анимаций
+│   │   │   ├── device/                 # Раскладка LED по модели
+│   │   │   ├── engine/                 # Движок отрисовки кадров
+│   │   │   ├── animations/             # Сами анимации
+│   │   │   └── battery/                # Анимация заряда и Power Peek
 │   │   │
 │   │   ├── services/              # Фоновые сервисы
 │   │   │   ├── GlyphForegroundService.kt
@@ -137,14 +142,17 @@ app/
 
 **Файл:** `glyph/GlyphManager.kt`
 
-Центральный класс для управления Nothing Glyph Interface. Предоставляет методы для:
+Центральный класс для управления Nothing Glyph Interface. Отвечает **только** за сессию SDK.
+Предоставляет методы для:
 
 - Инициализации и подключения к сервису глифов
 - Открытия/закрытия сессии
-- Управления отдельными каналами глифов
+- Определения модели устройства
 - Включения/выключения всех глифов
 - Проверки состояния сессии
 - Автоматического переподключения
+
+Номера каналов он не хранит — они живут в `glyph/device/DeviceProfileFactory.kt`.
 
 #### Пример использования
 
@@ -169,48 +177,22 @@ glyphManager.closeSession()
 
 ### Каналы глифов по устройствам
 
-Каждая модель Nothing Phone имеет свою карту каналов:
+Карта каналов каждой модели описана в `glyph/device/DeviceProfileFactory.kt` — по одной
+функции на модель (`phone1()`, `phone2()`, `phone2a()`, `phone3a()`). Определение самой
+модели живёт в `glyph/device/DeviceType.kt`.
 
-#### Phone (1) — 20111
-```kotlin
-object Phone1 {
-    const val A1 = 0
-    const val B1 = 1
-    const val C1 = 2  // Through C4 = 5
-    const val E1 = 6
-    const val D1_1 = 7  // Through D1_8 = 14
-}
-```
+| Модель | A | B | C | C2 | D | E |
+|--------|---|---|---|---|---|---|
+| Phone (1) — 20111 | 0 | 1 | 2–5 | — | 7–14 | 6 |
+| Phone (2) — 22111 | 0–1 | 2 | 3–18 | 19–23 | 25–32 | 24 |
+| Phone (2a) — 23111/23113 | 25 | 24 | 0–23 | — | — | — |
+| Phone (3a) — 24111 | 20–30 | 31–35 | 0–19 | — | — | — |
 
-#### Phone (2) — 22111
 ```kotlin
-object Phone2 {
-    const val A1 = 0
-    const val A2 = 1
-    const val B1 = 2
-    const val C1_1 = 3  // Through C1_16 = 18
-    const val C2 = 19   // Through C6 = 23
-    const val E1 = 24
-    const val D1_1 = 25 // Through D1_8 = 32
-}
-```
-
-#### Phone (2a) — 23111/23113
-```kotlin
-object Phone2a {
-    const val A = 25
-    const val B = 24
-    const val C1 = 0    // Through C24 = 23
-}
-```
-
-#### Phone (3a) — 24111
-```kotlin
-object Phone3a {
-    const val A1 = 20   // Through A11 = 30
-    const val B1 = 31   // Through B5 = 35
-    const val C1 = 0    // Through C20 = 19
-}
+// Получить профиль подключённого устройства
+val profile = DeviceProfileFactory.forConnectedDevice()
+profile?.all      // все каналы в порядке физической разводки
+profile?.c        // центральная C-полоса — основа для анимаций
 ```
 
 ---

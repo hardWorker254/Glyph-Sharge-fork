@@ -1,772 +1,298 @@
 package com.bleelblep.glyphsharge.ui.screens
 
 import android.content.pm.PackageManager
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.background
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.bleelblep.glyphsharge.ui.components.*
-import com.bleelblep.glyphsharge.ui.theme.*
-import com.bleelblep.glyphsharge.ui.utils.HapticUtils
-import kotlin.math.roundToInt
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.res.stringResource
 import com.bleelblep.glyphsharge.R
+import com.bleelblep.glyphsharge.CustomAnimationsActivity
 import com.bleelblep.glyphsharge.data.SettingsRepository
+import com.bleelblep.glyphsharge.di.GlyphComponent
+import com.bleelblep.glyphsharge.ui.components.controls.MorphingToggleButton
+import com.bleelblep.glyphsharge.ui.components.controls.ThreeStateFontMorphingButton
+import com.bleelblep.glyphsharge.ui.components.layout.DraggableSettingsCard
+import com.bleelblep.glyphsharge.ui.components.layout.SettingsScaffold
+import com.bleelblep.glyphsharge.ui.theme.AppThemeStyle
+import com.bleelblep.glyphsharge.ui.theme.LocalFontState
+import com.bleelblep.glyphsharge.ui.theme.LocalThemeState
+import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.flow.map
 
 /**
  * Settings screen for the GlyphZen app.
  * Allows users to modify app preferences and view app information.
+ *
+ * Every destination here is a [DraggableSettingsCard]: the card itself hosts a
+ * quick toggle, while swiping it sideways opens the full screen for that
+ * section. [AppInfoSection] at the bottom is informational only.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onBackClick: () -> Unit,
-    onHiddenSettingsAccess: (() -> Unit)? = null,
     onThemeSettingsClick: () -> Unit = {},
     onFontSettingsClick: () -> Unit = {},
-    onVibrationSettingsClick: () -> Unit = {},
     onQuietHoursSettingsClick: () -> Unit = {},
     onLanguageSettingsClick: () -> Unit = {},
     settingsRepository: SettingsRepository
 ) {
     val fontState = LocalFontState.current
     val themeState = LocalThemeState.current
-    val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
-    val backgroundColorMain = MaterialTheme.colorScheme.background
 
-    // Create scroll state for the LazyColumn
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
-    val scrollState = rememberLazyListState()
+    // The studio is a separate Activity, so the count is read straight from the
+    // repository rather than through a callback from GlyphNavHost.
+    val customAnimationCount by remember {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            GlyphComponent::class.java
+        ).customAnimationRepository().animations.map { it.size }
+    }.collectAsState(initial = 0)
 
-    Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-        topBar = {
-            LargeTopAppBar(
-                title = { 
-                    Text(
-                        stringResource(id = R.string.settings_title),
-                        style = MaterialTheme.typography.headlineLarge.copy(
-                            fontSize = 42.sp
-                        )
-                    ) 
-                },
-                navigationIcon = {
-                    IconButton(onClick = { 
-                        HapticUtils.triggerLightFeedback(haptic, context)
-                        onBackClick() 
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.ArrowBack,
-                            stringResource(id = R.string.settings_back_content_description)
+    SettingsScaffold(
+        title = stringResource(id = R.string.settings_title),
+        onBackClick = onBackClick
+    ) {
+        item {
+            TypographySettingsCard(
+                onNavigate = onFontSettingsClick,
+                trailing = {
+                    if (fontState.useCustomFonts) {
+                        ThreeStateFontMorphingButton(
+                            currentVariant = fontState.currentVariant,
+                            onVariantSelected = { variant ->
+                                fontState.setFontVariant(variant)
+                            }
                         )
                     }
-                },
-                actions = {},
-                scrollBehavior = scrollBehavior,
-                windowInsets = WindowInsets.statusBars,
-                colors = TopAppBarDefaults.largeTopAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface
-                )
+                }
             )
-        },
-        containerColor = backgroundColorMain,
-        contentWindowInsets = WindowInsets(0.dp)
-    ) { paddingValues ->
-        LazyColumn(
-            state = scrollState, // Use the scroll state
-            modifier = Modifier
-                .fillMaxSize()
-                .background(backgroundColorMain)
-                .padding(paddingValues),
-            contentPadding = PaddingValues(
-                start = 16.dp,
-                end = 16.dp,
-                top = 16.dp,
-                bottom = 16.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-            ),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            // Optimize for smooth scrolling
-            userScrollEnabled = true
-        ) {
-            // Typography Settings Card with Drag Navigation
-            item {
-                var offsetX by remember { mutableFloatStateOf(0f) }
-                val configuration = LocalConfiguration.current
-                val density = LocalDensity.current
-                
-                // Memoize expensive screen width calculation
-                val dragThreshold = remember(configuration.screenWidthDp) {
-                    with(density) { configuration.screenWidthDp.dp.toPx() / 2f }
+        }
+
+        item {
+            ThemeSettingsCard(
+                isDarkTheme = themeState.isDarkTheme,
+                onToggleTheme = themeState::toggleTheme,
+                onNavigate = onThemeSettingsClick
+            )
+        }
+
+        item {
+            QuietHoursSettingsCard(
+                settingsRepository = settingsRepository,
+                onNavigate = onQuietHoursSettingsClick
+            )
+        }
+
+        item {
+            LanguageSettingsCard(
+                settingsRepository = settingsRepository,
+                onNavigate = onLanguageSettingsClick
+            )
+        }
+
+        item {
+            CustomAnimationsCard(
+                animationCount = customAnimationCount,
+                onClick = {
+                    context.startActivity(CustomAnimationsActivity.intent(context))
                 }
+            )
+        }
 
-                // Track if threshold was met
-                var thresholdMet by remember { mutableStateOf(false) }
-
-                // Animate the offset back to center when released
-                val animatedOffsetX by animateFloatAsState(
-                    targetValue = offsetX,
-                    animationSpec = if (thresholdMet) {
-                        // Fast, non-bouncy animation when threshold is met
-                        tween(
-                            durationMillis = 200,
-                            easing = FastOutLinearInEasing
-                        )
-                    } else {
-                        // Spring animation when threshold is not met
-                        spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow
-                        )
-                    },
-                    label = "fontDragOffset",
-                    finishedListener = { finalValue ->
-                        // Only trigger navigation after animation completes and we're at center
-                        if (thresholdMet && finalValue == 0f) {
-                            HapticUtils.triggerMediumFeedback(haptic, context)
-                            onFontSettingsClick()
-                            thresholdMet = false
-                        }
-                    }
-                )
-
-                // Calculate progress based on drag distance (half screen width)
-                val dragProgress = (kotlin.math.abs(animatedOffsetX) / dragThreshold).coerceIn(0f, 1f)
-
-                // Animate background color
-                val backgroundColor by animateColorAsState(
-                    targetValue = lerp(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.primaryContainer,
-                        dragProgress
-                    ),
-                    animationSpec = tween(300),
-                    label = "fontBackgroundColor"
-                )
-
-                // Animate elevation
-                val animatedElevation by animateDpAsState(
-                    targetValue = (1 + dragProgress * 8).dp,
-                    animationSpec = tween(300),
-                    label = "fontElevation"
-                )
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(100.dp)
-                        .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
-                        .pointerInput(Unit) {
-                            detectDragGestures(
-                                onDragStart = { _ ->
-                                    // Light feedback on drag start
-                                    HapticUtils.triggerLightFeedback(haptic, context)
-                                },
-                                onDragEnd = {
-                                    // Check if threshold was met
-                                    thresholdMet = kotlin.math.abs(offsetX) >= dragThreshold
-                                    // Always snap back to center
-                                    offsetX = 0f
-                                }
-                            ) { _, dragAmount ->
-                                offsetX += dragAmount.x
-                            }
-                        },
-                    colors = CardDefaults.cardColors(containerColor = backgroundColor),
-                    elevation = CardDefaults.cardElevation(defaultElevation = animatedElevation),
-                    shape = MaterialTheme.shapes.large
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(20.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = stringResource(id = R.string.settings_card_typography),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
-
-                        // Three-state font morphing toggle - positioned consistently with other cards
-                        if (fontState.useCustomFonts) {
-                            ThreeStateFontMorphingButton(
-                                currentVariant = fontState.currentVariant,
-                                onVariantSelected = { variant ->
-                                    fontState.setFontVariant(variant)
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Theme Settings Card  
-            item {
-                var offsetX by remember { mutableFloatStateOf(0f) }
-                val configuration = LocalConfiguration.current
-                val density = LocalDensity.current
-                
-                // Calculate half screen width as threshold
-                val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
-                val dragThreshold = screenWidthPx / 2f
-
-                // Track if threshold was met
-                var thresholdMet by remember { mutableStateOf(false) }
-
-                // Animate the offset back to center when released
-                val animatedOffsetX by animateFloatAsState(
-                    targetValue = offsetX,
-                    animationSpec = if (thresholdMet) {
-                        // Fast, non-bouncy animation when threshold is met
-                        tween(
-                            durationMillis = 200,
-                            easing = FastOutLinearInEasing
-                        )
-                    } else {
-                        // Spring animation when threshold is not met
-                        spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow
-                        )
-                    },
-                    label = "themeDragOffset",
-                    finishedListener = { finalValue ->
-                        // Only trigger navigation after animation completes and we're at center
-                        if (thresholdMet && finalValue == 0f) {
-                            HapticUtils.triggerMediumFeedback(haptic, context)
-                            onThemeSettingsClick()
-                            thresholdMet = false
-                        }
-                    }
-                )
-
-                // Calculate progress based on drag distance (half screen width)
-                val dragProgress = (kotlin.math.abs(animatedOffsetX) / dragThreshold).coerceIn(0f, 1f)
-
-                // Animate background color
-                val backgroundColor by animateColorAsState(
-                    targetValue = lerp(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.primaryContainer,
-                        dragProgress
-                    ),
-                    animationSpec = tween(300),
-                    label = "themeBackgroundColor"
-                )
-
-                // Animate elevation
-                val animatedElevation by animateDpAsState(
-                    targetValue = (1 + dragProgress * 8).dp,
-                    animationSpec = tween(300),
-                    label = "themeElevation"
-                )
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(100.dp)
-                        .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
-                        .pointerInput(Unit) {
-                            detectDragGestures(
-                                onDragStart = { _ ->
-                                    // Light feedback on drag start
-                                    HapticUtils.triggerLightFeedback(haptic, context)
-                                },
-                                onDragEnd = {
-                                    // Check if threshold was met
-                                    thresholdMet = kotlin.math.abs(offsetX) >= dragThreshold
-                                    // Always snap back to center
-                                    offsetX = 0f
-                                }
-                            ) { _, dragAmount ->
-                                offsetX += dragAmount.x
-                            }
-                        },
-                    colors = CardDefaults.cardColors(containerColor = backgroundColor),
-                    elevation = CardDefaults.cardElevation(defaultElevation = animatedElevation),
-                    shape = MaterialTheme.shapes.large
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(20.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = stringResource(id = R.string.settings_card_theme),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold
-                            )
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            Text(
-                                text = if (themeState.isDarkTheme)
-                                        stringResource(id = R.string.settings_theme_status_dark)
-                                    else
-                                    stringResource(id = R.string.settings_theme_status_light),
-                                style = MaterialTheme.typography.bodyMedium,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-
-                        MorphingToggleButton(
-                            checked = themeState.isDarkTheme,
-                            onCheckedChange = {
-                                themeState.toggleTheme()
-                            },
-                            enabledIcon = {
-                                Text(
-                                    text = "🌑",
-                                    style = MaterialTheme.typography.titleLarge
-                                )
-                            },
-                            disabledIcon = {
-                                Text(
-                                    text = "☀️",
-                                    style = MaterialTheme.typography.titleLarge
-                                )
-                            }
-                        )
-                    }
-                }
-            }
-
-            // Quiet Hours Settings Card (draggable with toggle)
-            item {
-                var offsetX by remember { mutableFloatStateOf(0f) }
-                val configuration = LocalConfiguration.current
-                val density = LocalDensity.current
-                
-                // Get quiet hours state
-                var quietHoursEnabled by remember { 
-                    mutableStateOf(settingsRepository.isQuietHoursEnabled()) 
-                }
-                
-                // Calculate half screen width as threshold
-                val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
-                val dragThreshold = screenWidthPx / 2f
-
-                // Track if threshold was met
-                var thresholdMet by remember { mutableStateOf(false) }
-
-                // Animate the offset back to center when released
-                val animatedOffsetX by animateFloatAsState(
-                    targetValue = offsetX,
-                    animationSpec = if (thresholdMet) {
-                        // Fast, non-bouncy animation when threshold is met
-                        tween(
-                            durationMillis = 200,
-                            easing = FastOutLinearInEasing
-                        )
-                    } else {
-                        // Spring animation when threshold is not met
-                        spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow
-                        )
-                    },
-                    label = "quietHoursSettingsDragOffset",
-                    finishedListener = { finalValue ->
-                        // Only trigger navigation after animation completes and we're at center
-                        if (thresholdMet && finalValue == 0f) {
-                            HapticUtils.triggerMediumFeedback(haptic, context)
-                            onQuietHoursSettingsClick()
-                            thresholdMet = false
-                        }
-                    }
-                )
-
-                // Calculate progress based on drag distance (half screen width)
-                val dragProgress = (kotlin.math.abs(animatedOffsetX) / dragThreshold).coerceIn(0f, 1f)
-
-                // Animate background color
-                val backgroundColor by animateColorAsState(
-                    targetValue = lerp(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.primaryContainer,
-                        dragProgress
-                    ),
-                    animationSpec = tween(300),
-                    label = "quietHoursSettingsBackgroundColor"
-                )
-
-                // Animate elevation
-                val animatedElevation by animateDpAsState(
-                    targetValue = (1 + dragProgress * 8).dp,
-                    animationSpec = tween(300),
-                    label = "quietHoursSettingsElevation"
-                )
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(100.dp)
-                        .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
-                        .pointerInput(Unit) {
-                            detectDragGestures(
-                                onDragStart = { _ ->
-                                    // Light feedback on drag start
-                                    HapticUtils.triggerLightFeedback(haptic, context)
-                                },
-                                onDragEnd = {
-                                    // Check if threshold was met
-                                    thresholdMet = kotlin.math.abs(offsetX) >= dragThreshold
-                                    // Always snap back to center
-                                    offsetX = 0f
-                                }
-                            ) { _, dragAmount ->
-                                offsetX += dragAmount.x
-                            }
-                        },
-                    colors = CardDefaults.cardColors(containerColor = backgroundColor),
-                    elevation = CardDefaults.cardElevation(defaultElevation = animatedElevation),
-                    shape = MaterialTheme.shapes.large
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(20.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = stringResource(id = R.string.settings_card_quiet_hours),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold
-                            )
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            Text(
-                                text = if (quietHoursEnabled)
-                                            stringResource(id = R.string.settings_quiet_hours_status_on)
-                                       else
-                                            stringResource(id = R.string.settings_quiet_hours_status_off),
-                                style = MaterialTheme.typography.bodyMedium,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-
-                        MorphingToggleButton(
-                            checked = quietHoursEnabled,
-                            onCheckedChange = { enabled ->
-                                quietHoursEnabled = enabled
-                                settingsRepository.saveQuietHoursEnabled(enabled)
-                            },
-                            enabledIcon = {
-                                Text(
-                                    text = "🔇",
-                                    style = MaterialTheme.typography.titleLarge
-                                )
-                            },
-                            disabledIcon = {
-                                Text(
-                                    text = "💡",
-                                    style = MaterialTheme.typography.titleLarge
-                                )
-                            }
-                        )
-                    }
-                }
-            }
-
-            // Language Settings Card (draggable)
-            item {
-                var offsetX by remember { mutableFloatStateOf(0f) }
-                val configuration = LocalConfiguration.current
-                val density = LocalDensity.current
-
-                // Get current language display name
-                val currentLanguageName = remember {
-                    val code = settingsRepository.getAppLanguageCode()
-                    when (code) {
-                        "system" -> "System Default"
-                        "en" -> "English"
-                        "ru" -> "Русский"
-                        else -> "System Default"
-                    }
-                }
-
-                // Calculate half screen width as threshold
-                val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
-                val dragThreshold = screenWidthPx / 2f
-
-                // Track if threshold was met
-                var thresholdMet by remember { mutableStateOf(false) }
-
-                // Animate the offset back to center when released
-                val animatedOffsetX by animateFloatAsState(
-                    targetValue = offsetX,
-                    animationSpec = if (thresholdMet) {
-                        tween(durationMillis = 200, easing = FastOutLinearInEasing)
-                    } else {
-                        spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow
-                        )
-                    },
-                    label = "languageDragOffset",
-                    finishedListener = { finalValue ->
-                        if (thresholdMet && finalValue == 0f) {
-                            HapticUtils.triggerMediumFeedback(haptic, context)
-                            onLanguageSettingsClick()
-                            thresholdMet = false
-                        }
-                    }
-                )
-
-                // Calculate progress based on drag distance
-                val dragProgress = (kotlin.math.abs(animatedOffsetX) / dragThreshold).coerceIn(0f, 1f)
-
-                // Animate background color
-                val backgroundColor by animateColorAsState(
-                    targetValue = lerp(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.primaryContainer,
-                        dragProgress
-                    ),
-                    animationSpec = tween(300),
-                    label = "languageBackgroundColor"
-                )
-
-                // Animate elevation
-                val animatedElevation by animateDpAsState(
-                    targetValue = (1 + dragProgress * 8).dp,
-                    animationSpec = tween(300),
-                    label = "languageElevation"
-                )
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(100.dp)
-                        .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
-                        .pointerInput(Unit) {
-                            detectDragGestures(
-                                onDragStart = { _ ->
-                                    HapticUtils.triggerLightFeedback(haptic, context)
-                                },
-                                onDragEnd = {
-                                    thresholdMet = kotlin.math.abs(offsetX) >= dragThreshold
-                                    offsetX = 0f
-                                }
-                            ) { _, dragAmount ->
-                                offsetX += dragAmount.x
-                            }
-                        },
-                    colors = CardDefaults.cardColors(containerColor = backgroundColor),
-                    elevation = CardDefaults.cardElevation(defaultElevation = animatedElevation),
-                    shape = MaterialTheme.shapes.large
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(20.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = stringResource(id = R.string.language_selector_title),
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.SemiBold
-                            )
-
-                            Spacer(modifier = Modifier.height(4.dp))
-
-                            Text(
-                                text = currentLanguageName,
-                                style = MaterialTheme.typography.bodyMedium,
-                                letterSpacing = 0.5.sp,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f)
-                            )
-                        }
-
-                        // Language icon / indicator
-                        Icon(
-                            imageVector = Icons.Default.Language,
-                            contentDescription = stringResource(id = R.string.language_selector_desc),
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                }
-            }
-
-            // App Info Section Header
-            item {
-                HomeSectionHeader(
-                    title = stringResource(id = R.string.settings_section_app_info),
-                    modifier = Modifier.padding(start = 4.dp, top = 8.dp)
-                )
-            }
-
-            // App Info Card
-            item {
-                BetaAttributeCard()
-            }
-
-            // About Card with Hidden Settings Access
-            item {
-                HiddenSettingsDragCard(
-                    onHiddenSettingsAccess = onHiddenSettingsAccess
-                )
-            }
+        item {
+            AppInfoSection()
         }
     }
 }
 
-/**
- * About card with hidden drag interaction for accessing developer settings
- * Requires horizontal drag with specific distance to trigger hidden menu
- */
 @Composable
-private fun HiddenSettingsDragCard(
-    onHiddenSettingsAccess: (() -> Unit)?,
-    modifier: Modifier = Modifier
+private fun CustomAnimationsCard(
+    animationCount: Int,
+    onClick: () -> Unit
 ) {
-    var offsetX by remember { mutableFloatStateOf(0f) }
-    val haptic = LocalHapticFeedback.current
-    val context = LocalContext.current
-    val configuration = LocalConfiguration.current
-    val density = LocalDensity.current
-    val themeState = LocalThemeState.current
-    
-    // Calculate half screen width as threshold
-    val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
-    val dragThreshold = screenWidthPx / 2f
-
-    // Track if threshold was met
-    var thresholdMet by remember { mutableStateOf(false) }
-
-    // Animate the offset back to center when released
-    val animatedOffsetX by animateFloatAsState(
-        targetValue = offsetX,
-        animationSpec = if (thresholdMet) {
-            // Fast, non-bouncy animation when threshold is met
-            tween(
-                durationMillis = 200,
-                easing = FastOutLinearInEasing
-            )
+    DraggableSettingsCard(
+        title = stringResource(id = R.string.settings_card_custom_animations),
+        subtitle = if (animationCount == 0) {
+            stringResource(id = R.string.settings_card_custom_animations_subtitle)
         } else {
-            // Spring animation when threshold is not met
-            spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
+            stringResource(
+                id = R.string.settings_card_custom_animations_count,
+                animationCount
             )
         },
-        label = "hiddenDragOffset",
-        finishedListener = { finalValue ->
-            // Only trigger callback after animation completes and we're at center
-            if (thresholdMet && finalValue == 0f && onHiddenSettingsAccess != null) {
-                HapticUtils.triggerMediumFeedback(haptic, context)
-                onHiddenSettingsAccess()
-                thresholdMet = false
-            }
+        onNavigate = onClick,
+        onClick = onClick
+    )
+}
+
+@Composable
+private fun TypographySettingsCard(
+    onNavigate: () -> Unit,
+    trailing: @Composable () -> Unit
+) {
+    DraggableSettingsCard(
+        title = stringResource(id = R.string.settings_card_typography),
+        onNavigate = onNavigate,
+        trailing = trailing
+    )
+}
+
+@Composable
+private fun ThemeSettingsCard(
+    isDarkTheme: Boolean,
+    onToggleTheme: () -> Unit,
+    onNavigate: () -> Unit
+) {
+    DraggableSettingsCard(
+        title = stringResource(id = R.string.settings_card_theme),
+        subtitle = if (isDarkTheme) {
+            stringResource(id = R.string.settings_theme_status_dark)
+        } else {
+            stringResource(id = R.string.settings_theme_status_light)
+        },
+        onNavigate = onNavigate,
+        trailing = {
+            MorphingToggleButton(
+                checked = isDarkTheme,
+                onCheckedChange = { onToggleTheme() },
+                enabledIcon = {
+                    Text(text = "🌑", style = MaterialTheme.typography.titleLarge)
+                },
+                disabledIcon = {
+                    Text(text = "☀️", style = MaterialTheme.typography.titleLarge)
+                }
+            )
         }
     )
+}
 
-    // Calculate progress based on drag distance (half screen width)
-    val dragProgress = (kotlin.math.abs(animatedOffsetX) / dragThreshold).coerceIn(0f, 1f)
+@Composable
+private fun QuietHoursSettingsCard(
+    settingsRepository: SettingsRepository,
+    onNavigate: () -> Unit
+) {
+    var quietHoursEnabled by remember {
+        mutableStateOf(settingsRepository.isQuietHoursEnabled())
+    }
 
-    // Animate background color
-    val backgroundColor by animateColorAsState(
-        targetValue = lerp(
-            MaterialTheme.colorScheme.surface,
-            MaterialTheme.colorScheme.primaryContainer,
-            dragProgress
-        ),
-        animationSpec = tween(300),
-        label = "backgroundColor"
+    DraggableSettingsCard(
+        title = stringResource(id = R.string.settings_card_quiet_hours),
+        subtitle = if (quietHoursEnabled) {
+            stringResource(id = R.string.settings_quiet_hours_status_on)
+        } else {
+            stringResource(id = R.string.settings_quiet_hours_status_off)
+        },
+        onNavigate = onNavigate,
+        trailing = {
+            MorphingToggleButton(
+                checked = quietHoursEnabled,
+                onCheckedChange = { enabled ->
+                    quietHoursEnabled = enabled
+                    settingsRepository.saveQuietHoursEnabled(enabled)
+                },
+                enabledIcon = {
+                    Text(text = "🔇", style = MaterialTheme.typography.titleLarge)
+                },
+                disabledIcon = {
+                    Text(text = "💡", style = MaterialTheme.typography.titleLarge)
+                }
+            )
+        }
     )
+}
 
-    // Animate elevation
-    val animatedElevation by animateDpAsState(
-        targetValue = (1 + dragProgress * 8).dp,
-        animationSpec = tween(300),
-        label = "elevation"
+@Composable
+private fun LanguageSettingsCard(
+    settingsRepository: SettingsRepository,
+    onNavigate: () -> Unit
+) {
+    val currentLanguageName = remember {
+        when (settingsRepository.getAppLanguageCode()) {
+            "system" -> "System Default"
+            "en" -> "English"
+            "ru" -> "Русский"
+            else -> "System Default"
+        }
+    }
+
+    DraggableSettingsCard(
+        title = stringResource(id = R.string.language_selector_title),
+        subtitle = currentLanguageName,
+        subtitleColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
+        onNavigate = onNavigate,
+        trailing = {
+            Icon(
+                imageVector = Icons.Default.Language,
+                contentDescription = stringResource(id = R.string.language_selector_desc),
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp)
+            )
+        }
     )
+}
+
+/**
+ * Informational block at the bottom of the settings list: the "About" blurb
+ * and the build/version card.
+ */
+@Composable
+private fun AppInfoSection() {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        AboutCard()
+        BetaAttributeCard()
+    }
+}
+
+@Composable
+private fun AboutCard(modifier: Modifier = Modifier) {
+    val themeState = LocalThemeState.current
 
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { _ ->
-                        // Light feedback on drag start
-                        HapticUtils.triggerLightFeedback(haptic, context)
-                    },
-                    onDragEnd = {
-                        // Check if threshold was met
-                        thresholdMet = kotlin.math.abs(offsetX) >= dragThreshold
-                        // Always snap back to center
-                        offsetX = 0f
-                    }
-                ) { _, dragAmount ->
-                    offsetX += dragAmount.x
-                }
-            },
-        colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = animatedElevation),
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(),
         shape = MaterialTheme.shapes.large
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = Icons.Default.Settings,
                     contentDescription = null,
                     tint = when (themeState.themeStyle) {
-                        AppThemeStyle.Y2K -> MaterialTheme.colorScheme.primary
+                        AppThemeStyle.Y2K,
                         AppThemeStyle.NEON -> MaterialTheme.colorScheme.primary
                         AppThemeStyle.CLASSIC -> Color(0xFF674FA3)
                         else -> MaterialTheme.colorScheme.primary
@@ -781,22 +307,13 @@ private fun HiddenSettingsDragCard(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold
                 )
-
-                // Show drag progress
-               // if (dragProgress > 0.3f) {
-               //     Spacer(modifier = Modifier.weight(1f))
-               //     Text(
-               //         text = "${(dragProgress * 100).toInt()}%",
-               //         style = MaterialTheme.typography.titleMedium,
-               //         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-               //     )
-               // }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "From live battery glyphs to USB-theft alarms, charging history and unlock light-shows—unlock the full power of the NOTHING glyphs.",
+                text = "From live battery glyphs to USB-theft alarms, charging history " +
+                    "and unlock light-shows—unlock the full power of the NOTHING glyphs.",
                 style = MaterialTheme.typography.bodyMedium,
                 lineHeight = 20.sp
             )
@@ -813,7 +330,7 @@ private fun BetaAttributeCard(modifier: Modifier = Modifier) {
     val themeState = LocalThemeState.current
     val context = LocalContext.current
     var toggled by rememberSaveable { mutableStateOf(false) }
-    
+
     // Get version information dynamically
     val versionInfo = remember {
         try {
@@ -840,7 +357,8 @@ private fun BetaAttributeCard(modifier: Modifier = Modifier) {
                     imageVector = Icons.Default.Info,
                     contentDescription = null,
                     tint = when (themeState.themeStyle) {
-                        AppThemeStyle.Y2K, AppThemeStyle.NEON -> MaterialTheme.colorScheme.primary
+                        AppThemeStyle.Y2K,
+                        AppThemeStyle.NEON -> MaterialTheme.colorScheme.primary
                         AppThemeStyle.CLASSIC -> Color(0xFF674FA3)
                         else -> MaterialTheme.colorScheme.primary
                     },
@@ -890,4 +408,4 @@ private fun BetaAttributeCard(modifier: Modifier = Modifier) {
             )
         }
     }
-} 
+}

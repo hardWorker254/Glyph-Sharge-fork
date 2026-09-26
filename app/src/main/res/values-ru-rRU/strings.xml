@@ -138,6 +138,74 @@
     <string name="settings_card_theme">Тема</string>
     <string name="settings_card_quiet_hours">Тихие часы</string>
     <string name="settings_section_app_info">О приложении</string>
+
+  <!-- Animation Studio -->
+  <string name="settings_card_custom_animations">Свои анимации</string>
+  <string name="settings_card_custom_animations_subtitle">Пишите свои на Lua</string>
+  <string name="settings_card_custom_animations_count">Сохранено: %1$d</string>
+  <!-- Короткое намеренно: заголовок рисуется в 42sp и при схлопывании
+       панели «Студия анимаций» обрезается. -->
+  <string name="studio_title">Студия</string>
+  <string name="studio_new">Создать</string>
+  <string name="studio_import">Импорт</string>
+  <string name="studio_empty_title">Анимаций пока нет</string>
+  <string name="studio_empty_body">Напишите скрипт на Lua или импортируйте файл .glyphlua, который вы сохраняли раньше. После сохранения свои анимации появятся рядом со встроенными на карточках фич.</string>
+  <string name="studio_row_meta">%1$d символов · изменено %2$s</string>
+  <string name="studio_row_menu">Действия с анимацией</string>
+  <string name="studio_action_open">Открыть</string>
+  <string name="studio_action_duplicate">Дублировать</string>
+  <string name="studio_action_rename">Переименовать</string>
+  <string name="studio_action_delete">Удалить</string>
+  <string name="studio_action_save">Сохранить</string>
+  <string name="studio_action_export_downloads">Сохранить в «Загрузки»</string>
+  <string name="studio_action_export_file">Экспорт в файл…</string>
+  <string name="studio_action_check">Проверить</string>
+  <string name="studio_action_run_glyph">Глиф</string>
+  <string name="studio_action_stop">Стоп</string>
+  <string name="studio_running_hint">Играет на глифе — нажмите «Стоп», чтобы прервать</string>
+  <string name="studio_editor_title">Правка анимации</string>
+  <string name="studio_editor_title_dirty">Правка анимации •</string>
+  <string name="studio_name_label">Название</string>
+  <string name="studio_reference_title">Справочник по glyph API</string>
+
+  <!-- Студия: консоль, уведомления и значения по умолчанию -->
+  <string name="studio_msg_new_script">Новый скрипт. Нажмите «Проверить», затем «Глиф».</string>
+  <string name="studio_msg_syntax_ok">Всё в порядке — ошибок синтаксиса нет.</string>
+  <string name="studio_msg_syntax_error">Ошибка синтаксиса: %1$s</string>
+  <string name="studio_msg_done">Готово — %1$d кадров за %2$d мс.</string>
+  <string name="studio_msg_timeout">Остановлено по лимиту длительности.</string>
+  <string name="studio_msg_stopped">Остановлено.</string>
+  <string name="studio_msg_runtime_error">Ошибка: %1$s</string>
+  <string name="studio_msg_no_glyph">На этом телефоне нет Glyph-интерфейса, скрипт запустить нельзя.</string>
+  <string name="studio_msg_session_closed">Сессия Glyph закрыта. Включите Glyph-сервис на главном экране.</string>
+  <string name="studio_msg_saved">Сохранено: «%1$s»</string>
+  <string name="studio_msg_deleted">Удалено</string>
+  <string name="studio_msg_copied">Создана копия: «%1$s»</string>
+  <string name="studio_msg_imported">Импортировано: «%1$s»</string>
+  <string name="studio_msg_import_failed">Не удалось импортировать: %1$s</string>
+  <string name="studio_msg_export_failed">Не удалось экспортировать: %1$s</string>
+  <string name="studio_msg_exported">Экспортировано: «%1$s»</string>
+  <string name="studio_msg_exported_downloads">Сохранено в «Загрузки»/%1$s</string>
+  <string name="studio_msg_downloads_failed">Не удалось записать в «Загрузки».</string>
+  <string name="studio_msg_missing">Такой анимации больше нет.</string>
+  <string name="studio_msg_unknown_error">неизвестная ошибка</string>
+  <string name="studio_default_name">Моя анимация</string>
+  <string name="studio_untitled">Без названия</string>
+  <string name="studio_default_import_name">Импортированная</string>
+  <string name="studio_copy_suffix">копия</string>
+
+  <!-- Шаблон, с которого начинается новая анимация. В локалях отличаются только
+       комментарии, сам Lua идентичен. -->
+  <string name="studio_starter_script">-- Волна по длинной полосе C.\n-- Весь файл и есть анимация: пишите на Lua.\n-- Проигрывается один раз и заканчивается, когда кончится код.\n-- Попробуйте заменить 60 на 120 или glyph.MAX на 2000.\n\nlocal strip = glyph.ch.c\nlocal step = 60\n\nfor i = 1, #strip do\n  glyph.set({ strip[i] }, glyph.MAX)\n  glyph.hold(step)\nend\n\n-- Гасим всю полосу по одному сегменту.\nfor i = #strip, 1, -1 do\n  glyph.set({ strip[i] }, 1500)\n  glyph.hold(step)\nend</string>
+
+  <!-- Текст ошибок Lua, попадающий в консоль -->
+  <string name="studio_lua_unknown_group">неизвестная группа каналов «%1$s»</string>
+  <string name="studio_lua_bad_channels">ожидался список каналов, номер канала или название группы</string>
+
+  <!-- Уведомление сервиса Glow Gate -->
+  <string name="pulse_lock_notification_channel">Сервис Glow Gate</string>
+  <string name="pulse_lock_notification_title">✨ Glow Gate активен</string>
+  <string name="pulse_lock_notification_text">При разблокировке будет показана выбранная анимация.</string>
     <string name="settings_card_about">О программе</string>
     <string name="settings_about_version">v%1$s (%2$d)</string>
     <string name="settings_about_beta_notice">🧪 Вы используете публичную сборку. Возможны ошибки и нестабильная работа.</string>
