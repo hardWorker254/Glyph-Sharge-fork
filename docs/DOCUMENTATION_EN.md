@@ -16,10 +16,11 @@
 7. [**Adding a New Service (Quickstart)**](#7-adding-a-new-service-quickstart)
 8. [UI Layer](#8-ui-layer)
 9. [Navigation](#9-navigation)
-10. [Resources & Localization](#10-resources--localization)
-11. [Build & Configuration](#11-build--configuration)
-12. [Known Issues & Gotchas](#12-known-issues--gotchas)
-13. [**Custom Animations (Lua)**](#13-custom-animations-lua)
+10. [Music visualiser](#10-music-visualiser)
+11. [Resources & Localization](#11-resources--localization)
+12. [Build & Configuration](#12-build--configuration)
+13. [Known Issues & Gotchas](#13-known-issues--gotchas)
+14. [**Custom Animations (Lua)**](#14-custom-animations-lua)
 
 ---
 
@@ -275,7 +276,7 @@ feature setting (an id shaped custom:<12 hex>)
 
 A script goes through the **same** `anim { }` guard with the same strip blanking as a built-in
 animation, which is why the feature's Duration setting bounds it exactly as it bounds the
-rest. Details in [section 13](#13-custom-animations-lua).
+rest. Details in [section 14](#14-custom-animations-lua).
 
 **The studio is a separate Activity, not a NavHost route.**
 [CustomAnimationsActivity](../app/src/main/java/com/bleelblep/glyphsharge/CustomAnimationsActivity.kt)
@@ -580,6 +581,7 @@ supported phone.
 | `NfcGlyphService` | Animation on NFC event | NFC Intent via the Activity |
 | `LowBatteryAlertService` | Low battery notification | `ACTION_BATTERY_CHANGED` |
 | `QuietHoursService` | Silence during a scheduled window | `AlarmManager` |
+| `MusicVisualizerService` | Spectrum visualisation of whatever is playing | `Visualizer` + `AudioManager` |
 
 ### Service Lifecycle Contract
 
@@ -1285,13 +1287,13 @@ each of the 15 Material 3 slots is multiplied by its category factor. `SYSTEM` d
 | Fonts | `screens/FontSettingsScreen.kt` | `FontSettingsScreen(fontState, onNavigateBack, modifier)` |
 | Quiet hours | `screens/QuietHoursSettingsScreen.kt` | `QuietHoursSettingsScreen(onBackClick, settingsRepository)` |
 | Language | `screens/LanguageSettingsScreen.kt` | `LanguageSettingsScreen(onBackClick, settingsRepository, onLanguageChanged, modifier)` |
-| Animation list | `screens/animations/AnimationListScreen.kt` | The user's scripts: open, create, rename, duplicate, delete, import, two exports |
+| Animation list | `screens/animations/AnimationListScreen.kt` | The user's scripts: open, create, duplicate, delete, import, two exports |
 | Animation editor | `screens/animations/AnimationEditorScreen.kt` | Name, code field, preview, Check / Screen / Glyph buttons, console, a collapsible `glyph` cheat sheet |
 | Glyph preview | `screens/animations/GlyphPreview.kt` | Draws a `Map<Int, Int>` (channel → brightness) against a `DeviceProfile` layout |
 
 > [!NOTE]
 > The last three screens live **outside `GlyphNavHost`** — their host is
-> `CustomAnimationsActivity`. See [section 13](#13-custom-animations-lua).
+> `CustomAnimationsActivity`. See [section 14](#14-custom-animations-lua).
 
 ### HomeViewModel
 
@@ -1404,7 +1406,76 @@ object Routes {
 
 ---
 
-## 10. Resources & Localization
+## 10. Music visualiser
+
+Draws whatever the phone is playing on the Glyph strip, for as long as there is
+any. It is the only service with no trigger: everything else waits for an event,
+this one watches a stream.
+
+### The layers
+
+| Concern | Where |
+|---------|-------|
+| Which channels a mode paints on | `glyph.animations.AudioAnimations` — `resolveStrip` |
+| The spectrum maths | `glyph.audio.AudioAnalysis` (pure, no Android types) |
+| Owning the `Visualizer` | `glyph.audio.AudioAnalyzer` |
+| Which mode the user picked | `glyph.audio.MusicVisualizationMode` |
+| Starting, stopping, slicing | `services.MusicVisualizerService` |
+
+### The six modes
+
+`BARS` (equaliser), `WAVE` (scrolling level trace), `MIRROR` (bars outwards
+from the centre), `BEAT` (a wash that snaps on every kick), `MATRIX` (rain
+driven by the bands), `VORTEX` (two counter-rotating rings turned by the bass).
+
+All six are one loop — `runMusicVisualization` — with a `when` on the mode, so
+pacing, the idle behaviour and the per-frame state live exactly once. At
+~30 fps.
+
+> [!IMPORTANT]
+> **`resolveStrip` is what makes this work on four phones.** Phone (1) has four
+> channels in the C strip against Phone (3a)'s twenty. Below eight channels the
+> visualiser falls back to `profile.all`: a twenty-bar equaliser squeezed into
+> four channels is four blinking dots.
+
+### Yielding the strip
+
+`GlyphFeatureCoordinator` gives the strip to one feature at a time, and the six
+short features all take it with `acquire`, which loses rather than fights. A
+visualiser that held the strip for a whole track would swallow every charging
+animation, low-battery alert and screen-off effect.
+
+So it paints for `SLICE_MS` (1.5 s), releases, waits `YIELD_GAP_MS` (60 ms) and
+takes the strip again. A trigger landing in the gap — 4% of the time — is served
+immediately; the rest wait at most 1.5 s. The price is a dark seam every 1.5 s,
+which is the trade the design settled on: the alternative is a feature that
+silently never fires.
+
+### What is captured, and what is not
+
+> [!WARNING]
+> `Visualizer` on session `0` reads the **whole output mix**, not one app's
+> audio. That is the only stream a non-system app can read on modern Android.
+> Notifications, ringtones and system sounds are in the same buffer. The PCM
+> never leaves `AudioAnalyzer` except as `0..1` levels: nothing is recorded,
+> stored or transmitted, and the "How it works" card in the app says so.
+>
+> The buffer is only *used* while something musical is playing, and
+> `AudioManager.isMusicActive()` plus the analysed level decide that.
+
+`RECORD_AUDIO` gates the whole thing and is requested when the user switches
+the feature on, the same way Power Peek asks for its permission.
+
+### Degrading
+
+If the device's FFT stream carries nothing while the waveform is loud,
+`AudioAnalyzer` switches to banding the waveform: the spectrum then tracks
+loudness rather than pitch, and logs
+`FFT is empty while the waveform is loud`. Every mode still reacts to music.
+
+---
+
+## 11. Resources & Localization
 
 ```
 app/src/main/res/
@@ -1443,7 +1514,7 @@ because that is a separate Activity with its own context.
 
 ---
 
-## 11. Build & Configuration
+## 12. Build & Configuration
 
 ### Active Scripts
 
@@ -1476,13 +1547,31 @@ Declared in `app/build.gradle` but **unused**: Room 2.6.1 (3 artifacts),
 ./gradlew :app:testDebugUnitTest
 ```
 
-`app/src/test/java/com/bleelblep/glyphsharge/glyph/script/` holds two suites:
-`LuaScriptEngineTest` (14 tests — drawing, loops, channel groups, syntax and runtime errors,
-the watchdog against an infinite loop and against `pcall`, interrupting a long `glyph.hold`,
-the absence of dangerous globals, `validate()`) and `ScriptFileFormatTest` (7 tests over
-`encode`/`decode`/`suggestedFileName`).
+**118 unit tests, 9 suites, all pure JVM** — no emulator, no device, no Robolectric. Run in
+about 2 seconds.
 
-`app/build.gradle` gained a block:
+| Suite | Tests | What it pins |
+|-------|-------|--------------|
+| `glyph/script/LuaScriptEngineTest` | 21 | A script really runs: drawing, loops, channel groups, `glyph.hold`, `glyph.exit`, syntax and runtime errors, the watchdog against an infinite loop and against `pcall`, interrupting a long `glyph.hold`, the absence of dangerous globals, `validate()`, and `glyph.target` read back by the script and reported in the result |
+| `glyph/script/ScriptTargetTest` | 15 | The target classifier: quote styles, spacing, **line and block comments**, unknown values falling back to `ANY`, and which picker offers what |
+| `glyph/script/ScriptFileFormatTest` | 7 | `encode`/`decode` round trip, a headerless import, a name with a newline, safe file names, the `custom:` namespace |
+| `glyph/audio/FftTest` | 17 | Energy lands in the right bin, silence is exact zeros, magnitude is linear in amplitude, the size is a power of two, cached plans do not interfere |
+| `glyph/audio/AudioFrameTest` | 13 | `bandsInto` peaks rather than averages, no band is lost at any segment count, the caller's array is the one written, `isSilent` against the floor, locale-independent `toString()` |
+| `glyph/audio/BeatDetectorTest` | 12 | The rolling average, the cooldown, a constant level not beating forever, `reset()` between tracks |
+| `glyph/audio/AudioAnalysisTest` | 6 | The calibration every mode's brightness rests on: a note lands in its band, silence produces nothing, a quiet room still reads as silence |
+| `glyph/audio/MusicVisualizationModeTest` | 11 | Stored ids resolve, a `custom:<uuid>` script id is **not** a mode, and every mode is classified as idle-friendly or not |
+| `glyph/device/DeviceProfileFactoryTest` | 16 | The per-model channel tables: every group names wired channels, nothing is wired twice, the budgets progress with the hardware, and Phone (2)'s second C run stays out of the battery bar |
+
+The suites are grouped by **what breaks silently**, not by package. Every one of them covers
+code whose failure mode is a strip that looks plausible and is wrong:
+
+> [!IMPORTANT]
+> A wrong constant in the FFT, an off-by-one in a channel range, a missed band edge or a
+> locale-dependent number all produce output that renders fine and cannot be told apart
+> from correct by looking at it. That is what these tests are for, and it is why they
+> assert on known signals rather than on internals.
+
+`app/build.gradle` carries a block that the suites depend on:
 
 ```groovy
 testOptions {
@@ -1502,6 +1591,17 @@ testOptions {
 > shape as the studio's `PreviewHost`, so a green run is also evidence that the on-screen
 > preview works.
 
+#### What is not covered
+
+> [!NOTE]
+> The **services**, the **Compose UI** and **Hilt wiring** have no tests. A service is a
+> foreground component driven by broadcasts on a phone that has a Glyph strip, and there is
+> no JVM substitute for that — the honest coverage for them is
+> `./gradlew :app:connectedDebugAndroidTest` on a real Nothing Phone, plus manual checks.
+> Anything that is pure logic belongs in the suites above instead: pull the decision out of
+> the `when` and test it there, as `MusicVisualizationMode.isIdleFriendly` and
+> `ScriptSession.result` already are.
+
 ### Release
 
 ```bash
@@ -1513,7 +1613,7 @@ not applied. The `.kts` variant enables R8; do not trust it when reading.
 
 ---
 
-## 12. Known Issues & Gotchas
+## 13. Known Issues & Gotchas
 
 > [!WARNING]
 > This section is not a complaint list — it is a list of places where the code behaves
@@ -1627,7 +1727,7 @@ colors `purple_200/500/700`, `teal_200/700`.
 
 ---
 
-## 13. Custom Animations (Lua)
+## 14. Custom Animations (Lua)
 
 On top of the ten built-in animations, the user can write their own — in **Lua 5.2**,
 executed by the pure-JVM [LuaJ](https://github.com/luaj/luaj) 3.0.1 VM
@@ -1640,10 +1740,13 @@ light channels, wait, and read the battery.
 **Settings → Custom Animations** (the "Custom Animations / Write your own in Lua" card also
 shows how many scripts are saved). It is a separate Activity, not a settings route.
 
-In the list every script has a menu: open, rename, duplicate, delete, "Save to Downloads"
-and "Export to a file…". At the top there are New and Import. **New** creates a draft from
-`CustomAnimationRepository.STARTER_SCRIPT` — a wave along the C strip that works on every
-supported phone.
+In the list every script has a menu: open, duplicate, delete, "Save to Downloads" and
+"Export to a file". Renaming is not one of them — the editor's name field is the single
+place a name gets edited. At the top there are Import and, **only once at least one script
+is saved**, New: on an empty studio the call to action in the middle of the screen is the
+only button that matters, so a second one up there would only compete with it. **New**
+creates a draft from `CustomAnimationRepository.STARTER_SCRIPT` — a wave along the C strip
+that works on every supported phone.
 
 ### The editor: three buttons
 
@@ -1744,6 +1847,67 @@ brackets is optional; "channels" means `{ 1, 2, 3 }`, a single number `3`, or a 
 | `glyph.exit()` | Finish successfully right now — a normal ending, not a kill |
 | `glyph.log(values…)` | A line in the studio console |
 | `print(values…)` | The same; `print` is redirected into the console, not to stdout |
+| `glyph.target = "music"` | **A declaration, not a setting** — see below |
+
+#### Which service a script is for
+
+```lua
+glyph.target = "music"
+```
+
+A script with no `glyph.target` is offered by every picker, which is how it
+worked before the visualiser existed. A script that says `"music"` appears **only**
+in the visualiser's picker and disappears from Pulse Lock, NFC, Low Battery and
+Screen Off — which is what a script reading `glyph.audio` wants, because
+everywhere else every value is zero.
+
+| Rule | Why |
+|------|-----|
+| It must come **before the first `glyph.set()`** | After that the script is already running in whichever service started it; a quiet re-filing would claim a guarantee that was never true |
+| An unknown name is an **error**, not a silent fallback | A misspelling would otherwise make the script vanish from every picker with nothing to explain why |
+| The editor shows the current target under the name field | Derived from the buffer, so it tracks every keystroke |
+
+How the pickers know before anything has run: `ScriptTarget.detectIn(source)`
+scans the source with the same regex the runtime uses. The runtime capture
+through `__newindex` is authoritative and comes back in `ScriptRunResult.target`;
+the scan exists only so the pickers can classify a script nobody has run yet.
+
+#### Audio — the visualiser's input
+
+Only non-zero while `MusicVisualizerService` is running with a live capture.
+In the studio, and in every other feature, everything reads `0` / `false`.
+
+| Read | Meaning |
+|------|---------|
+| `glyph.audio.active` | `true` while a capture is feeding the values below |
+| `glyph.audio.level` | Overall loudness, `0..1` |
+| `glyph.audio.bass` | Energy of the lowest third, `0..1` — where a kick lives |
+| `glyph.audio.mid` | Energy of the middle third |
+| `glyph.audio.treble` | Energy of the top third |
+| `glyph.audio.beat` | `true` on the single frame a beat was detected |
+| `glyph.audio.bands(n)` | A table of `n` values in `0..1`, resampled from the 32 analysed bands |
+
+> [!NOTE]
+> These are **values, not functions** — `glyph.audio.bass`, not
+> `glyph.audio.bass()`. A function is truthy in Lua, so `while glyph.audio.bass do`
+> would never end. `bands(n)` *is* a function, because it takes an argument.
+
+**A script visualiser:**
+
+```lua
+glyph.target = "music"
+
+local strip = glyph.ch.c
+if #strip < 4 then strip = glyph.ch.all end
+
+while glyph.running do
+  local b = glyph.audio.bands(#strip)
+  for i = 1, #strip do
+    glyph.set({ strip[i] }, glyph.MAX * b[i], 25)
+  end
+  if not glyph.audio.active then glyph.hold(60) end
+end
+```
 
 ### Examples
 
@@ -1817,6 +1981,11 @@ glyph.off()                          -- leave cleanly if the animation was stopp
 A saved script is **not** bound to a particular feature. It shows up in the animation picker
 of Pulse Lock, Low Battery, NFC and Screen Off — right after the ten built-ins, with the
 shared custom icon and its own name, and its stored id looks like `custom:<12 hex>`.
+
+The one exception is `glyph.target = "music"`, which restricts a script to the music
+visualiser's picker. The rule is one-sided: the trigger features hide music scripts, and
+the visualiser lists scripts with no target as well as music ones — because "no target"
+means "anywhere", and the reverse is not true.
 
 The charging animation and Power Peek have no picker at all and were left without scripts:
 the charging bar is fixed by its own design.
@@ -1927,14 +2096,16 @@ outcome, including an error, the glyphs are never left half-lit.
 | `glyph/script/GlyphLuaApi.kt` | The `glyph` table — the whole user-facing language |
 | `glyph/script/ScriptRunner.kt` | `runScript()` / `stop()` / `check()` plus the private `RendererHost` bridging the suspending renderer to a blocking host |
 | `data/CustomAnimationRepository.kt` | Files, index, import, both exports, `STARTER_SCRIPT` |
-| `CustomAnimationsActivity.kt` | The studio Activity, the file pickers, the rename dialog, the `BackHandler` |
+| `CustomAnimationsActivity.kt` | The studio Activity, the file pickers, the `BackHandler` |
 | `ui/screens/animations/*.kt` | List, editor, preview |
 | `ui/viewmodel/AnimationStudioViewModel.kt` | Studio state, Check / Screen / Glyph, `PreviewHost` |
-| `app/src/test/.../glyph/script/*Test.kt` | 14 + 7 unit tests; run with `./gradlew :app:testDebugUnitTest` |
+| `app/src/test/.../glyph/script/*Test.kt` | 21 + 7 + 15 unit tests; run with `./gradlew :app:testDebugUnitTest` |
+| `app/src/test/.../glyph/audio/*Test.kt` | 17 + 13 + 12 + 6 + 11 unit tests over the transform, the frame, the beat detector and the calibration |
+| `app/src/test/.../glyph/device/DeviceProfileFactoryTest.kt` | 16 unit tests over the per-model channel tables |
 
 ---
 
 *This documentation reflects the code at version 1.0.31. When the service layer changes,
 update [section 7](#7-adding-a-new-service-quickstart); when you add a call to the `glyph`
-table, update [section 13](#13-custom-animations-lua).*
+table, update [section 14](#14-custom-animations-lua).*
 

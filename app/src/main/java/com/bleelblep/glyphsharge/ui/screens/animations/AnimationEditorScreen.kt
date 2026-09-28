@@ -63,6 +63,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bleelblep.glyphsharge.R
+import com.bleelblep.glyphsharge.glyph.script.ScriptTarget
 import com.bleelblep.glyphsharge.ui.theme.themeCardContainerColor
 import com.bleelblep.glyphsharge.ui.theme.themePrimaryActionColor
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
@@ -100,6 +101,10 @@ fun AnimationEditorScreen(
     val context = LocalContext.current
     val cardColor = themeCardContainerColor()
     val accent = themePrimaryActionColor()
+
+    // Derived from the buffer, not stored: the target lives in the source, so
+    // this has to track every keystroke to stay honest.
+    val detectedTarget = remember(source) { ScriptTarget.detectIn(source) }
 
     Scaffold(
         modifier = modifier.fillMaxSize().imePadding(),
@@ -152,6 +157,23 @@ fun AnimationEditorScreen(
                 label = { Text(stringResource(R.string.studio_name_label)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
+            )
+
+            // Which picker offers this script is decided by `glyph.target` in
+            // the source, so it is read back from the source rather than
+            // stored. Showing it here means the author finds out that the line
+            // has to go *before* the first glyph.set(), instead of wondering
+            // why nothing ever picked it up.
+            Text(
+                text = stringResource(
+                    if (detectedTarget == ScriptTarget.MUSIC) {
+                        R.string.studio_target_music
+                    } else {
+                        R.string.studio_target_any
+                    }
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Card(

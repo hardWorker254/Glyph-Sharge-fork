@@ -4,6 +4,8 @@ import android.content.Context
 import com.bleelblep.glyphsharge.glyph.battery.BatteryStateReader
 import com.bleelblep.glyphsharge.glyph.GlyphManager
 import com.bleelblep.glyphsharge.glyph.RunTrace
+import com.bleelblep.glyphsharge.glyph.audio.AudioBand
+import com.bleelblep.glyphsharge.glyph.audio.AudioFrameFeed
 import com.bleelblep.glyphsharge.glyph.device.DeviceProfile
 import com.bleelblep.glyphsharge.glyph.device.DeviceProfileFactory
 import com.bleelblep.glyphsharge.glyph.engine.GlyphRenderer
@@ -33,6 +35,7 @@ class ScriptRunner @Inject constructor(
     private val renderer: GlyphRenderer,
     private val glyphManager: GlyphManager,
     private val runTrace: RunTrace,
+    private val audioFeed: AudioFrameFeed,
 ) {
     private companion object {
         const val TAG = "SCRIPT"
@@ -55,7 +58,7 @@ class ScriptRunner @Inject constructor(
                     "This phone's LED layout is unknown, so a script cannot run here."
                 )
 
-            val host = RendererHost(renderer, context, glyphManager)
+            val host = RendererHost(renderer, context, glyphManager, audioFeed)
             val engine = LuaScriptEngine(profile, host)
             active = engine
             Log.d(TAG, "Running script for ${durationMs}ms on ${profile.type}")
@@ -95,7 +98,7 @@ class ScriptRunner @Inject constructor(
     /** Compiles without running, for the editor's Check button. */
     fun check(source: String): String? {
         val profile = DeviceProfileFactory.forConnectedDevice() ?: return null
-        return LuaScriptEngine(profile, RendererHost(renderer, context, glyphManager))
+        return LuaScriptEngine(profile, RendererHost(renderer, context, glyphManager, audioFeed))
             .validate(source)
     }
 
@@ -111,6 +114,7 @@ class ScriptRunner @Inject constructor(
         private val renderer: GlyphRenderer,
         private val context: Context,
         private val glyphManager: GlyphManager,
+        private val audioFeed: AudioFrameFeed,
     ) : GlyphScriptHost {
 
         /** Frames the SDK actually accepted, and frames it never saw. */
@@ -131,6 +135,34 @@ class ScriptRunner @Inject constructor(
         override fun batteryPercent(): Int = BatteryStateReader.read(context).percentage
 
         override fun isCharging(): Boolean = BatteryStateReader.read(context).isCharging
+
+        // ── Audio ──────────────────────────────────────────────────────────
+        // Reads the same feed the built-in modes do, so a Lua script and a mode
+        // are looking at identical numbers — and through the same indirection,
+        // so `glyph.audio.active` is true whenever *either* capture is open
+        // rather than only when the legacy `Visualizer` path is. With no capture
+        // open — the studio, or any other feature — the frame is SILENT and a
+        // script sees zeros, which it can detect through `glyph.audio.active`.
+
+        override fun isAudioActive(): Boolean = audioFeed.isActive
+
+        override fun audioLevel(): Float = audioFeed.latest().rms
+
+        override fun audioBand(band: AudioBand): Float = audioFeed.latest().let {
+            when (band) {
+                AudioBand.BASS -> it.bass
+                AudioBand.MID -> it.mid
+                AudioBand.TREBLE -> it.treble
+            }
+        }
+
+        override fun audioBeat(): Boolean = audioFeed.latest().beat
+
+        override fun audioBands(count: Int): FloatArray {
+            val size = count.coerceAtLeast(0)
+            if (size == 0) return FloatArray(0)
+            return audioFeed.latest().bandsInto(FloatArray(size))
+        }
 
         /** A one-line explanation of why the strip stayed dark, if it did. */
         fun failureSummary(): String? {

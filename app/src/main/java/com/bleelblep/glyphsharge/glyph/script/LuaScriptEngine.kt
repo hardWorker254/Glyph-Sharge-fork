@@ -1,6 +1,7 @@
 package com.bleelblep.glyphsharge.glyph.script
 
 import android.util.Log
+import com.bleelblep.glyphsharge.glyph.audio.AudioBand
 import com.bleelblep.glyphsharge.glyph.device.DeviceProfile
 import org.luaj.vm2.Globals
 import org.luaj.vm2.LuaThread
@@ -31,7 +32,16 @@ data class ScriptRunResult(
     val status: ScriptStatus,
     val message: String? = null,
     val frames: Int = 0,
-    val elapsedMs: Long = 0L
+    val elapsedMs: Long = 0L,
+    /**
+     * What the script declared through `glyph.target`, or `null` when it
+     * declared nothing.
+     *
+     * Reported rather than acted on: the run has already happened by the time
+     * it is known, so this is for the studio console and for the animation
+     * list to catch up on, not for routing the run.
+     */
+    val target: ScriptTarget? = null
 ) {
     val isSuccess: Boolean get() = status == ScriptStatus.COMPLETED
 }
@@ -60,6 +70,29 @@ interface GlyphScriptHost {
     fun batteryPercent(): Int
 
     fun isCharging(): Boolean
+
+    // region Audio
+    //
+    // Every one of these has a default that reads as "no music": the studio
+    // runs scripts with no capture open, and a script must not have to ask
+    // whether the service is there before it can be tested.
+
+    /** Whether a capture is currently feeding [audioBands]. */
+    fun isAudioActive(): Boolean = false
+
+    /** Overall level, `0..1`. */
+    fun audioLevel(): Float = 0f
+
+    /** Low, middle or high spectrum energy, `0..1`. */
+    fun audioBand(band: AudioBand): Float = 0f
+
+    /** `true` on the single frame a beat was detected. */
+    fun audioBeat(): Boolean = false
+
+    /** The spectrum resampled to [count] values, `0..1` each. */
+    fun audioBands(count: Int): FloatArray = FloatArray(count.coerceAtLeast(0))
+
+    // endregion
 }
 
 /**
@@ -201,7 +234,8 @@ class LuaScriptEngine(
                 ScriptStatus.RUNTIME_ERROR,
                 describe(e),
                 current.frames,
-                now() - startedAt
+                now() - startedAt,
+                current.target()
             )
         } finally {
             activeSession = null

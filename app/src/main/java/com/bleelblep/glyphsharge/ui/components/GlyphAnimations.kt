@@ -9,6 +9,8 @@ import androidx.compose.ui.platform.LocalContext
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.glyph.script.ScriptAnimation
+import com.bleelblep.glyphsharge.glyph.script.ScriptScope
+import com.bleelblep.glyphsharge.glyph.script.isVisibleIn
 import dagger.hilt.android.EntryPointAccessors
 
 /**
@@ -48,10 +50,18 @@ object GlyphAnimations {
     /**
      * Built-ins first, then the user's scripts, so a picker keeps a stable
      * layout and the part that changes is always at the end of the chip row.
+     *
+     * [scope] is the picker being filled. The four trigger features pass
+     * [ScriptScope.TRIGGER] and therefore never see a script that declared
+     * `glyph.target = "music"`; the visualiser passes [ScriptScope.MUSIC] and
+     * sees everything, because a script that named no target means "anywhere".
      */
-    fun withCustomAnimations(custom: List<ScriptAnimation>): List<GlyphAnim> {
+    fun withCustomAnimations(
+        custom: List<ScriptAnimation>,
+        scope: ScriptScope = ScriptScope.TRIGGER,
+    ): List<GlyphAnim> {
         if (custom.isEmpty()) return list
-        return list + custom.map { animation ->
+        return list + custom.filter { it.isVisibleIn(scope) }.map { animation ->
             GlyphAnim(
                 id = animation.runtimeId,
                 displayName = animation.name,
@@ -81,7 +91,7 @@ object GlyphAnimations {
  * cards at once, including the one already open behind it.
  */
 @Composable
-fun rememberAnimationOptions(): List<GlyphAnimations.GlyphAnim> {
+fun rememberAnimationOptions(scope: ScriptScope = ScriptScope.TRIGGER): List<GlyphAnimations.GlyphAnim> {
     val context = LocalContext.current
     val repository = remember {
         EntryPointAccessors.fromApplication(
@@ -90,5 +100,5 @@ fun rememberAnimationOptions(): List<GlyphAnimations.GlyphAnim> {
         ).customAnimationRepository()
     }
     val custom by repository.animations.collectAsState()
-    return remember(custom) { GlyphAnimations.withCustomAnimations(custom) }
+    return remember(custom, scope) { GlyphAnimations.withCustomAnimations(custom, scope) }
 }

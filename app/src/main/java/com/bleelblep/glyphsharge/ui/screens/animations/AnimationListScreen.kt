@@ -54,6 +54,10 @@ import java.util.Date
  * its own back stack, its own file pickers, and a code editor that has no
  * business sharing a `NavHost` with the theme settings.
  *
+ * Renaming happens in the editor's name field, not from here: a row is a target,
+ * not a form, and a second editable surface next to it would make it ambiguous
+ * which value is live.
+ *
  * @param onBackClick leaves the studio
  * @param onOpen opens an animation in the editor
  * @param onCreate starts a new animation
@@ -69,7 +73,6 @@ fun AnimationListScreen(
     onCreate: () -> Unit,
     onDelete: (String) -> Unit,
     onDuplicate: (String) -> Unit,
-    onRename: (String, String) -> Unit,
     onPickImportFile: () -> Unit,
     onExportToDownloads: (String) -> Unit,
     onExportToFile: (String) -> Unit,
@@ -94,14 +97,19 @@ fun AnimationListScreen(
                     contentDescription = stringResource(R.string.studio_import)
                 )
             }
-            IconButton(onClick = {
-                HapticUtils.triggerMediumFeedback(haptic, context)
-                onCreate()
-            }) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = stringResource(R.string.studio_new)
-                )
+            // With nothing saved yet the empty state already carries the one
+            // button that matters, in the middle of the screen. A second way to
+            // reach it up here would only compete with it.
+            if (animations.isNotEmpty()) {
+                IconButton(onClick = {
+                    HapticUtils.triggerMediumFeedback(haptic, context)
+                    onCreate()
+                }) {
+                    Icon(
+                        imageVector = Icons.Filled.Add,
+                        contentDescription = stringResource(R.string.studio_new)
+                    )
+                }
             }
         }
     ) {
@@ -130,7 +138,6 @@ fun AnimationListScreen(
                 },
                 onDelete = { onDelete(animation.id) },
                 onDuplicate = { onDuplicate(animation.id) },
-                onRename = { onRename(animation.id, it) },
                 onExportToDownloads = { onExportToDownloads(animation.id) },
                 onExportToFile = { onExportToFile(animation.id) }
             )
@@ -145,7 +152,6 @@ private fun AnimationRow(
     onOpen: () -> Unit,
     onDelete: () -> Unit,
     onDuplicate: () -> Unit,
-    onRename: (String) -> Unit,
     onExportToDownloads: () -> Unit,
     onExportToFile: () -> Unit
 ) {
@@ -201,13 +207,6 @@ private fun AnimationRow(
                         onClick = {
                             menuOpen = false
                             onDuplicate()
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.studio_action_rename)) },
-                        onClick = {
-                            menuOpen = false
-                            onRename(animation.name)
                         }
                     )
                     DropdownMenuItem(

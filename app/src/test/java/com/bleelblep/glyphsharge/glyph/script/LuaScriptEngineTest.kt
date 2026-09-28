@@ -212,6 +212,55 @@ class LuaScriptEngineTest {
 
     // endregion
 
+    // region Declaring a target
+
+    @Test
+    fun `a declared target can be read back by the script`() {
+        // LuaJ hands a function-valued `__index` the key as its second
+        // argument. Reading the first one instead made `glyph.target` come back
+        // nil, so a script that declared a target and then checked it
+        // disagreed with itself — with no error to explain the disagreement.
+        val result = run(
+            """
+            glyph.target = "music"
+            assert(glyph.target == "music", "the declared target must read back")
+            """.trimIndent()
+        )
+
+        assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
+    }
+
+    @Test
+    fun `a completed run reports the target it declared`() {
+        // `result.target` is the only place a runtime declaration can ever be
+        // read, because the source scan cannot know whether the script really
+        // got that far. A clean finish is the one case that has to carry it:
+        // when the run ended on its own the script is working, which is exactly
+        // when the studio wants to know which service it belongs to.
+        val result = run(
+            """
+            glyph.target = "music"
+            glyph.set({ 1, 2 }, 1500)
+            """.trimIndent()
+        )
+
+        assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
+        assertEquals(ScriptTarget.MUSIC, result.target)
+    }
+
+    @Test
+    fun `a run that declares nothing reports no target`() {
+        // `null` is the pickers' cue that a script works anywhere, so a value
+        // invented for an undeclared script would file an ordinary animation
+        // under a single service and hide it from the other three.
+        val result = run("glyph.set({ 1 }, 1000)")
+
+        assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
+        assertNull(result.target)
+    }
+
+    // endregion
+
     // region Errors and the watchdog
 
     @Test

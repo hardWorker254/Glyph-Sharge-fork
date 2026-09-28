@@ -18,6 +18,18 @@
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.NFC" />
+
+    <!-- The visualiser reads the audio other apps are playing through a
+         MediaProjection + AudioRecord pair, which Android gates behind the
+         microphone permission. The audio becomes a spectrum in memory and is
+         never stored.
+
+         FOREGROUND_SERVICE_MEDIA_PROJECTION goes with it: a token can only be
+         used by a foreground service of the mediaProjection type, and that is
+         the only state this feature ever runs in. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
 
     <!-- Support for high refresh rate displays -->
@@ -169,6 +181,20 @@
             android:foregroundServiceType="specialUse" >
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="This service manages quiet hours by automatically disabling glyph animations during specified time periods." />
+        </service>
+
+        <!-- Music visualiser foreground service.
+             mediaProjection | specialUse: the first half is what lets the app
+             read other apps' audio at all — without a token there is nothing to
+             capture — and the second keeps the feature eligible for the glyph
+             rendering it actually performs. -->
+        <service
+            android:name=".services.MusicVisualizerService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection|specialUse" >
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="This service analyses the audio the device is currently playing and renders a spectrum visualisation on the glyph interface." />
         </service>
 
     </application>

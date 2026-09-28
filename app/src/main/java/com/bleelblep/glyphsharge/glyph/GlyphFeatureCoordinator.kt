@@ -148,4 +148,5 @@ enum class GlyphFeature {
     SCREEN_OFF,
     NFC,
     CHARGING_ANIMATION,
+    MUSIC_VISUALIZER,
 }

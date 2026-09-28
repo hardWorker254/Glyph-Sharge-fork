@@ -152,11 +152,10 @@
   <string name="studio_row_menu">Animation actions</string>
   <string name="studio_action_open">Open</string>
   <string name="studio_action_duplicate">Duplicate</string>
-  <string name="studio_action_rename">Rename</string>
   <string name="studio_action_delete">Delete</string>
   <string name="studio_action_save">Save</string>
   <string name="studio_action_export_downloads">Save to Downloads</string>
-  <string name="studio_action_export_file">Export to a file…</string>
+  <string name="studio_action_export_file">Export to a file</string>
   <string name="studio_action_check">Check</string>
   <string name="studio_action_run_glyph">Glyph</string>
   <string name="studio_action_stop">Stop</string>
@@ -283,5 +282,48 @@
     <string name="language_settings_note">• System Default follows your device language settings\n• Some features may require app restart</string>
     <string name="language_settings_restart_note">ℹ️ Note</string>
     <string name="language_restart_message">Please restart the app to apply language changes.</string>
+
+    <!-- Music Visualizer -->
+    <string name="music_viz_title">Music Visualizer</string>
+    <string name="music_viz_description">Glyphs react to your music</string>
+    <string name="music_viz_how_it_works_title">How it works:</string>
+    <string name="music_viz_how_it_works_description">• Reads the audio your phone is playing\n• Paints the spectrum on the Glyph strip\n• Nothing is recorded, stored or sent anywhere\n• Needs the microphone permission to hear the audio</string>
+    <string name="music_viz_button_test">Test</string>
+    <string name="music_viz_configure_title">Configure</string>
+    <string name="music_viz_configure_subtitle">Customize the visualization</string>
+    <string name="music_viz_mode_title">Visualization</string>
+    <string name="music_viz_mode_preview">Preview</string>
+    <string name="music_viz_mode_bars">Bars</string>
+    <string name="music_viz_mode_wave">Wave</string>
+    <string name="music_viz_mode_mirror">Mirror</string>
+    <string name="music_viz_mode_beat">Beat</string>
+    <string name="music_viz_mode_matrix">Matrix</string>
+    <string name="music_viz_mode_vortex">Vortex</string>
+    <string name="music_viz_sensitivity_title">Sensitivity</string>
+    <string name="music_viz_sensitivity_min">Calm</string>
+    <string name="music_viz_sensitivity_max">Loud</string>
+    <string name="music_viz_screen_off_only">Only when the screen is off</string>
+    <string name="music_viz_screen_off_only_note">Saves battery, and the phone looks better with the screen off anyway.</string>
+    <string name="music_viz_button_enable">Enable</string>
+    <string name="music_viz_toast">Please enable the Glyph service first</string>
+    <string name="music_viz_permission_denied">Permission denied. The visualiser cannot read the audio without it.</string>
+
+    <!-- Music Visualizer: notification -->
+    <string name="music_viz_channel_name">Music visualiser</string>
+    <string name="music_viz_notif_title">🎵 Music Visualizer Active</string>
+    <string name="music_viz_notif_waiting">Waiting for music…</string>
+    <string name="music_viz_notif_playing">Reacting as %1$s</string>
+    <string name="music_viz_notif_no_permission">The microphone permission is missing — tap Settings to grant it</string>
+    <string name="music_viz_notif_unsupported">This phone cannot capture the audio output</string>
+    <string name="music_viz_notif_failed">The audio capture could not be started</string>
+    <string name="music_viz_notif_screen_on">Paused: waiting for the screen to turn off</string>
+    <string name="music_viz_notif_needs_consent">Waiting for you to confirm the capture in the app</string>
+    <string name="music_viz_notif_token_revoked">Capture was stopped from the system — reopen the app to continue</string>
+    <string name="music_viz_notif_action_allow">Allow capture</string>
+    <string name="music_viz_consent_denied">Capture not confirmed — the visualiser needs your approval to read the music that is playing</string>
+
+    <!-- Animation studio: script target -->
+    <string name="studio_target_music">Offered only by the Music Visualizer</string>
+    <string name="studio_target_any">Offered by every feature</string>
 
 </resources>

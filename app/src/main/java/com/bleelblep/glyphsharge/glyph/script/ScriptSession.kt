@@ -1,6 +1,7 @@
 package com.bleelblep.glyphsharge.glyph.script
 
 import android.util.Log
+import com.bleelblep.glyphsharge.glyph.audio.AudioBand
 import com.bleelblep.glyphsharge.glyph.device.DeviceProfile
 import com.bleelblep.glyphsharge.glyph.engine.GLYPH_MAX_BRIGHTNESS
 import org.luaj.vm2.Varargs
@@ -60,6 +61,10 @@ internal class ScriptSession(
 
     @Volatile
     private var externalStop: String? = null
+
+    /** Set by `glyph.target`, read back in [result]. */
+    @Volatile
+    private var declaredTarget: ScriptTarget? = null
 
     private var abortKind: AbortKind? = null
     private var watchdogTicks = 0L
@@ -130,6 +135,62 @@ internal class ScriptSession(
     fun batteryPercent(): Int = host.batteryPercent()
 
     fun isCharging(): Boolean = host.isCharging()
+
+    // region Audio
+
+    /**
+     * `true` while something is feeding [audioBands].
+     *
+     * A script that loops on `glyph.audio.level` without checking this spins at
+     * full speed forever drawing nothing; with it, the script can idle instead.
+     */
+    fun isAudioActive(): Boolean = host.isAudioActive()
+
+    fun audioLevel(): Float = host.audioLevel()
+
+    fun audioBass(): Float = host.audioBand(AudioBand.BASS)
+
+    fun audioMid(): Float = host.audioBand(AudioBand.MID)
+
+    fun audioTreble(): Float = host.audioBand(AudioBand.TREBLE)
+
+    /** `true` on the frame a beat was detected; it is true for a single read. */
+    fun audioBeat(): Boolean = host.audioBeat()
+
+    /** The spectrum resampled to [count] values, for a strip of that length. */
+    fun audioBands(count: Int): FloatArray = host.audioBands(count)
+
+    // endregion
+
+    // region Target
+
+    /**
+     * Records which service this script is written for.
+     *
+     * Honoured only before the first frame. A declaration that arrives after the
+     * script has already drawn is refused rather than accepted quietly: by then
+     * the script is running in whichever service happened to start it, and
+     * quietly re-filing it would claim a guarantee that was never true.
+     *
+     * @return `null` when accepted, or the reason it was refused
+     */
+    fun declareTarget(raw: String): String? {
+        val target = ScriptTarget.fromName(raw)
+            ?: return "Unknown target '$raw'. Use \"${ScriptTarget.MUSIC_ID}\"."
+
+        if (frames > 0) {
+            return "glyph.target must be set before the first glyph.set(); " +
+                "it was ignored and the script keeps running as ${ScriptTarget.ANY}."
+        }
+
+        declaredTarget = target
+        return null
+    }
+
+    /** What the script declared, or `null` when it declared nothing. */
+    fun target(): ScriptTarget? = declaredTarget
+
+    // endregion
 
     fun elapsedMs(): Long = nowMs() - startedAt
 
@@ -218,22 +279,22 @@ internal class ScriptSession(
         watchdogReason()?.let { reason ->
             return when (abortKind ?: AbortKind.STOPPED) {
                 AbortKind.TIMED_OUT, AbortKind.INSTRUCTION_LIMIT ->
-                    ScriptRunResult(ScriptStatus.TIMED_OUT, reason, frames, elapsedMs)
+                    ScriptRunResult(ScriptStatus.TIMED_OUT, reason, frames, elapsedMs, declaredTarget)
 
                 AbortKind.STOPPED ->
-                    ScriptRunResult(ScriptStatus.STOPPED, reason, frames, elapsedMs)
+                    ScriptRunResult(ScriptStatus.STOPPED, reason, frames, elapsedMs, declaredTarget)
             }
         }
 
         if (scriptFinished) {
-            return ScriptRunResult(ScriptStatus.COMPLETED, null, frames, elapsedMs)
+            return ScriptRunResult(ScriptStatus.COMPLETED, null, frames, elapsedMs, declaredTarget)
         }
 
         if (outcome != null && outcome.arg1().isboolean() && !outcome.arg1().toboolean()) {
             val message = outcome.arg(2).tojstring().ifBlank { "unknown Lua error" }
-            return ScriptRunResult(ScriptStatus.RUNTIME_ERROR, message, frames, elapsedMs)
+            return ScriptRunResult(ScriptStatus.RUNTIME_ERROR, message, frames, elapsedMs, declaredTarget)
         }
 
-        return ScriptRunResult(ScriptStatus.COMPLETED, null, frames, elapsedMs)
+        return ScriptRunResult(ScriptStatus.COMPLETED, null, frames, elapsedMs, declaredTarget)
     }
 }

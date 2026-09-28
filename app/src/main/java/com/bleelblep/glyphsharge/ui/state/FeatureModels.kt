@@ -17,7 +17,8 @@ enum class GlyphFeature {
     PULSE_LOCK,
     SCREEN_OFF,
     NFC,
-    LOW_BATTERY
+    LOW_BATTERY,
+    MUSIC_VISUALIZER
 }
 
 /**

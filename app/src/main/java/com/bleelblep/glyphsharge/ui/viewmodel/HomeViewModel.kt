@@ -1,6 +1,8 @@
 package com.bleelblep.glyphsharge.ui.viewmodel
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.nfc.NfcAdapter
 import android.util.Log
 import androidx.lifecycle.ViewModel
@@ -43,7 +45,7 @@ class HomeViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val glyphManager: GlyphManager,
     private val glyphAnimationManager: GlyphAnimationManager,
-    private val serviceController: FeatureServiceController
+    private val serviceController: FeatureServiceController,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -184,6 +186,7 @@ class HomeViewModel @Inject constructor(
         GlyphFeature.NFC -> R.string.nfc_glyph_toast
         GlyphFeature.LOW_BATTERY -> R.string.low_battery_alert_toast
         GlyphFeature.CHARGING_ANIMATION -> R.string.charging_animation_toast
+        GlyphFeature.MUSIC_VISUALIZER -> R.string.music_viz_toast
     }
 
     private fun canUseNfc(): Boolean {
@@ -212,8 +215,36 @@ class HomeViewModel @Inject constructor(
                 GlyphFeature.SCREEN_OFF -> glyphAnimationManager.playScreenOffAnimation()
                 GlyphFeature.NFC -> glyphAnimationManager.playNfcAnimation()
                 GlyphFeature.LOW_BATTERY -> glyphAnimationManager.playLowBatteryAnimation()
+                GlyphFeature.MUSIC_VISUALIZER ->
+                    glyphAnimationManager.playMusicVisualizerAnimation()
             }
         }
+    }
+
+    /**
+     * Hands the system capture result to the service and turns the feature on.
+     *
+     * The token is *not* claimed here. `getMediaProjection` refuses to return
+     * one unless a foreground service of type `mediaProjection` is already
+     * running, so the consent is carried in the start intent and claimed by
+     * [com.bleelblep.glyphsharge.services.MusicVisualizerService] right after
+     * `startForeground`. Doing it the obvious way fails with "Media projections
+     * require a foreground service".
+     *
+     * The flag is set before the service is asked, so the card matches what is
+     * happening; if the capture then fails, the service says why in its
+     * notification rather than leaving a silent lie on screen.
+     */
+    fun onMusicCaptureResult(resultCode: Int, data: Intent?) {
+        if (resultCode != Activity.RESULT_OK) {
+            settingsRepository.saveMusicVizEnabled(false)
+            emit(context.getString(R.string.music_viz_consent_denied))
+            return
+        }
+
+        settingsRepository.saveMusicVizEnabled(true)
+        serviceController.start(GlyphFeature.MUSIC_VISUALIZER, consent = resultCode to data)
+        emit(context.getString(R.string.music_viz_toast))
     }
 
     fun emit(message: String) {
@@ -229,7 +260,8 @@ class HomeViewModel @Inject constructor(
             GlyphFeature.PULSE_LOCK to "Testing Pulse Lock",
             GlyphFeature.SCREEN_OFF to "Testing Screen Off",
             GlyphFeature.NFC to "Testing NFC",
-            GlyphFeature.LOW_BATTERY to "Testing Power Peek"
+            GlyphFeature.LOW_BATTERY to "Testing Low Battery Alert",
+            GlyphFeature.MUSIC_VISUALIZER to "Testing Music Visualizer"
         )
     }
 }

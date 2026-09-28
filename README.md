@@ -51,8 +51,15 @@ Whether you're checking charge levels or activating security features, Glyph Sha
 - Pulse Lock — heart rate verification for device security
 - Screen-off glyph notifications
 
-### 🎨 Personalization
+### 🎵 Personalization
 - 6 unique theme styles (Classic, Y2K, Neon, AMOLED, Pastel, Expressive)
+- **Music Visualizer** — the Glyph strip reacts to whatever is playing, in six
+  styles: bars, wave, mirror, beat, matrix, vortex
+- Works on every supported Nothing model, from Phone (1)'s 4 C-strip segments
+  up to Phone (3a)'s 20
+- Your own visuals in Lua — `glyph.target = "music"` makes a studio script show
+  up only in the visualiser, and `glyph.audio.bass` / `bands()` feed it the spectrum
+- Yields the Glyph to charging, lock and low-battery features instead of holding it
 - Custom font support with official Nothing fonts (NType Headline, NDot 57 Caps)
 - Scalable text sizes for accessibility
 - Material You dynamic theming
@@ -235,6 +242,7 @@ Official Nothing fonts with dynamic scaling:
 | `PulseLockService` | Heart rate security lock |
 | `ScreenOffGlyphService` | Notifications with screen off |
 | `QuietHoursService` | Scheduled silent mode |
+| `MusicVisualizerService` | Spectrum visualisation of whatever is playing |
 
 ---
 

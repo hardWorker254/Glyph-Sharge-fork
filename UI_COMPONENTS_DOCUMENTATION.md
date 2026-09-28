@@ -768,9 +768,8 @@ class CustomAnimationsActivity : ComponentActivity() {
 
 **Features:**
 - `android:exported="false"` with `parentActivityName=".MainActivity"` — nothing outside the app can open a code editor
-- Own `ActivityResultLauncher`s: `OpenDocument` for import, `CreateDocument` for "Export to a file…"
+- Own `ActivityResultLauncher`s: `OpenDocument` for import, `CreateDocument` for "Export to a file"
 - `BackHandler` between the list and the editor, so the system back always means "leave this screen" and never "fall into the settings graph"
-- Platform `AlertDialog` for renaming (the row is a target, not a form)
 - Applies the chosen locale in `attachBaseContext`, like `MainActivity` does
 - Stops any running preview in `onStop()` and `onDestroy()` — leaving the studio must never leave the strip lit
 
@@ -792,7 +791,6 @@ fun AnimationListScreen(
     onCreate: () -> Unit,
     onDelete: (String) -> Unit,
     onDuplicate: (String) -> Unit,
-    onRename: (String, String) -> Unit,
     onPickImportFile: () -> Unit,
     onExportToDownloads: (String) -> Unit,
     onExportToFile: (String) -> Unit,
@@ -802,9 +800,10 @@ fun AnimationListScreen(
 
 **Features:**
 - One row per saved script: name, character count, and the last edit time
-- Per-row overflow menu: open, rename, duplicate, delete, save to Downloads, export to a file
-- New and Import actions in the top bar
+- Per-row overflow menu: open, duplicate, delete, save to Downloads, export to a file
+- Import in the top bar always; New only once `animations.isNotEmpty()`, so an empty studio keeps a single call to action — the one in the middle
 - Empty state with a call to action instead of a blank list
+- No rename in the row menu: a row is a target, not a form. The editor's name field is the one place a name is edited
 
 **Usage Example:**
 ```kotlin
@@ -815,7 +814,6 @@ AnimationListScreen(
     onCreate = { viewModel.newAnimation() },
     onDelete = viewModel::delete,
     onDuplicate = viewModel::duplicate,
-    onRename = { id, currentName -> promptRename(id, currentName) },
     onPickImportFile = { importLauncher.launch(IMPORT_MIME_TYPES) },
     onExportToDownloads = viewModel::exportToDownloads,
     onExportToFile = { id -> promptExport(id) }
@@ -1600,7 +1598,7 @@ LinearWavyProgressIndicator(
 
 ```
 app/src/main/java/com/bleelblep/glyphsharge/
-├── CustomAnimationsActivity.kt (240 lines) - Animation studio host
+├── CustomAnimationsActivity.kt (255 lines) - Animation studio host
 └── ui/
     ├── components/
     │   ├── StandardCard.kt (272 lines) - Core card system
@@ -1617,7 +1615,7 @@ app/src/main/java/com/bleelblep/glyphsharge/
     │   ├── WatermarkBox.kt (92 lines) - Watermark overlay
     │   └── EmojiPainter.kt (42 lines) - Emoji support
     ├── screens/animations/         # Animation studio screens
-    │   ├── AnimationListScreen.kt (287 lines) - Saved scripts
+    │   ├── AnimationListScreen.kt (285 lines) - Saved scripts
     │   ├── AnimationEditorScreen.kt (401 lines) - Code, preview, console
     │   └── GlyphPreview.kt (219 lines) - On-screen glyph rendering
     ├── viewmodel/

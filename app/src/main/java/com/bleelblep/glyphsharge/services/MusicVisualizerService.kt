@@ -1,0 +1,389 @@
+package com.bleelblep.glyphsharge.services
+
+import android.app.Activity
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.Service
+import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.media.AudioManager
+import android.os.IBinder
+import android.os.PowerManager
+import android.util.Log
+import androidx.core.app.NotificationCompat
+import com.bleelblep.glyphsharge.R
+import com.bleelblep.glyphsharge.data.SettingsRepository
+import com.bleelblep.glyphsharge.glyph.GlyphAnimationManager
+import com.bleelblep.glyphsharge.glyph.GlyphFeature
+import com.bleelblep.glyphsharge.glyph.GlyphFeatureCoordinator
+import com.bleelblep.glyphsharge.glyph.audio.AudioAnalyzer
+import com.bleelblep.glyphsharge.glyph.audio.AudioFrame
+import com.bleelblep.glyphsharge.glyph.audio.AudioFrameFeed
+import com.bleelblep.glyphsharge.glyph.audio.CaptureStatus
+import com.bleelblep.glyphsharge.glyph.audio.MusicVisualizationMode
+import com.bleelblep.glyphsharge.glyph.audio.PlaybackAudioSource
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+import kotlin.time.Duration.Companion.milliseconds
+
+/**
+ * Draws the music that is playing on the Glyph strip, for as long as there is
+ * any.
+ *
+ * The only service here with no trigger: the others wait for an event, this one
+ * watches a stream. Everything else about it follows the same contract.
+ *
+ * ### Why the strip is handed over in slices
+ *
+ * Every other feature is a short burst — a blink, a sweep, a bar — and all of
+ * them take the strip through [GlyphFeatureCoordinator.acquire], which gives
+ * up rather than fight for it. A visualiser that held the strip for a whole
+ * track would therefore swallow charging animations, low-battery alerts and
+ * screen-off effects, and those are exactly the ones a user does not want to
+ * miss.
+ *
+ * So the music paints for [SLICE_MS], releases, waits [YIELD_GAP_MS] and takes
+ * the strip again. A feature whose trigger lands in the gap — 4% of the time —
+ * is served immediately, and the rest wait at most [SLICE_MS]. The cost is a
+ * dark seam once every 1.5 s, which is the trade the plan settled on: the
+ * alternative is a feature that silently never fires.
+ *
+ * ### What decides that music is playing
+ *
+ * [AudioManager.isMusicActive] is the fast signal, but it is a coarse one, and
+ * a player that reports nothing would leave the visualiser permanently dark.
+ * The analysed level is therefore the real gate, and the flag is only there to
+ * start drawing a moment earlier. The capture itself runs for as long as the
+ * service is enabled, which is what makes the level available at all.
+ */
+@AndroidEntryPoint
+class MusicVisualizerService : Service() {
+
+    companion object {
+        private const val TAG = "MusicVisualizerService"
+        private const val NOTIF_CHANNEL_ID = "MusicVisualizerChannel"
+        private const val NOTIF_ID = 1020
+
+        const val ACTION_START = "com.bleelblep.glyphsharge.MUSIC_VIZ_START"
+
+        /** The Activity result code, carried in with the consent. */
+        const val EXTRA_CONSENT_RESULT_CODE = "com.bleelblep.glyphsharge.CONSENT_CODE"
+
+        /** The consent `Intent` itself, nested inside the start intent. */
+        const val EXTRA_CONSENT_DATA = "com.bleelblep.glyphsharge.CONSENT_DATA"
+        const val ACTION_STOP = "com.bleelblep.glyphsharge.MUSIC_VIZ_STOP"
+
+        /** How long the visualiser owns the strip before yielding it. */
+        const val SLICE_MS = 1500L
+
+        /** The dark seam between two slices. Long enough to release, short enough to hide. */
+        const val YIELD_GAP_MS = 60L
+
+        /** How long to wait for the strip when another feature is holding it. */
+        const val ACQUIRE_TIMEOUT_MS = 300L
+
+        /** How often the loop re-checks music, quiet hours and the screen state. */
+        const val IDLE_POLL_MS = 500L
+
+        /** How long a `PARTIAL_WakeLock` is held for one slice. */
+        const val WAKE_LOCK_MS = SLICE_MS + 2000L
+
+        /** How long to wait before trying the audio capture again. */
+        const val RETRY_CAPTURE_MS = 4000L
+    }
+
+    @Inject lateinit var settingsRepository: SettingsRepository
+    @Inject lateinit var glyphAnimationManager: GlyphAnimationManager
+    @Inject lateinit var featureCoordinator: GlyphFeatureCoordinator
+
+    /** The real capture: a `MediaProjection` token the user approved. */
+    @Inject lateinit var source: PlaybackAudioSource
+
+    /** Only for devices that still open the global output mix. See its KDoc. */
+    @Inject lateinit var legacyAnalyzer: AudioAnalyzer
+
+    /**
+     * Whichever of the two above is actually running, for reading.
+     *
+     * The service drives the captures — consent, start, stop — but every
+     * *read* of a frame goes through this, so the gate below and the painters
+     * behind it cannot end up looking at different streams.
+     */
+    @Inject lateinit var audioFeed: AudioFrameFeed
+
+    private val serviceJob = Job()
+    private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
+
+    private var watchJob: Job? = null
+
+    private lateinit var powerManager: PowerManager
+    private lateinit var wakeLock: PowerManager.WakeLock
+    private lateinit var audioManager: AudioManager
+
+    /** The last text shown, so the notification is only rebuilt when it changes. */
+    private var lastNotificationText: String? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        createNotificationChannel()
+        powerManager = getSystemService(POWER_SERVICE) as PowerManager
+        audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
+        wakeLock = powerManager.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "GlyphSharge:MusicVisualizer",
+        )
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        startForegroundCompat(buildNotification(getString(R.string.music_viz_notif_waiting)))
+
+        if (intent?.action == ACTION_STOP) {
+            shutDown()
+            return START_NOT_STICKY
+        }
+
+        if (!settingsRepository.getGlyphServiceEnabled() || !settingsRepository.isMusicVizEnabled()) {
+            shutDown()
+            return START_NOT_STICKY
+        }
+
+        // Order matters and is not obvious. `getMediaProjection` refuses to
+        // return a token unless a foreground service of type mediaProjection is
+        // already running, so the consent is adopted *here*, after
+        // `startForeground` above — not in the Activity that received it.
+        if (intent?.hasExtra(EXTRA_CONSENT_RESULT_CODE) == true) {
+            val code = intent.getIntExtra(EXTRA_CONSENT_RESULT_CODE, Activity.RESULT_CANCELED)
+            @Suppress("DEPRECATION")
+            val data = intent.getParcelableExtra<Intent>(EXTRA_CONSENT_DATA)
+            source.onConsent(code, data)
+        }
+
+        startWatching()
+        return START_STICKY
+    }
+
+    override fun onDestroy() {
+        stopWatching()
+        runCatching { if (wakeLock.isHeld) wakeLock.release() }
+        serviceJob.cancel()
+        super.onDestroy()
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        // Deliberately no restart. A `mediaProjection` token cannot be obtained
+        // from the background, so a restart here could only ever fail — and
+        // would leave the user with a card that says "on" and a dark strip.
+    }
+
+    // region The loop
+
+    /**
+     * The capture itself is not started here.
+     *
+     * A `MediaProjection` token can only be obtained from an Activity result,
+     * so the Activity asks for consent and hands the token over; by the time
+     * this service runs, the choice has already been made. What the service
+     * owns is the reaction to it — drawing while frames arrive, and saying out
+     * loud why it is not when they do not.
+     */
+    private fun startWatching() {
+        if (watchJob?.isActive == true) return
+
+        val sensitivity = settingsRepository.getMusicVizSensitivity()
+        audioFeed.setGain(sensitivity)
+        watchJob = serviceScope.launch { watch() }
+    }
+
+    /**
+     * Falls back to the `Visualizer` path, once, if playback capture failed
+     * outright and this device still opens the output mix.
+     *
+     * `FAILED` is the only status worth trying: a missing permission or a
+     * revoked token is a user decision, and re-prompting for a microphone to
+     * work around it would be worse than saying what went wrong.
+     */
+    private suspend fun tryLegacyFallback(): Boolean {
+        if (source.status.value != CaptureStatus.FAILED) return legacyAnalyzer.isCapturing
+        Log.i(TAG, "Playback capture failed; trying the legacy Visualizer path")
+        return legacyAnalyzer.start()
+    }
+
+    private suspend fun CoroutineScope.watch() {
+        while (isActive) {
+            when {
+                shouldStop() -> return
+                // `isSwapping` first, and it must be there at all: a re-granted
+                // token is adopted asynchronously, and reading a not-yet-
+                // capturing source as a failure ends this loop for good.
+                source.isSwapping -> delay(IDLE_POLL_MS.milliseconds)
+                !source.isCapturing && !tryLegacyFallback() -> {
+                    // No capture, and none will appear on its own: a token
+                    // cannot be fetched from here. Say why, and stop polling.
+                    showNotification(getString(captureProblemText(source.status.value)))
+                    return
+                }
+                !screenAllowsVisualization() -> {
+                    showNotification(getString(R.string.music_viz_notif_screen_on))
+                    delay(IDLE_POLL_MS.milliseconds)
+                }
+                isMusicPlaying() -> drawInSlices()
+                else -> {
+                    showNotification(getString(R.string.music_viz_notif_waiting))
+                    delay(IDLE_POLL_MS.milliseconds)
+                }
+            }
+        }
+    }
+
+    /** Paints until something stops us, handing the strip over between slices. */
+    private suspend fun CoroutineScope.drawInSlices() {
+        showNotification(getString(R.string.music_viz_notif_playing, currentModeLabel()))
+
+        while (isActive && !shouldStop() && screenAllowsVisualization() && isMusicPlaying()) {
+            if (!featureCoordinator.acquire(GlyphFeature.MUSIC_VISUALIZER, ACQUIRE_TIMEOUT_MS)) {
+                // Busy: another feature is mid-animation. Wait a moment rather
+                // than spinning on tryLock.
+                delay(YIELD_GAP_MS.milliseconds)
+                continue
+            }
+
+            try {
+                runCatching { wakeLock.acquire(WAKE_LOCK_MS) }
+                val draw = launch(Dispatchers.Default) {
+                    glyphAnimationManager.playMusicVisualizerAnimation()
+                }
+                delay(SLICE_MS.milliseconds)
+                draw.cancelAndJoin()
+            } catch (e: Exception) {
+                Log.e(TAG, "Music visualiser slice failed", e)
+            } finally {
+                featureCoordinator.release(GlyphFeature.MUSIC_VISUALIZER)
+                runCatching { if (wakeLock.isHeld) wakeLock.release() }
+            }
+
+            if (isActive) delay(YIELD_GAP_MS.milliseconds)
+        }
+    }
+
+    /**
+     * Every reason to stop, in one place so the loop and the slice agree.
+     *
+     * Quiet hours count for the same reason as in the other services: a
+     * visualiser is exactly what a quiet-hours schedule is meant to silence.
+     */
+    private fun shouldStop(): Boolean =
+        !settingsRepository.getGlyphServiceEnabled() ||
+            !settingsRepository.isMusicVizEnabled() ||
+            settingsRepository.isCurrentlyInQuietHours()
+
+    private fun screenAllowsVisualization(): Boolean {
+        if (!settingsRepository.getMusicVizScreenOffOnly()) return true
+        return !powerManager.isInteractive
+    }
+
+    private fun isMusicPlaying(): Boolean {
+        val systemSaysMusic =
+            runCatching { audioManager.isMusicActive }.getOrDefault(defaultValue = false)
+        // Through the feed, not `source`: on a phone where the legacy path is
+        // the one that opened, the primary stream is silent by construction and
+        // this would then wait on `isMusicActive` alone.
+        return systemSaysMusic || audioFeed.latest().rms > AudioFrame.SILENCE_FLOOR
+    }
+
+    private fun stopWatching() {
+        watchJob?.cancel()
+        watchJob = null
+        source.stop()
+        legacyAnalyzer.stop()
+        lastNotificationText = null
+    }
+
+    // endregion
+
+    // region Notification
+
+    /**
+     * The message for a capture that is not running.
+     *
+     * Each state asks for something different, so each gets its own words.
+     * [CaptureStatus.FAILED] deliberately does not guess: "could not be
+     * started" is the truth, and a message that claimed to know why would be
+     * wrong at least as often as right.
+     */
+    private fun captureProblemText(status: CaptureStatus): Int = when (status) {
+        CaptureStatus.NO_PERMISSION -> R.string.music_viz_notif_no_permission
+        CaptureStatus.NEEDS_CONSENT -> R.string.music_viz_notif_needs_consent
+        CaptureStatus.TOKEN_REVOKED -> R.string.music_viz_notif_token_revoked
+        else -> R.string.music_viz_notif_failed
+    }
+
+    /** The mode name, or the feature name when a script is selected. */
+    private fun currentModeLabel(): String {
+        val mode = MusicVisualizationMode.of(settingsRepository.getMusicVizAnimationId())
+            ?: return getString(R.string.music_viz_title)
+        return getString(mode.displayNameRes)
+    }
+
+    private fun showNotification(text: String) {
+        if (text == lastNotificationText) return
+        lastNotificationText = text
+        startForegroundCompat(buildNotification(text))
+    }
+
+    private fun buildNotification(text: String): Notification =
+        NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
+            .setContentTitle(getString(R.string.music_viz_notif_title))
+            .setContentText(text)
+            .setSmallIcon(R.drawable._44)
+            .setOngoing(true)
+            .setSilent(true)
+            .build()
+
+    /**
+     * `startForeground` with the types the manifest declares.
+     *
+     * `mediaProjection` is the part that matters: it is the only type that
+     * lets the app read other apps' audio, and a foreground service that
+     * claims a type it cannot back is refused. The call is run-caught because
+     * a service that throws here dies silently — the feature simply stops and
+     * the card still claims it is on.
+     */
+    private fun startForegroundCompat(notification: Notification) {
+        runCatching {
+            startForeground(
+                NOTIF_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION or
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            )
+        }.onFailure { Log.e(TAG, "startForeground refused", it) }
+    }
+
+    private fun createNotificationChannel() {
+        val channel = NotificationChannel(
+            NOTIF_CHANNEL_ID,
+            getString(R.string.music_viz_channel_name),
+            NotificationManager.IMPORTANCE_LOW
+        )
+        channel.description = getString(R.string.music_viz_description)
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    }
+
+    // endregion
+
+    private fun shutDown() {
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+}

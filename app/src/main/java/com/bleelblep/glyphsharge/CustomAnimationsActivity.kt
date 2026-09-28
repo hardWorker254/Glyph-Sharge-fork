@@ -1,6 +1,5 @@
 package com.bleelblep.glyphsharge
 
-import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -8,7 +7,6 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
-import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -144,7 +142,6 @@ class CustomAnimationsActivity : ComponentActivity() {
                             },
                             onDelete = viewModel::delete,
                             onDuplicate = viewModel::duplicate,
-                            onRename = { id, currentName -> promptRename(id, currentName) },
                             onPickImportFile = { importLauncher.launch(IMPORT_MIME_TYPES) },
                             onExportToDownloads = viewModel::exportToDownloads,
                             onExportToFile = { id -> promptExport(id) }
@@ -219,26 +216,6 @@ class CustomAnimationsActivity : ComponentActivity() {
         val name = viewModel.uiState.value.animations.firstOrNull { it.id == id }?.name ?: "animation"
         pendingExportId = id
         exportLauncher.launch("${name}.${ScriptFileFormat.EXTENSION}")
-    }
-
-    /**
-     * Renaming from the list uses the platform dialog rather than a field in
-     * the row: the row is a target, not a form, and a second editable surface
-     * would be ambiguous about which value is live.
-     */
-    private fun promptRename(id: String, currentName: String) {
-        val input = EditText(this).apply {
-            setText(currentName)
-            setSelection(currentName.length)
-        }
-        AlertDialog.Builder(this)
-            .setTitle(R.string.studio_action_rename)
-            .setView(input)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
-                viewModel.rename(id, input.text.toString())
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
     }
 
     // endregion

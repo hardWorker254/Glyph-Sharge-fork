@@ -84,6 +84,16 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 Log.d(TAG, "Tier 2 – Charging Animation")
                 context.startForegroundServiceCompat(ChargingAnimationService::class.java)
             }
+            // The music visualiser is deliberately absent from this tier.
+    //
+    // It captures other apps' audio through a MediaProjection token, and a
+    // token cannot be obtained from the background — only from an Activity
+    // result. A boot-time start would either be refused outright or come up
+    // with no capture and sit there showing a dead card, so the app asks the
+    // user to open it instead.
+    if (settingsRepository.isMusicVizEnabled()) {
+        Log.d(TAG, "Music Visualizer is on – needs the app opened for consent")
+    }
         }
 
         // Quiet Hours has no Glyph dependency

@@ -143,8 +143,6 @@
   <string name="settings_card_custom_animations">Свои анимации</string>
   <string name="settings_card_custom_animations_subtitle">Пишите свои на Lua</string>
   <string name="settings_card_custom_animations_count">Сохранено: %1$d</string>
-  <!-- Короткое намеренно: заголовок рисуется в 42sp и при схлопывании
-       панели «Студия анимаций» обрезается. -->
   <string name="studio_title">Студия</string>
   <string name="studio_new">Создать</string>
   <string name="studio_import">Импорт</string>
@@ -154,11 +152,10 @@
   <string name="studio_row_menu">Действия с анимацией</string>
   <string name="studio_action_open">Открыть</string>
   <string name="studio_action_duplicate">Дублировать</string>
-  <string name="studio_action_rename">Переименовать</string>
   <string name="studio_action_delete">Удалить</string>
   <string name="studio_action_save">Сохранить</string>
   <string name="studio_action_export_downloads">Сохранить в «Загрузки»</string>
-  <string name="studio_action_export_file">Экспорт в файл…</string>
+  <string name="studio_action_export_file">Экспорт в файл</string>
   <string name="studio_action_check">Проверить</string>
   <string name="studio_action_run_glyph">Глиф</string>
   <string name="studio_action_stop">Стоп</string>
@@ -167,8 +164,6 @@
   <string name="studio_editor_title_dirty">Правка анимации •</string>
   <string name="studio_name_label">Название</string>
   <string name="studio_reference_title">Справочник по glyph API</string>
-
-  <!-- Студия: консоль, уведомления и значения по умолчанию -->
   <string name="studio_msg_new_script">Новый скрипт. Нажмите «Проверить», затем «Глиф».</string>
   <string name="studio_msg_syntax_ok">Всё в порядке — ошибок синтаксиса нет.</string>
   <string name="studio_msg_syntax_error">Ошибка синтаксиса: %1$s</string>
@@ -193,16 +188,9 @@
   <string name="studio_untitled">Без названия</string>
   <string name="studio_default_import_name">Импортированная</string>
   <string name="studio_copy_suffix">копия</string>
-
-  <!-- Шаблон, с которого начинается новая анимация. В локалях отличаются только
-       комментарии, сам Lua идентичен. -->
   <string name="studio_starter_script">-- Волна по длинной полосе C.\n-- Весь файл и есть анимация: пишите на Lua.\n-- Проигрывается один раз и заканчивается, когда кончится код.\n-- Попробуйте заменить 60 на 120 или glyph.MAX на 2000.\n\nlocal strip = glyph.ch.c\nlocal step = 60\n\nfor i = 1, #strip do\n  glyph.set({ strip[i] }, glyph.MAX)\n  glyph.hold(step)\nend\n\n-- Гасим всю полосу по одному сегменту.\nfor i = #strip, 1, -1 do\n  glyph.set({ strip[i] }, 1500)\n  glyph.hold(step)\nend</string>
-
-  <!-- Текст ошибок Lua, попадающий в консоль -->
   <string name="studio_lua_unknown_group">неизвестная группа каналов «%1$s»</string>
   <string name="studio_lua_bad_channels">ожидался список каналов, номер канала или название группы</string>
-
-  <!-- Уведомление сервиса Glow Gate -->
   <string name="pulse_lock_notification_channel">Сервис Glow Gate</string>
   <string name="pulse_lock_notification_title">✨ Glow Gate активен</string>
   <string name="pulse_lock_notification_text">При разблокировке будет показана выбранная анимация.</string>
@@ -214,7 +202,7 @@
     <string name="settings_theme_status_light">Светлая тема</string>
     <string name="settings_theme_status_dark">Тёмная тема</string>
     <string name="settings_quiet_hours_status_on">Glyph-анимации будут отключены в заданное время</string>
-    <string name="settings_quiet_hours_status_off">Настройте расписание Glyph-подсветки</string>
+    <string name="settings_quiet_hours_status_off">Настройте нужное время</string>
 
     <!-- Font Settings Screen -->
     <string name="font_settings_title">Шрифты</string>
@@ -287,5 +275,47 @@
     <string name="language_settings_restart_note">ℹ️ Примечание</string>
     <string name="language_restart_message">Перезапустите приложение, чтобы применить изменения языка.</string>
 
+    <!-- Music Visualizer -->
+    <string name="music_viz_title">Музыкальная визуализация</string>
+    <string name="music_viz_description">Глифы реагируют на музыку</string>
+    <string name="music_viz_how_it_works_title">Как это работает:</string>
+    <string name="music_viz_how_it_works_description">• Читает звук, который играет на телефоне\n• Рисует спектр на полосе глифов\n• Ничего не записывается, не хранится и никуда не отправляется\n• Нужно разрешение на микрофон, чтобы услышать звук</string>
+    <string name="music_viz_button_test">Проверить</string>
+    <string name="music_viz_configure_title">Настройка</string>
+    <string name="music_viz_configure_subtitle">Настройте визуализацию</string>
+    <string name="music_viz_mode_title">Визуализация</string>
+    <string name="music_viz_mode_preview">Предпросмотр</string>
+    <string name="music_viz_mode_bars">Столбики</string>
+    <string name="music_viz_mode_wave">Волна</string>
+    <string name="music_viz_mode_mirror">Зеркало</string>
+    <string name="music_viz_mode_beat">Бит</string>
+    <string name="music_viz_mode_matrix">Матрица</string>
+    <string name="music_viz_mode_vortex">Вихрь</string>
+    <string name="music_viz_sensitivity_title">Чувствительность</string>
+    <string name="music_viz_sensitivity_min">Тихо</string>
+    <string name="music_viz_sensitivity_max">Громко</string>
+    <string name="music_viz_screen_off_only">Только когда экран выключен</string>
+    <string name="music_viz_screen_off_only_note">Экономит батарею, и с выключенным экраном телефон смотрится лучше.</string>
+    <string name="music_viz_button_enable">Включить</string>
+    <string name="music_viz_toast">Сначала включите сервис глифов</string>
+    <string name="music_viz_permission_denied">Разрешение не выдано. Без него визуализация не услышит звук.</string>
+
+    <!-- Music Visualizer: notification -->
+    <string name="music_viz_channel_name">Музыкальная визуализация</string>
+    <string name="music_viz_notif_title">🎵 Музыкальная визуализация включена</string>
+    <string name="music_viz_notif_waiting">Ожидание музыки…</string>
+    <string name="music_viz_notif_playing">Режим: %1$s</string>
+    <string name="music_viz_notif_no_permission">Нет разрешения на микрофон — выдайте его в настройках</string>
+    <string name="music_viz_notif_unsupported">Этот телефон не умеет захватывать звук</string>
+    <string name="music_viz_notif_failed">Не удалось запустить захват звука</string>
+    <string name="music_viz_notif_screen_on">Пауза: ждём, пока выключится экран</string>
+    <string name="music_viz_notif_needs_consent">Ждём подтверждения захвата в приложении</string>
+    <string name="music_viz_notif_token_revoked">Захват остановлен системой — откройте приложение, чтобы продолжить</string>
+    <string name="music_viz_notif_action_allow">Разрешить захват</string>
+    <string name="music_viz_consent_denied">Захват не подтверждён — визуализации нужно ваше разрешение читать играющую музыку</string>
+
+    <!-- Animation studio: script target -->
+    <string name="studio_target_music">Только для музыкальной визуализации</string>
+    <string name="studio_target_any">Доступна для всех функций</string>
 
 </resources>

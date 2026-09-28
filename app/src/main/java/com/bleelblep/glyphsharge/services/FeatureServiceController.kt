@@ -36,6 +36,7 @@ class FeatureServiceController @Inject constructor(
         GlyphFeature.SCREEN_OFF -> ScreenOffGlyphService::class.java
         GlyphFeature.NFC -> NfcGlyphService::class.java
         GlyphFeature.LOW_BATTERY -> LowBatteryAlertService::class.java
+        GlyphFeature.MUSIC_VISUALIZER -> MusicVisualizerService::class.java
     }
 
     /** The stop action a feature's service understands, if it has one. */
@@ -46,6 +47,7 @@ class FeatureServiceController @Inject constructor(
         GlyphFeature.NFC -> NfcGlyphService.ACTION_STOP
         GlyphFeature.CHARGING_ANIMATION -> ChargingAnimationService.ACTION_STOP
         GlyphFeature.LOW_BATTERY -> LowBatteryAlertService.ACTION_STOP
+        GlyphFeature.MUSIC_VISUALIZER -> MusicVisualizerService.ACTION_STOP
     }
 
     fun isEnabled(feature: GlyphFeature): Boolean = when (feature) {
@@ -55,6 +57,7 @@ class FeatureServiceController @Inject constructor(
         GlyphFeature.SCREEN_OFF -> settingsRepository.isScreenOffFeatureEnabled()
         GlyphFeature.NFC -> settingsRepository.isNfcFeatureEnabled()
         GlyphFeature.LOW_BATTERY -> settingsRepository.isLowBatteryEnabled()
+        GlyphFeature.MUSIC_VISUALIZER -> settingsRepository.isMusicVizEnabled()
     }
 
     fun saveEnabled(feature: GlyphFeature, enabled: Boolean) {
@@ -65,6 +68,7 @@ class FeatureServiceController @Inject constructor(
             GlyphFeature.SCREEN_OFF -> settingsRepository.saveScreenOffFeatureEnabled(enabled)
             GlyphFeature.NFC -> settingsRepository.saveNfcFeatureEnabled(enabled)
             GlyphFeature.LOW_BATTERY -> settingsRepository.saveLowBatteryEnabled(enabled)
+            GlyphFeature.MUSIC_VISUALIZER -> settingsRepository.saveMusicVizEnabled(enabled)
         }
     }
 
@@ -83,11 +87,31 @@ class FeatureServiceController @Inject constructor(
      * only because it had been started while the Glyph service was still on.
      */
     fun start(feature: GlyphFeature) {
+        start(feature, null)
+    }
+
+    /**
+     * Starts a feature's service, optionally carrying a capture consent.
+     *
+     * [consent] exists for the music visualiser alone. Android 14 refuses to
+     * hand out a `MediaProjection` token until a foreground service of the
+     * matching type is already running, so the consent has to travel *with*
+     * the start intent and be claimed by the service after `startForeground` —
+     * not be redeemed by whoever asked for it.
+     *
+     * @param consent the Activity result code and the consent `Intent`
+     */
+    fun start(feature: GlyphFeature, consent: Pair<Int, Intent?>?) {
         if (!settingsRepository.getGlyphServiceEnabled()) {
             Log.w(TAG, "Not starting ${feature.name}: the Glyph service is off")
             return
         }
-        context.startForegroundService(Intent(context, serviceOf(feature)))
+        val intent = Intent(context, serviceOf(feature))
+        if (consent != null && feature == GlyphFeature.MUSIC_VISUALIZER) {
+            intent.putExtra(MusicVisualizerService.EXTRA_CONSENT_RESULT_CODE, consent.first)
+            consent.second?.let { intent.putExtra(MusicVisualizerService.EXTRA_CONSENT_DATA, it) }
+        }
+        context.startForegroundService(intent)
     }
 
     fun stop(feature: GlyphFeature) {

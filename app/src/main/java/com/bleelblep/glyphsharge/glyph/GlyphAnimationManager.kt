@@ -14,6 +14,11 @@ import com.bleelblep.glyphsharge.glyph.animations.runLockPulseAnimation
 import com.bleelblep.glyphsharge.glyph.animations.runMatrixRainAnimation
 import com.bleelblep.glyphsharge.glyph.animations.runSpiralAnimation
 import com.bleelblep.glyphsharge.glyph.animations.runWaveAnimation
+import com.bleelblep.glyphsharge.glyph.animations.runMusicVisualization
+import com.bleelblep.glyphsharge.glyph.audio.AudioAnalysis
+import com.bleelblep.glyphsharge.glyph.audio.AudioFrame
+import com.bleelblep.glyphsharge.glyph.audio.AudioFrameFeed
+import com.bleelblep.glyphsharge.glyph.audio.MusicVisualizationMode
 import com.bleelblep.glyphsharge.glyph.battery.BatteryStateReader
 import com.bleelblep.glyphsharge.glyph.battery.animateBattery
 import com.bleelblep.glyphsharge.glyph.device.DeviceProfile
@@ -24,6 +29,8 @@ import com.bleelblep.glyphsharge.glyph.script.ScriptRunResult
 import com.bleelblep.glyphsharge.glyph.script.ScriptStatus
 import com.bleelblep.glyphsharge.glyph.script.ScriptRunner
 import kotlinx.coroutines.delay
+import kotlin.math.exp
+import kotlin.math.sin
 import kotlin.time.Duration.Companion.milliseconds
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -55,6 +62,7 @@ class GlyphAnimationManager @Inject constructor(
     private val customAnimationRepository: CustomAnimationRepository,
     private val scriptRunner: ScriptRunner,
     private val runTrace: RunTrace,
+    private val audioFeed: AudioFrameFeed,
 ) {
     private companion object {
         const val TAG = "GlyphAnimationManager"
@@ -64,6 +72,9 @@ class GlyphAnimationManager @Inject constructor(
 
         /** Nominal length of one pulse cycle, used to turn a duration into a count. */
         const val PULSE_CYCLE_MS = 500L
+
+        /** How long the settings dialog's preview runs: 150 frames at 33 ms, ~5 s. */
+        const val PREVIEW_FRAMES = 150
     }
 
     /**
@@ -132,7 +143,7 @@ class GlyphAnimationManager @Inject constructor(
 
     suspend fun playPowerPeekAnimation(
         context: Context,
-        onProgressUpdate: (Float) -> Unit = {}
+        onProgressUpdate: (Float) -> Unit = {},
     ) = playBatteryBar(
         context = context,
         durationMs = settingsRepository.getPowerPeekDuration(),
@@ -163,6 +174,116 @@ class GlyphAnimationManager @Inject constructor(
         val state = BatteryStateReader.read(context)
 
         anim { animateBattery(it, state.percentage, state.isCharging, durationMs, onProgressUpdate) }
+    }
+
+    // endregion
+
+    // region Music visualiser
+
+    /**
+     * Runs the visualiser the user configured, for as long as the service holds
+     * the strip.
+     *
+     * A `custom:` id goes down the same path as every other feature's script:
+     * [playCustomAnimation]. That is what lets a Lua script be an audio
+     * visualiser at all — it reads the same [AudioFrameFeed] singleton through
+     * `glyph.audio`, and the service is what keeps the capture open underneath
+     * it.
+     *
+     * The mode is read once per run rather than per frame: the service hands
+     * the strip over in 1.5 s slices and starts a fresh run for each one, so a
+     * change in the settings lands on the next slice instead of stuttering
+     * mid-frame.
+     */
+    suspend fun playMusicVisualizerAnimation() {
+        if (!isGlyphServiceEnabled()) return
+        if (!glyphManager.isNothingPhone()) return
+        val device = profile ?: return
+
+        val id = settingsRepository.getMusicVizAnimationId()
+        if (ScriptAnimation.isCustomId(id)) {
+            playCustomAnimation(id)
+            return
+        }
+
+        val mode = MusicVisualizationMode.of(id) ?: MusicVisualizationMode.DEFAULT
+        audioFeed.setGain(settingsRepository.getMusicVizSensitivity())
+
+        // Through `AudioFrameFeed`, never a capture directly: which mechanism
+        // is open is the service's decision, and the painter has to follow it
+        // rather than pin one. Reading the wrong one hands every mode a silent
+        // frame, and the strip then plays the idle animation for any setting.
+        anim {
+            runMusicVisualization(mode, device, nextFrame = { audioFeed.latest() })
+        }
+    }
+
+    /**
+     * Shows what a mode looks like, on made-up audio.
+     *
+     * Bounded, unlike the real thing: a preview that runs until the user closes
+     * the dialog is a dialog that never closes. No service check either — this
+     * is an explicit user action in the settings dialog, and the studio preview
+     * already plays for real.
+     */
+    suspend fun previewMusicVisualizer(mode: MusicVisualizationMode) {
+        if (!glyphManager.isNothingPhone()) return
+        val device = profile ?: return
+
+        renderer.start()
+        try {
+            renderer.turnOff()
+            delay(CLEANUP_DELAY_MS.milliseconds)
+            val track = SyntheticTrack()
+            renderer.runMusicVisualization(
+                mode,
+                device,
+                nextFrame = { track.next() },
+                maxFrames = PREVIEW_FRAMES
+            )
+        } catch (e: Exception) {
+            renderer.onError(e, "Music preview error")
+        } finally {
+            renderer.stop()
+            renderer.turnOff()
+        }
+    }
+
+    /**
+     * A plausible spectrum for the settings preview.
+     *
+     * Built from two sine sweeps and a low bump travelling across the bands, so
+     * every mode has something to react to. A flat frame would make six modes
+     * look identical, and a real capture is not available in a dialog.
+     */
+    private class SyntheticTrack {
+        private val bands = FloatArray(AudioFrame.BAND_COUNT)
+        private var seq = 0L
+
+        fun next(): AudioFrame {
+            val t = seq / 30f
+            for (i in bands.indices) {
+                val x = i / (bands.size - 1f)
+                val sweep = 0.5f + 0.5f * sin(TWO_PI * (x * 1.5f - t * 0.7f))
+                val kick = exp(-((x - (t * 0.35f % 1f)) * (x - (t * 0.35f % 1f))) / 0.01f)
+                bands[i] = (0.15f + 0.6f * sweep * sweep + 0.45f * kick).coerceIn(0f, 1f)
+            }
+            seq++
+            return AudioFrame(
+                seq = seq,
+                bands = bands.copyOf(),
+                bass = AudioAnalysis.bassOf(bands),
+                mid = AudioAnalysis.midOf(bands),
+                treble = AudioAnalysis.trebleOf(bands),
+                rms = 0.55f,
+                beat = seq % 30 == 0L,
+                timestampMs = 0L
+            )
+        }
+
+        private companion object {
+            const val TWO_PI = 2f * Math.PI.toFloat()
+        }
     }
 
     // endregion

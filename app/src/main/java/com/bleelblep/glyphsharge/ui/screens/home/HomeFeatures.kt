@@ -1,9 +1,15 @@
 package com.bleelblep.glyphsharge.ui.screens.home
 
+import com.bleelblep.glyphsharge.glyph.audio.PlaybackAudioSource
+
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.widget.Toast
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BatteryAlert
 import androidx.compose.material.icons.filled.BatteryChargingFull
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Nfc
 import androidx.compose.material.icons.filled.PowerSettingsNew
@@ -20,10 +27,15 @@ import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.core.content.ContextCompat
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.ui.components.ChargingAnimationCard
 import com.bleelblep.glyphsharge.ui.components.LowBatteryAlertCard
+import com.bleelblep.glyphsharge.ui.components.MusicVisualizerCard
 import com.bleelblep.glyphsharge.ui.components.NfcGlyphCard
 import com.bleelblep.glyphsharge.ui.components.PowerPeekCard
 import com.bleelblep.glyphsharge.ui.components.PulseLockCard
@@ -125,6 +137,30 @@ internal fun LazyListScope.homeFeatureCards(
             settingsRepository = settingsRepository
         )
     }
+
+    item {
+        // Placed last: the visualiser holds the Glyph strip for as long as
+        // music plays, so it is the one feature that yields to all the others.
+        val context = LocalContext.current
+        val audioSource = remember(context) {
+            // The card list is a LazyListScope, not a composable, so the
+            // capture singleton comes in through a Hilt entry point rather
+            // than one more parameter threaded through the screen.
+            EntryPointAccessors.fromApplication(context, MusicCaptureEntryPoint::class.java)
+                .audioSource()
+        }
+        val onMusicVizToggle = rememberMusicVizToggle(context, viewModel, audioSource)
+        MusicVisualizerCard(
+            isEnabled = uiState.stateOf(GlyphFeature.MUSIC_VISUALIZER).isEnabled,
+            isServiceActive = glyphServiceEnabled,
+            onEnabledChange = onMusicVizToggle,
+            onTestAnimation = { viewModel.testFeature(GlyphFeature.MUSIC_VISUALIZER) },
+            icon = rememberVectorPainter(image = Icons.Default.LibraryMusic),
+            modifier = Modifier.fillMaxWidth(),
+            iconSize = 32,
+            settingsRepository = settingsRepository
+        )
+    }
 }
 
 /**
@@ -172,4 +208,107 @@ private fun rememberPowerPeekToggle(
             }
         }
     }
+}
+
+/**
+ * The visualiser reads other apps' audio through a `MediaProjection` token, so
+ * switching it on needs two grants in order: the microphone permission first,
+ * then the system capture confirmation. Asking at the moment the user flips the
+ * toggle is the only point where the reason is obvious, and the toggle is put
+ * back if they decline — the card must never claim to be on while the service
+ * cannot capture anything.
+ */
+@Composable
+private fun rememberMusicVizToggle(
+    context: Context,
+    viewModel: HomeViewModel,
+    audioSource: PlaybackAudioSource,
+): (Boolean) -> Unit {
+    // Armed while the microphone prompt is up, so the capture prompt can follow
+    // it without the user having to flip the toggle a second time.
+    var pendingConsent by remember { mutableStateOf<(() -> Unit)?>(null) }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            // Straight on to the second grant: the user has agreed to
+            // recording, and the capture confirmation is a separate question
+            // that deserves its own prompt rather than a silent assumption.
+            val armed = pendingConsent
+            pendingConsent = null
+            if (armed != null) {
+                armed.invoke()
+            } else {
+                // No toggle armed this prompt, so there is nothing to continue
+                // from. Leave the feature off rather than starting it without
+                // a token behind it.
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.music_viz_consent_denied),
+                    Toast.LENGTH_LONG
+                ).show()
+                viewModel.setFeatureEnabled(GlyphFeature.MUSIC_VISUALIZER, false)
+            }
+        } else {
+            Toast.makeText(
+                context,
+                context.getString(R.string.music_viz_permission_denied),
+                Toast.LENGTH_LONG
+            ).show()
+            viewModel.setFeatureEnabled(GlyphFeature.MUSIC_VISUALIZER, false)
+        }
+    }
+
+    // The projection token can only come from an Activity result, and a
+    // ViewModel cannot register for one — hence here rather than there.
+    val consentLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        viewModel.onMusicCaptureResult(result.resultCode, result.data)
+    }
+
+    return toggle@ { enabled ->
+        if (!enabled) {
+            viewModel.setFeatureEnabled(GlyphFeature.MUSIC_VISUALIZER, false)
+            return@toggle
+        }
+
+        // Saving the settings dialog arrives here with the feature already on:
+        // the dialog's Enable button and the card's switch are the same
+        // callback. Asking for a second projection then is confusing to answer
+        // and destructive to answer — the live token is replaced, so a capture
+        // that fails during the swap leaves the card green over a dead strip.
+        //
+        // Nothing has to be restarted for a settings change either: the service
+        // re-reads the mode, the sensitivity and the screen-off rule on every
+        // pass, so the new value is live within a slice.
+        if (audioSource.isCapturing) return@toggle
+
+        val askForConsent = { consentLauncher.launch(audioSource.consentIntent()) }
+        val alreadyGranted = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (alreadyGranted) {
+            askForConsent()
+        } else {
+            pendingConsent = askForConsent
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+}
+
+/**
+ * How the card list reaches the capture singleton.
+ *
+ * The list is a `LazyListScope` and cannot inject for itself, so the dependency
+ * arrives through a named entry point rather than another parameter on the
+ * screen's signature.
+ */
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface MusicCaptureEntryPoint {
+    fun audioSource(): PlaybackAudioSource
 }

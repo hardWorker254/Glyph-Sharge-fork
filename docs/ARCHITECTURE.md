@@ -256,7 +256,7 @@ class GlyphManager @Inject constructor(
 
 `CustomAnimationsActivity` — **отдельная Activity** (`android:exported="false"`),
 а не маршрут `GlyphNavHost`. Свои `ActivityResultLauncher` для `OpenDocument` и
-`CreateDocument`, платформенный диалог переименования и `BackHandler` между списком и
+`CreateDocument` и `BackHandler` между списком и
 редактором. Экраны: `ui/screens/animations/` (`AnimationListScreen`,
 `AnimationEditorScreen`, `GlyphPreview`), состояние — `AnimationStudioViewModel`.
 

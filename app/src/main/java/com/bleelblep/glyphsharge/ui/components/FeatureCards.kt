@@ -314,3 +314,54 @@ fun ChargingAnimationCard(
         )
     }
 }
+
+/**
+ * The music visualiser card.
+ *
+ * Shaped like every other card, with one difference that is not cosmetic: the
+ * permission is asked for by [HomeFeatures] before [onEnabledChange] is ever
+ * called, because a visualiser that cannot read the audio is a card the user
+ * switched on and nothing else.
+ */
+@Composable
+fun MusicVisualizerCard(
+    isEnabled: Boolean,
+    isServiceActive: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    onTestAnimation: () -> Unit,
+    settingsRepository: SettingsRepository,
+    modifier: Modifier = Modifier,
+    title: String = stringResource(id = R.string.music_viz_title),
+    description: String = stringResource(id = R.string.music_viz_description),
+    icon: Painter,
+    iconSize: Int = 32,
+) {
+    val context = LocalContext.current
+    var showDialog by remember { mutableStateOf(false) }
+    val toastText = stringResource(id = R.string.music_viz_toast)
+
+    WideFeatureCardWithToggle(
+        title = title,
+        description = description,
+        icon = icon,
+        isServiceActive = isServiceActive,
+        isFeatureEnabled = isEnabled,
+        onFeatureToggle = onEnabledChange,
+        onCardClick = {
+            if (isServiceActive) showDialog = true
+            else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
+        },
+        modifier = modifier,
+        iconSize = iconSize
+    )
+
+    if (showDialog && isServiceActive) {
+        MusicVisualizerConfirmationDialog(
+            onTestAnimation = { onTestAnimation(); showDialog = false },
+            onEnableAnimation = { onEnabledChange(true); showDialog = false },
+            onDisableAnimation = { onEnabledChange(false); showDialog = false },
+            onDismiss = { showDialog = false },
+            settingsRepository = settingsRepository
+        )
+    }
+}

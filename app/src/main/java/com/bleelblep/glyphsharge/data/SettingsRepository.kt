@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.util.Log
 import androidx.core.content.edit
 import com.bleelblep.glyphsharge.R
+import com.bleelblep.glyphsharge.glyph.audio.MusicVisualizationMode
 import com.bleelblep.glyphsharge.ui.theme.AppThemeStyle
 import com.bleelblep.glyphsharge.ui.theme.FontSizeSettings
 import com.bleelblep.glyphsharge.ui.theme.FontVariant
@@ -102,6 +103,12 @@ class SettingsRepository @Inject constructor(
         private const val KEY_CHARGING_ANIMATION_ENABLED = "charging_animation_enabled"
         private const val KEY_CHARGING_ANIMATION_DURATION = "charging_animation_duration"
 
+        // Music visualiser
+        private const val KEY_MUSIC_VIZ_ENABLED = "music_viz_enabled"
+        private const val KEY_MUSIC_VIZ_ANIMATION_ID = "music_viz_animation_id"
+        private const val KEY_MUSIC_VIZ_SENSITIVITY = "music_viz_sensitivity"
+        private const val KEY_MUSIC_VIZ_SCREEN_OFF_ONLY = "music_viz_screen_off_only"
+
         // Defaults
         private const val DEFAULT_VIBRATION_INTENSITY = 0.66f
         private const val DEFAULT_POWER_PEEK_DURATION = 3000L
@@ -111,6 +118,7 @@ class SettingsRepository @Inject constructor(
         private const val DEFAULT_NFC_ANIMATION_DURATION = 3000L
         private const val DEFAULT_CHARGING_ANIMATION_DURATION = 3000L
         private const val DEFAULT_LOW_BATTERY_THRESHOLD = 20
+        private const val DEFAULT_MUSIC_VIZ_SENSITIVITY = 1.0f
         private const val DEFAULT_QUIET_HOURS_START_HOUR = 22
         private const val DEFAULT_QUIET_HOURS_START_MINUTE = 0
         private const val DEFAULT_QUIET_HOURS_END_HOUR = 7
@@ -134,6 +142,10 @@ class SettingsRepository @Inject constructor(
             putBoolean(KEY_SCREEN_OFF_ENABLED, false)
             putBoolean(KEY_NFC_FEATURE_ENABLED, false)
             putBoolean(KEY_CHARGING_ANIMATION_ENABLED, false)
+            putBoolean(KEY_MUSIC_VIZ_ENABLED, false)
+            putString(KEY_MUSIC_VIZ_ANIMATION_ID, MusicVisualizationMode.DEFAULT.id)
+            putFloat(KEY_MUSIC_VIZ_SENSITIVITY, DEFAULT_MUSIC_VIZ_SENSITIVITY)
+            putBoolean(KEY_MUSIC_VIZ_SCREEN_OFF_ONLY, false)
             putString(KEY_FONT_VARIANT, FontVariant.HEADLINE.name)
             putBoolean(KEY_USE_CUSTOM_FONTS, true)
             putFloat(KEY_FONT_SIZE_DISPLAY_SCALE, 1.0f)
@@ -199,6 +211,26 @@ class SettingsRepository @Inject constructor(
                 putInt(KEY_LAST_MIGRATED_VERSION, 112)
             }
             Log.i(TAG, "Migration to 112 applied")
+        }
+
+        // Music visualiser migration
+        if (lastMigrated < 113) {
+            prefs.edit {
+                if (!prefs.contains(KEY_MUSIC_VIZ_ENABLED)) {
+                    putBoolean(KEY_MUSIC_VIZ_ENABLED, false)
+                }
+                if (!prefs.contains(KEY_MUSIC_VIZ_ANIMATION_ID)) {
+                    putString(KEY_MUSIC_VIZ_ANIMATION_ID, MusicVisualizationMode.DEFAULT.id)
+                }
+                if (!prefs.contains(KEY_MUSIC_VIZ_SENSITIVITY)) {
+                    putFloat(KEY_MUSIC_VIZ_SENSITIVITY, DEFAULT_MUSIC_VIZ_SENSITIVITY)
+                }
+                if (!prefs.contains(KEY_MUSIC_VIZ_SCREEN_OFF_ONLY)) {
+                    putBoolean(KEY_MUSIC_VIZ_SCREEN_OFF_ONLY, false)
+                }
+                putInt(KEY_LAST_MIGRATED_VERSION, 113)
+            }
+            Log.i(TAG, "Migration to 113 applied")
         }
     }
 
@@ -462,6 +494,41 @@ class SettingsRepository @Inject constructor(
 
     fun getChargingAnimationDuration(): Long =
         prefs.getLong(KEY_CHARGING_ANIMATION_DURATION, DEFAULT_CHARGING_ANIMATION_DURATION)
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Music visualiser
+    // ─────────────────────────────────────────────────────────────────────────
+
+    fun saveMusicVizEnabled(enabled: Boolean) =
+        prefs.edit { putBoolean(KEY_MUSIC_VIZ_ENABLED, enabled) }
+
+    fun isMusicVizEnabled(): Boolean =
+        prefs.getBoolean(KEY_MUSIC_VIZ_ENABLED, false)
+
+    /**
+     * A built-in [MusicVisualizationMode] id or a `custom:<uuid>` script id.
+     *
+     * Shared key shape with the other features on purpose, so the picker, the
+     * `isCustomId` branch and the stored value all work the same way here.
+     */
+    fun saveMusicVizAnimationId(id: String) =
+        prefs.edit { putString(KEY_MUSIC_VIZ_ANIMATION_ID, id) }
+
+    fun getMusicVizAnimationId(): String =
+        prefs.getString(KEY_MUSIC_VIZ_ANIMATION_ID, null)
+            ?: MusicVisualizationMode.DEFAULT.id
+
+    fun saveMusicVizSensitivity(sensitivity: Float) =
+        prefs.edit { putFloat(KEY_MUSIC_VIZ_SENSITIVITY, sensitivity) }
+
+    fun getMusicVizSensitivity(): Float =
+        prefs.getFloat(KEY_MUSIC_VIZ_SENSITIVITY, DEFAULT_MUSIC_VIZ_SENSITIVITY)
+
+    fun saveMusicVizScreenOffOnly(onlyWhenScreenOff: Boolean) =
+        prefs.edit { putBoolean(KEY_MUSIC_VIZ_SCREEN_OFF_ONLY, onlyWhenScreenOff) }
+
+    fun getMusicVizScreenOffOnly(): Boolean =
+        prefs.getBoolean(KEY_MUSIC_VIZ_SCREEN_OFF_ONLY, false)
 
     // ─────────────────────────────────────────────────────────────────────────
     // Quiet Hours

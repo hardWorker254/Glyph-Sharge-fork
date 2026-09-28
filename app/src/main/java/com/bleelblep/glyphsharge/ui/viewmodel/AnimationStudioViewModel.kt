@@ -157,10 +157,6 @@ class AnimationStudioViewModel @Inject constructor(
         repository.duplicate(id)?.let { _messages.value = text(R.string.studio_msg_copied, it.name) }
     }
 
-    fun rename(id: String, name: String) {
-        repository.rename(id, name)
-    }
-
     // endregion
 
     // region Running
