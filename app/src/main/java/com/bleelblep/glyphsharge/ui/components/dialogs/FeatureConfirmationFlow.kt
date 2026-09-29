@@ -11,10 +11,9 @@ import com.bleelblep.glyphsharge.ui.components.FeatureConfirmationButtons
 /**
  * The confirmation-then-configure flow shared by all six features.
  *
- * Each feature used to hand-write the same ~85 lines: a confirmation dialog
- * with a "how it works" card, a gear button that swaps it for a configuration
- * dialog, and the wiring to close both. Only the strings and the body of the
- * configuration dialog differed.
+ * One confirmation dialog with a "how it works" card and a gear button that
+ * swaps it for [settings]; only the strings and the body of the configuration
+ * dialog differ between features.
  *
  * @param dismissible whether back press and an outside tap close the
  *   confirmation. Most features are deliberately modal; Screen Off is not.

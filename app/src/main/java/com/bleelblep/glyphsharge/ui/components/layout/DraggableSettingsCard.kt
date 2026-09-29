@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -53,10 +54,8 @@ import kotlin.math.roundToInt
  * proportion to the drag. Past half the screen width it snaps back quickly and
  * fires [onNavigate]; released earlier it springs back with a bouncy curve.
  *
- * Five separate copies of this logic used to live in `SettingsScreen.kt`
- * (~110 lines each) — the typography, theme, quiet hours and language cards
- * plus the "About" card. Only the title, the optional subtitle and the
- * trailing control ever differed, so all of that is now a parameter.
+ * Every settings row is one of these: only the title, the optional subtitle
+ * and the trailing control differ between them.
  *
  * @param onNavigate called once the card snaps back after a full swipe. When
  *   `null` the card is inert and does not respond to drags.
@@ -79,6 +78,9 @@ fun DraggableSettingsCard(
     trailing: (@Composable () -> Unit)? = null
 ) {
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val density = LocalDensity.current
@@ -108,7 +110,7 @@ fun DraggableSettingsCard(
             if (thresholdMet && finalValue == 0f) {
                 thresholdMet = false
                 if (onNavigate != null) {
-                    HapticUtils.triggerMediumFeedback(haptic, context)
+                    HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                     onNavigate()
                 }
             }
@@ -141,7 +143,7 @@ fun DraggableSettingsCard(
             .pointerInput(onNavigate) {
                 detectDragGestures(
                     onDragStart = { _ ->
-                        HapticUtils.triggerLightFeedback(haptic, context)
+                        HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                     },
                     onDragEnd = {
                         thresholdMet = abs(offsetX) >= dragThreshold

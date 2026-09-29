@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.glyph.script.ScriptAnimation
 import com.bleelblep.glyphsharge.ui.components.layout.SettingsScaffold
+import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import com.bleelblep.glyphsharge.ui.theme.themeCardContainerColor
 import com.bleelblep.glyphsharge.ui.theme.themePrimaryActionColor
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
@@ -50,13 +51,13 @@ import java.util.Date
  * The studio's front door: every animation the user has written, plus the two
  * ways of getting more of them — write one, or import one.
  *
- * Deliberately a separate Activity from the main settings flow: the studio has
- * its own back stack, its own file pickers, and a code editor that has no
- * business sharing a `NavHost` with the theme settings.
+ * A separate Activity from the settings flow: the studio has its own back
+ * stack, its own file pickers, and a code editor that has no business sharing
+ * a `NavHost` with the theme settings.
  *
- * Renaming happens in the editor's name field, not from here: a row is a target,
- * not a form, and a second editable surface next to it would make it ambiguous
- * which value is live.
+ * Renaming happens in the editor's name field, not from here: a row is a
+ * target, not a form, and a second editable surface next to it would make it
+ * ambiguous which value is live.
  *
  * @param onBackClick leaves the studio
  * @param onOpen opens an animation in the editor
@@ -79,6 +80,9 @@ fun AnimationListScreen(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
     val cardColor = themeCardContainerColor()
     val accent = themePrimaryActionColor()
@@ -89,7 +93,7 @@ fun AnimationListScreen(
         onBackClick = onBackClick,
         actions = {
             IconButton(onClick = {
-                HapticUtils.triggerLightFeedback(haptic, context)
+                HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                 onPickImportFile()
             }) {
                 Icon(
@@ -102,7 +106,7 @@ fun AnimationListScreen(
             // reach it up here would only compete with it.
             if (animations.isNotEmpty()) {
                 IconButton(onClick = {
-                    HapticUtils.triggerMediumFeedback(haptic, context)
+                    HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                     onCreate()
                 }) {
                     Icon(
@@ -120,7 +124,7 @@ fun AnimationListScreen(
                     body = stringResource(R.string.studio_empty_body),
                     accent = accent,
                     onCreate = {
-                        HapticUtils.triggerMediumFeedback(haptic, context)
+                        HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                         onCreate()
                     }
                 )
@@ -133,7 +137,7 @@ fun AnimationListScreen(
                 animation = animation,
                 cardColor = cardColor,
                 onOpen = {
-                    HapticUtils.triggerLightFeedback(haptic, context)
+                    HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                     onOpen(animation.id)
                 },
                 onDelete = { onDelete(animation.id) },

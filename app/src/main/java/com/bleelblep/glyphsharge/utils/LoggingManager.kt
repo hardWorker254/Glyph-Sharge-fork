@@ -134,8 +134,8 @@ object LoggingManager {
         log("HARDWARE", "$operation: $status$errorInfo")
     }
     
-    // ===== SPECIALIZED C14/C15 DEBUGGING FUNCTIONS =====
-    
+    // Phone 3a (C14) and Phone 3a Pro (C15) debugging
+
     fun logC15Investigation(phase: String, details: String) {
         log("C15_INVESTIGATION", "$phase: $details")
     }

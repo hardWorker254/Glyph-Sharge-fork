@@ -27,14 +27,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.sqrt
-import kotlin.time.Duration.Companion.milliseconds
 
 @AndroidEntryPoint
 class PowerPeekService : Service(), SensorEventListener {
@@ -49,6 +46,12 @@ class PowerPeekService : Service(), SensorEventListener {
 
         private const val TRIGGER_COOLDOWN_MS = 5000L
     }
+
+    /**
+     * This service's own registry entry, which owns the run gate — my switch
+     * and the master Glyph switch.
+     */
+    private val spec = FeatureSpecs.of(GlyphFeature.POWER_PEEK)
 
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var glyphAnimationManager: GlyphAnimationManager
@@ -110,9 +113,7 @@ class PowerPeekService : Service(), SensorEventListener {
             }
         }
 
-        if (!settingsRepository.isPowerPeekEnabled() ||
-            !settingsRepository.getGlyphServiceEnabled()
-        ) {
+        if (!spec.isRunnable(settingsRepository)) {
             shutDown()
             return START_NOT_STICKY
         }
@@ -137,9 +138,7 @@ class PowerPeekService : Service(), SensorEventListener {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        if (!settingsRepository.isPowerPeekEnabled() ||
-            !settingsRepository.getGlyphServiceEnabled()
-        ) return
+        if (!spec.isRunnable(settingsRepository)) return
 
         val restart = Intent(this, PowerPeekService::class.java).apply { action = ACTION_START }
         startForegroundService(restart)
@@ -174,6 +173,15 @@ class PowerPeekService : Service(), SensorEventListener {
         }
     }
 
+    /**
+     * Ignores the shake unless the phone is lying still and flat on a surface.
+     *
+     * Power Peek is meant to catch a nudge to a phone sitting on a table, but
+     * a hand-held phone produces the same horizontal acceleration every time
+     * it is picked up, read, or shifted. Requiring the Z axis to sit at gravity
+     * with almost no X or Y for 500 ms rules out a phone in a hand, and the
+     * threshold is only consulted after that gate has been passed.
+     */
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type != Sensor.TYPE_ACCELEROMETER) return
 
@@ -183,6 +191,9 @@ class PowerPeekService : Service(), SensorEventListener {
         val zAbs = abs(z)
         val now = System.currentTimeMillis()
 
+        // Gravity along Z means flat, and near-zero X/Y means not tilted. The
+        // hysteresis on the way out stops a wobble from re-arming the gate
+        // immediately after it drops.
         val isStillAndFlat = zAbs in 9.0f..10.6f && abs(x) < 1.5f && abs(y) < 1.5f
 
         if (isStillAndFlat) {
@@ -200,6 +211,9 @@ class PowerPeekService : Service(), SensorEventListener {
         if (!isRestingOnTable) return
         val horizontalAcceleration = sqrt((x * x + y * y).toDouble()).toFloat()
         val baseThreshold = settingsRepository.getPowerPeekThreshold()
+        // Gravity is already in the vector, so the slider's threshold is
+        // shifted down by it; the floor keeps a hand-held phone from firing
+        // on ordinary movement even after the flatness gate passed.
         val horizontalThreshold = max(3.0f, baseThreshold - SensorManager.STANDARD_GRAVITY)
 
         if (horizontalAcceleration > horizontalThreshold) {
@@ -211,57 +225,55 @@ class PowerPeekService : Service(), SensorEventListener {
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
-    // ──────────────────────────────────────────────────────────────────────────
     // Animation
-    // ──────────────────────────────────────────────────────────────────────────
 
     private fun triggerPowerPeekAnimation() {
         val now = System.currentTimeMillis()
         if (now - lastTriggerTime < TRIGGER_COOLDOWN_MS) return
 
         animationScope.launch {
-            if (!settingsRepository.isPowerPeekEnabled() ||
-                !settingsRepository.getGlyphServiceEnabled()
-            ) return@launch
+            if (!spec.isRunnable(settingsRepository)) return@launch
 
             if (settingsRepository.isCurrentlyInQuietHours()) return@launch
 
-            if (!featureCoordinator.acquire(GlyphFeature.POWER_PEEK)) return@launch
-
-            lastTriggerTime = System.currentTimeMillis()
-            val duration = settingsRepository.getPowerPeekDuration()
-
-            Log.d(TAG, "Power Peek: Horizontal shake on table detected! Duration=${duration}ms")
-
             try {
-                wakeLock.acquire(duration + 2000L)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to acquire WakeLock: ${e.message}")
-            }
+                // `preempt` stays false: this feature skips on a busy strip rather
+                // than interrupting whoever holds it, and the default timeout is
+                // the 500 ms the `acquire` call used on its own.
+                //
+                // The WakeLock teardown hangs off `onRelease` rather than a local
+                // `finally` so it keeps its old position — after `release`, and
+                // only when the strip was actually taken. A failed acquisition
+                // never runs the block, so the WakeLock was never taken and
+                // there is nothing to undo.
+                featureCoordinator.withStrip(
+                    owner = GlyphFeature.POWER_PEEK,
+                    onRelease = {
+                        try {
+                            if (wakeLock.isHeld) wakeLock.release()
+                        } catch (e: Exception) {}
+                    }
+                ) {
+                    lastTriggerTime = System.currentTimeMillis()
+                    val duration = settingsRepository.getPowerPeekDuration()
 
-            try {
-                val animJob = launch(Dispatchers.Default) {
-                    glyphAnimationManager.playPowerPeekAnimation(
-                        this@PowerPeekService
-                    )
+                    Log.d(TAG, "Power Peek: Horizontal shake on table detected! Duration=${duration}ms")
+
+                    // +2s: the bar is still drawing its last frames after the cap.
+                    try {
+                        wakeLock.acquire(duration + 2000L)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to acquire WakeLock: ${e.message}")
+                    }
+
+                    glyphAnimationManager.runCapped(duration) {
+                        glyphAnimationManager.playPowerPeekAnimation(
+                            this@PowerPeekService
+                        )
+                    }
                 }
-
-                val watchdogJob = launch {
-                    delay(duration.milliseconds)
-                    animJob.cancelAndJoin()
-                    glyphAnimationManager.stopAnimations()
-                }
-
-                animJob.join()
-                watchdogJob.cancel()
-
             } catch (e: Exception) {
                 Log.e(TAG, "Error in Power Peek glyph sequence", e)
-            } finally {
-                featureCoordinator.release(GlyphFeature.POWER_PEEK)
-                try {
-                    if (wakeLock.isHeld) wakeLock.release()
-                } catch (e: Exception) {}
             }
         }
     }

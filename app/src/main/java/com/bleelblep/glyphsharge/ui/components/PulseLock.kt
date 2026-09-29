@@ -19,12 +19,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.R
-import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.ui.components.dialogs.FeatureConfirmationFlow
-import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
-import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.launch
 
 data class PulseLockConfig(
@@ -38,8 +35,7 @@ fun PulseLockConfirmationDialog(
     onEnablePulseLock: () -> Unit,
     onDisablePulseLock: () -> Unit,
     onDismiss: () -> Unit,
-    settingsRepository: SettingsRepository,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     FeatureConfirmationFlow(
         title = stringResource(R.string.pulse_lock_title),
@@ -54,7 +50,6 @@ fun PulseLockConfirmationDialog(
         modifier = modifier,
         settings = { onConfirm, onDisable, onDismissSettings ->
             PulseLockEnableDialog(
-                settingsRepository = settingsRepository,
                 onConfirm = { onConfirm() },
                 onDisable = onDisable,
                 onDismiss = onDismissSettings
@@ -69,10 +64,14 @@ fun PulseLockEnableDialog(
     onConfirm: (PulseLockConfig) -> Unit,
     onDismiss: () -> Unit,
     onDisable: () -> Unit,
-    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
+    // The store comes from the composition; the card has none to pass on.
+    val settingsRepository = LocalSettingsRepository.current
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -95,12 +94,7 @@ fun PulseLockEnableDialog(
         mutableFloatStateOf((settingsRepository.getPulseLockDuration() / 1000f).coerceIn(1f, 10f))
     }
 
-    val glyphAnimationManager = remember {
-        EntryPointAccessors.fromApplication(
-            context.applicationContext,
-            GlyphComponent::class.java
-        ).glyphAnimationManager()
-    }
+    val glyphAnimationManager = rememberGlyphAnimationManager()
 
     val cardColor = themeCardContainerColor()
     val accent = themePrimaryActionColor()
@@ -164,7 +158,7 @@ fun PulseLockEnableDialog(
 
                         Button(
                             onClick = {
-                                HapticUtils.triggerMediumFeedback(haptic, context)
+                                HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                                 scope.launch {
                                     try {
                                         when {
@@ -229,7 +223,7 @@ fun PulseLockEnableDialog(
                             Slider(
                                 value = durationSeconds,
                                 onValueChange = {
-                                    HapticUtils.triggerLightFeedback(haptic, context)
+                                    HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                     durationSeconds = it
                                 },
                                 valueRange = 1f..10f,

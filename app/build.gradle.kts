@@ -1,25 +1,25 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
-    id("dagger.hilt.android.plugin")
-    kotlin("kapt")
+    alias(libs.plugins.hilt.android)
+    alias(libs.plugins.ksp)
+    // No `kapt` plugin: the module has no `kapt(...)` dependency, so it only
+    // cost a second annotation-processing pass per compile.
+    // KSP stays — Hilt's compiler runs through it.
 }
 
 android {
-    namespace = "com.bleelblep.glyphzenredesign"
-    compileSdk = 35
+    namespace = "com.bleelblep.glyphsharge"
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.bleelblep.glyphzenredesign"
-        minSdk = 34
-        targetSdk = 35
-        versionCode = 2
-        versionName = "1.1.0"
+        applicationId = "com.bleelblep.glyphsharge"
+        minSdk = 34  // Android 14+ only
+        targetSdk = 34
+        versionCode = 1031
+        versionName = "1.0.31"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        
-        // Enable vector drawables support
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -27,61 +27,41 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            
-            // Enable additional optimizations
-            isDebuggable = false
-            isJniDebuggable = false
-            renderscriptOptimLevel = 3
-            
-            // Performance optimizations
-            ndk {
-                debugSymbolLevel = "NONE"
-            }
-        }
-        debug {
-            // Optimize debug builds for better performance during development
-            isMinifyEnabled = false
-            renderscriptOptimLevel = 1
-            
-            // Speed up debug builds
-            ndk {
-                debugSymbolLevel = "SYMBOL_TABLE"
-            }
         }
     }
+
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
+
     kotlinOptions {
-        jvmTarget = "11"
-        // Enhanced Kotlin compiler optimizations for performance
-        freeCompilerArgs += listOf(
-            "-opt-in=kotlin.RequiresOptIn",
-            "-Xuse-experimental=kotlin.Experimental",
-            "-Xjvm-default=all",
-            "-Xuse-ir=true",
-            "-Xstring-concat=inline"
-        )
+        jvmTarget = "17"
     }
+
     buildFeatures {
         compose = true
-        buildConfig = true
     }
+
+    testOptions {
+        unitTests {
+            // android.util.Log is a stub in JVM unit tests; the glyph layer only
+            // uses it for diagnostics, so returning defaults is enough.
+            isReturnDefaultValues = true
+        }
+    }
+
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.8"
-        // Enable Compose compiler optimizations
-        freeCompilerArgs += listOf(
-            "-Xopt-in=androidx.compose.runtime.ExperimentalComposeApi",
-            "-Xopt-in=androidx.compose.material3.ExperimentalMaterial3Api"
-        )
+        // Kotlin 1.9.x needs the standalone Compose compiler; the Compose
+        // Gradle plugin only exists from Kotlin 2.0 on.
+        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
     }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -90,45 +70,63 @@ android {
 }
 
 dependencies {
+    val composeBom = platform(libs.androidx.compose.bom)
+    implementation(composeBom)
+    androidTestImplementation(composeBom)
 
+    // Core Android dependencies
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.core)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    // collectAsStateWithLifecycle: stops collecting when the screen is not
+    // visible, so a stopped screen does not keep recomposing.
+    implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.activity.compose)
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
-    
-    // Material Icons Extended - provides access to a much larger set of Material Design icons
-    implementation("androidx.compose.material:material-icons-extended")
-    
-    // Navigation Compose
-    implementation("androidx.navigation:navigation-compose:2.7.6")
-    
-    // Lifecycle ViewModel Compose
-    implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-    
-    // Nothing Glyph SDK
+
+    // Compose dependencies
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.graphics)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material3.window.size)
+    implementation(libs.androidx.compose.foundation)
+
+    // Material Components for Android - required for Material 3 themes and TimePicker
+    implementation(libs.google.material)
+
+    // Animation dependencies
+    implementation(libs.androidx.compose.animation)
+    implementation(libs.androidx.compose.animation.graphics)
+    implementation(libs.androidx.compose.animation.core)
+
+    // Navigation with predictive back support
+    implementation(libs.androidx.navigation.compose)
+
+    // Hilt dependencies
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.android.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
+
+    // Nothing Glyph SDK - specific JAR file
     implementation(files("libs/KetchumSDK_Community_20250319.jar"))
-    
-    // Hilt for Dependency Injection
-    implementation("com.google.dagger:hilt-android:2.48")
-    kapt("com.google.dagger:hilt-compiler:2.48")
-    
-    // Kotlin Coroutines
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    
-    // Lottie Animation for Compose – used in new onboarding flow
-    implementation("com.airbnb.android:lottie-compose:6.3.0")
-    
-    // Note: Using built-in Android MediaSession API (no additional dependencies needed)
-    
+
+    // Testing dependencies
     testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.ui.test.junit4)
-    debugImplementation(libs.androidx.ui.tooling)
-    debugImplementation(libs.androidx.ui.test.manifest)
+    // Robolectric for local unit tests that need Android framework access
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.espresso.core)
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    implementation(libs.androidx.compose.material.icons.extended)
+
+    // Lottie for Compose – required for new onboarding animations
+    implementation(libs.lottie.compose)
+
+    // LuaJ – the VM that runs user-written custom glyph animations.
+    // luaj-jse is the JVM flavour; it pulls in the luaj core automatically.
+    implementation(libs.luaj.jse)
 }

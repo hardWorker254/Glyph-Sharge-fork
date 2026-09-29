@@ -8,14 +8,10 @@ import androidx.compose.ui.graphics.Color
 /**
  * The twelve colour schemes, two per [AppThemeStyle].
  *
- * These used to sit in a 765-line `Theme.kt` alongside the shape and
- * typography tables. Splitting them means adjusting one theme's palette is a
- * local edit instead of a scroll through everything else.
+ * One theme per block, so adjusting a single palette is a local edit.
  */
 
-// ============================================================================
-// CLASSIC THEME - Clean Material 3 Design
-// ============================================================================
+// Classic theme — clean Material 3 design
 
 internal val ClassicDarkColorScheme = darkColorScheme(
     primary = Color(0xFFB8C6DB), // Metallic silver-blue for better visibility
@@ -64,9 +60,7 @@ internal val ClassicLightColorScheme = lightColorScheme(
     surfaceTint = Color.White
 )
 
-// ============================================================================
-// Y2K THEME - Chrome, Cyber, Futuristic
-// ============================================================================
+// Y2K theme — chrome, cyber, futuristic
 
 internal val Y2KDarkColorScheme = darkColorScheme(
     primary = Color(0xFF00D4FF),
@@ -138,9 +132,7 @@ internal val Y2KLightColorScheme = lightColorScheme(
     surfaceTint = Color(0xFF0099CC)
 )
 
-// ============================================================================
-// NEON THEME - High Contrast Electric
-// ============================================================================
+// Neon theme — high contrast electric
 
 internal val NeonDarkColorScheme = darkColorScheme(
     primary = Color(0xFF00FF00),
@@ -212,9 +204,7 @@ internal val NeonLightColorScheme = lightColorScheme(
     surfaceTint = Color(0xFF00CC00)
 )
 
-// ============================================================================
-// AMOLED THEME - True Black Minimal
-// ============================================================================
+// AMOLED theme — true black minimal
 
 internal val AmoledDarkColorScheme = darkColorScheme(
     primary = Color(0xFFFF5555),
@@ -286,9 +276,7 @@ internal val AmoledLightColorScheme = lightColorScheme(
     surfaceTint = Color(0xFFDD2222)
 )
 
-// ============================================================================
-// PASTEL THEME - Soft Dreamy Colors
-// ============================================================================
+// Pastel theme — soft dreamy colors
 
 internal val PastelDarkColorScheme = darkColorScheme(
     primary = Color(0xFFD4A5FF),
@@ -360,9 +348,7 @@ internal val PastelLightColorScheme = lightColorScheme(
     surfaceTint = Color(0xFF8B5FBD)
 )
 
-// ============================================================================
-// EXPRESSIVE THEME - Bold Material 3 Expressive
-// ============================================================================
+// Expressive theme — bold Material 3 Expressive
 
 internal val ExpressiveDarkColorScheme = darkColorScheme(
     primary = Color(0xFFFFD60A),

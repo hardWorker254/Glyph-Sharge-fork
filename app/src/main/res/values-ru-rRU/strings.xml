@@ -17,6 +17,24 @@
     <string name="charging_animation_button_enable">Включить</string>
     <string name="charging_animation_toast">Сначала включите Glyph-сервис</string>
 
+    <!-- VPN Connected -->
+    <string name="vpn_connected_title">VPN Connected</string>
+    <string name="vpn_connected_description">Красивая последовательность Glyph при подключении VPN.</string>
+    <string name="vpn_connected_toast">Сначала включите Glyph-сервис</string>
+    <string name="vpn_connected_button_test">Протестировать</string>
+    <string name="vpn_connected_dialog_subtitle">Подсветка при подключении VPN</string>
+    <string name="vpn_connected_how_it_works_title">Как это работает:</string>
+    <string name="vpn_connected_how_it_works_description">• Срабатывает один раз при установке VPN-соединения.\n• Воспроизводит выбранную анимацию.\n• Если VPN уже подключён при запуске фичи, ничего не срабатывает.\n• Автоматически отключается в режиме «Тишина».</string>
+    <string name="vpn_connected_configure_title">Настройка</string>
+    <string name="vpn_connected_configure_subtitle">Настройте поведение при подключении VPN</string>
+    <string name="vpn_connected_animation_title">Выберите анимацию</string>
+    <string name="vpn_connected_animation_test">Тест: </string>
+    <string name="vpn_connected_duration_title">Длительность</string>
+    <string name="vpn_connected_duration_value">%d с</string>
+    <string name="vpn_connected_duration_min">1с</string>
+    <string name="vpn_connected_duration_max">10с</string>
+    <string name="vpn_connected_button_enable">Включить</string>
+
     <!-- Power Peek -->
     <string name="power_peek_title">Power Peek</string>
     <string name="power_peek_description">Взгляд на заряд батареи одним встряхиванием.</string>

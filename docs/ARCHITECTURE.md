@@ -27,7 +27,8 @@
 
 **Model (Data Layer)**
 - Repository для доступа к данным
-- Локальные источники (Room, DataStore)
+- Локальный источник: один `SharedPreferences`, разбитый на срезы по областям
+- Файлы пользовательских скриптов (`.glyphlua`) через `CustomAnimationRepository`
 - Внешние API (Nothing Glyph SDK)
 
 ### 2. Dependency Injection (Hilt)
@@ -37,42 +38,73 @@
 ```kotlin
 @Singleton
 class GlyphManager @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) { ... }
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() { ... }
+
+@HiltViewModel
+class HomeViewModel @Inject constructor(...) : ViewModel()
 ```
 
 **Модули:**
-- `AppModule` — предоставление синглтонов приложения
-- `GlyphComponent` — компоненты для glyph-менеджеров
+- `di/AppModule.kt` — единственный `@Module` в приложении. Он провайдит один
+  `@Singleton @GlyphPrefs SharedPreferences` (файл `glyphzen_settings`) — тот самый, который
+  читает каждый срез настроек. Квалификатор `@GlyphPrefs` существует, чтобы срез не мог
+  получить «какой-нибудь» `SharedPreferences`: `Context` один, а файлов настроек может быть
+  несколько.
+
+**Как UI достаёт зависимости:**
+- Экраны получают `ViewModel` через `hiltViewModel()` — `HomeScreen` и `GlyphNavHost` не принимают
+  ни одного параметра с зависимостью
+- Настройки попадают в дерево композиции через `LocalSettingsRepository`
+  (`ui/theme/LocalSettings.kt`), который каждая Activity провайдит у себя в корне
+- Интенсивность вибрации лежит рядом в `LocalVibrationIntensity`: `HapticUtils` — обычный
+  `object`, вызываемый из обработчиков кликов, а обработчик не может запросить репозиторий
+- Кнопки «Test» в диалогах фич берут менеджер анимаций через
+  `rememberGlyphAnimationManager()` (`ui/components/GlyphDependencies.kt`), который возвращает
+  тот же экземпляр, что держит `HomeViewModel`
 
 ### 3. Repository Pattern
 
-```kotlin
-interface SettingsRepository {
-    suspend fun getThemeSettings(): ThemeSettings
-    suspend fun updateThemeSettings(settings: ThemeSettings)
-    // ...
-}
+В `data/` лежит ровно одно хранилище — `SharedPreferences`, разбитый на срезы по
+областям. Каждый срез владеет своими ключами и дефолтами, а `SettingsRepository` — тонкий
+фасад поверх них.
 
-class SettingsRepositoryImpl @Inject constructor(
-    private val dao: SettingsDao,
-    private val dataStore: DataStore<Preferences>
-) : SettingsRepository { ... }
+```kotlin
+@Singleton
+class SettingsRepository @Inject constructor(
+    private val theme: ThemeSettings,
+    private val fonts: FontSettings,
+    private val glyphService: GlyphServiceSettings,
+    private val features: FeatureSettings,
+    private val quietHours: QuietHoursSettings,
+    private val language: LanguageSettings,
+    private val userPresence: UserPresenceSettings,
+    @Suppress("unused") private val migrations: SettingsMigrations,
+    private val diagnostics: SettingsDiagnostics
+) {
+    fun saveThemeStyle(themeStyle: AppThemeStyle) = theme.saveThemeStyle(themeStyle)
+    fun getThemeStyle(): AppThemeStyle = theme.getThemeStyle()
+    // ...остальные методы — та же история
+}
 ```
+
+Ключи, дефолты и миграции от этого не изменились: миграции лежат в `SettingsMigrations`,
+дефолты — в самих срезах, а фасад не содержит ни одного ключа.
 
 ### 4. Single Activity Architecture
 
 ```
 MainActivity
-    └── NavHost
-        ├── SettingsScreen
-        ├── ThemeSettingsScreen
-        ├── FontSettingsScreen
-        ├── LanguageSettingsScreen
-        └── QuietHoursSettingsScreen
+    └── GlyphNavHost                 # маршруты — константы в ui/navigation/Routes.kt
+        ├── HomeScreen               # home
+        ├── SettingsScreen           # settings
+        ├── ThemeSettingsScreen      # theme_settings
+        ├── FontSettingsScreen       # font_settings
+        ├── LanguageSettingsScreen   # language_settings
+        └── QuietHoursSettingsScreen # quiet_hours_settings
 
 CustomAnimationsActivity          # студия анимаций на Lua, вне NavHost
     └── BackHandler              # свой стек: список ↔ редактор
@@ -105,11 +137,16 @@ User Event → ViewModel → Repository → Data Source
 ui/
 ├── components/     # Переиспользуемые компоненты
 │                   #   + GlyphAnimations.kt (каталог + rememberAnimationOptions)
+│                   #   + GlyphDependencies.kt (rememberGlyphAnimationManager)
+│                   #   + cards/, controls/, dialogs/, layout/
 ├── screens/        # Экраны приложения
+│   ├── home/       #   Главный экран
 │   └── animations/ #   Студия Lua-анимаций: список, редактор, превью
-├── theme/          # Темы и стили
-├── utils/          # UI утилиты
-└── viewmodel/      # HomeViewModel, AnimationStudioViewModel
+├── navigation/     # Routes и GlyphNavHost
+├── state/          # FeatureUiState, HomeUiState
+├── theme/          # Темы, типографика, CompositionLocals
+├── utils/          # UI утилиты (HapticUtils)
+└── viewmodel/      # HomeViewModel, AnimationStudioViewModel, CustomAnimationsViewModel
 ```
 
 **Ответственность:**
@@ -124,22 +161,38 @@ ui/
 ```
 glyph/
 ├── GlyphManager.kt            # Сессия Nothing SDK
-├── GlyphAnimationManager.kt   # Точки входа анимаций
-├── GlyphFeatureCoordinator.kt # Координация функций
+├── GlyphAnimationManager.kt   # Точки входа анимаций (фасад)
+├── GlyphFeatureCoordinator.kt # Mutex + enum GlyphFeature — единственный арбитр полосы
 ├── AnimationCatalog.kt        # id анимаций
+├── RunTrace.kt
 ├── device/                    # Раскладка LED и тайминги по модели
 ├── engine/                    # Сборка кадров и обработка ошибок
 ├── animations/                # Сами анимации
+│   ├── AnimationRunner.kt     #   Общие проверки и жизненный цикл «погасить — отрисовать — погасить»
+│   ├── BuiltInAnimations.kt   #   Базовые анимации
+│   ├── AudioAnimations.kt
+│   ├── ParticleAnimations.kt
+│   └── SequenceAnimations.kt
+├── audio/                     # Визуализатор музыки
+│   ├── MusicVisualisation.kt
+│   ├── AudioAnalyzer.kt, AudioAnalysis.kt, AudioFrame.kt, AudioFrameFeed.kt
+│   ├── Fft.kt
+│   ├── MusicVisualizationMode.kt, PlaybackAudioSource.kt
+│   └── SyntheticTrack.kt      # Синтетический трек для превью
 ├── script/                    # Пользовательские анимации на Lua
 │   ├── ScriptAnimation.kt     # Модель скрипта, id custom:<12 hex>
 │   ├── ScriptFileFormat.kt    # Контейнер .glyphlua
 │   ├── LuaScriptEngine.kt     # LuaJ: песочница, сторож, validate()
 │   ├── ScriptSession.kt       # Состояние прогона и прерываемые паузы
 │   ├── GlyphLuaApi.kt         # Таблица glyph — весь язык скрипта
+│   ├── ScriptPlayback.kt      # Хостинг скрипта на полосе
+│   ├── ScriptTarget.kt        # Каким пикерам виден скрипт
 │   └── ScriptRunner.kt        # Связь VM с GlyphRenderer
 └── battery/                   # Анимация заряда и Power Peek
 
 services/
+├── FeatureSpec.kt             # Реестр: фича → сервис → стоп-действие → настройка
+├── FeatureServiceController.kt
 ├── GlyphForegroundService.kt
 ├── ChargingAnimationService.kt
 ├── NfcGlyphService.kt
@@ -147,7 +200,8 @@ services/
 ├── PowerPeekService.kt
 ├── PulseLockService.kt
 ├── QuietHoursService.kt
-└── ScreenOffGlyphService.kt
+├── ScreenOffGlyphService.kt
+└── MusicVisualizerService.kt
 ```
 
 **Ответственность:**
@@ -155,16 +209,32 @@ services/
 - Координация между компонентами
 - Управление состоянием системы
 
+**Реестр как «core».** `FeatureSpecs` — это то, что у проекта нет отдельного слоя `core/`:
+единственное место, где фича сопоставлена со своим сервисом, стоп-действием, парой
+переключателей настроек и сообщением «выключи глиф-сервис». `FeatureServiceController` решает,
+*что* делать с фичей, но никогда — *какой* это сервис и какая настройка.
+
 ### Data Layer
 
 **Расположение:** `data/`
 
+Хранилище — `SharedPreferences`. Ключи поделены между срезами по областям; фасад
+`SettingsRepository` — тонкий слой над ними.
+
 ```
 data/
-├── SettingsRepository.kt
-├── CustomAnimationRepository.kt   # Скрипты пользователя: файлы + индекс
-└── local/
-    └── Migrations.kt
+├── ThemeSettings.kt         # Тема: тёмная/светлая, стиль
+├── FontSettings.kt          # Вариант шрифта и размеры по категориям
+├── GlyphServiceSettings.kt  # Главный переключатель глифов, вибрация, язык устройства
+├── FeatureSettings.kt       # Вкл/выкл, анимация и длительность каждой фичи
+├── QuietHoursSettings.kt    # Расписание тихих часов
+├── LanguageSettings.kt      # Язык приложения
+├── UserPresenceSettings.kt  # Данные о присутствии пользователя
+├── SettingsMigrations.kt    # Переносы старых настроек
+├── SettingsDiagnostics.kt   # Диагностика хранилища
+├── SettingsPrefs.kt         # Типизированные reified-хелперы чтения/записи
+├── SettingsRepository.kt    # Фасад: 78 однострочных делегатов срезам
+└── CustomAnimationRepository.kt   # Скрипты пользователя: файлы + индекс
 ```
 
 **Ответственность:**
@@ -205,14 +275,43 @@ class GlyphManager @Inject constructor(
 
 ### GlyphAnimationManager
 
-Публичные точки входа для всех анимаций.
+Фасад: публичные точки входа для всего, что зажигает полосу. Отрисовки в нём нет — здесь
+только то, что касается *приложения*: какой id из настроек играть, сколько он может длиться
+и как вызывающий себя ограничивает. Каждая из 24 публичных точек входа — `suspend`, и все они
+безопасно вызываются конкурентно: `stopAnimations()` переворачивает флаг отмены рендерера,
+а по окончании или отмене последовательности глифы всегда гасятся.
 
-**Основные обязанности:**
-- Проверка настроек и поддержки устройства
-- Воспроизведение сценариев фич
-- Диспетчеризация по id из настроек
+Работа разделена по назначению, чтобы изменение оставалось в одном месте:
 
-Сама отрисовка вынесена в `animations/` и `battery/`, пользовательские скрипты — в `script/`.
+| Задача | Где |
+|--------|-----|
+| Какие каналы есть на этом телефоне | `device/DeviceProfileFactory` |
+| Сборка кадров, ошибки, отмена | `engine/GlyphRenderer` |
+| Проверки и жизненный цикл «погасить — отрисовать — погасить» | `animations/AnimationRunner` |
+| Волна / обход / мигание / частицы | `animations/BuiltInAnimations`, `AudioAnimations`, `ParticleAnimations`, `SequenceAnimations` |
+| Визуализатор музыки и его превью | `audio/MusicVisualisation` |
+| Заряд и полоса батареи | `battery/BatteryGlyphAnimator` |
+| Хостинг пользовательского Lua-скрипта | `script/ScriptPlayback` |
+| Исполнение самого Lua | `script/ScriptRunner` |
+
+`AnimationRunner` владеет ленивым `DeviceProfile?` (`null` на неподдерживаемом железе) и
+методом `anim(...)` — общей обвязкой, из которой берут и встроенные последовательности, и
+визуализатор, и полоса батареи.
+
+### Ограничение прогона: `runCapped`
+
+Скрипт и любая анимация работают на общем железе, поэтому у прогона есть потолок. Вместо того
+чтобы каждому сервису копировать связку «запустить → watchdog → отменить», она живёт
+один раз в `GlyphAnimationManager.runCapped(capMs, onTimeout, block)`:
+
+```kotlin
+suspend fun <T> runCapped(capMs: Long, onTimeout: () -> Unit = {}, block: suspend () -> T): T
+```
+
+Прогон стартует на `Dispatchers.Default`, сторож спит `capMs`; если анимация закончилась сама,
+сторож отменяется и не срабатывает. Если сработал — работа отменяется и дожидается своей
+очистки, затем вызывается `stopAnimations()` и `onTimeout()`, чтобы сервис мог сделать то, о
+чём менеджер не знает (например, выключить звук low-battery алерта).
 
 ### Пакет `glyph/script/` — движок пользовательских анимаций
 
@@ -258,27 +357,39 @@ class GlyphManager @Inject constructor(
 а не маршрут `GlyphNavHost`. Свои `ActivityResultLauncher` для `OpenDocument` и
 `CreateDocument` и `BackHandler` между списком и
 редактором. Экраны: `ui/screens/animations/` (`AnimationListScreen`,
-`AnimationEditorScreen`, `GlyphPreview`), состояние — `AnimationStudioViewModel`.
+`AnimationEditorScreen`), состояние — `AnimationStudioViewModel`.
 
-Два способа попробовать скрипт:
+Способ проверить скрипт один: **Check** компилирует исходник и печатает первую синтаксическую
+ошибку, ничего не рисуя; **Glyph** запускает его на настоящем железе — единственный вердикт,
+который что-то значит. Экранного превью нет намеренно: схема раскладки светодиодов — не то же
+самое, что загоревшаяся полоса, а второй режим запуска провоцирует спутать одно с другим.
+`DeviceProfileFactory.forPreview()` существует как универсальная сетка Phone (3a), но
+настоящие светодиоды её не используют.
 
-| Режим | Хост | Работает на эмуляторе |
-|-------|------|------------------------|
-| **Screen** | `PreviewHost` — записывает кадры `Map<Int, Int>` вместо зажигания LED | Да |
-| **Glyph** | `ScriptRunner` → настоящий `GlyphRenderer` | Нет |
-
-Первый использует `DeviceProfileFactory.forPreview()` — раскладку Phone (3a) как
-универсальную сетку, чтобы превью работало на любом телефоне. Настоящие светодиоды
-этот профиль никогда не используют.
+Сессия глифов принадлежит тому экрану, который сейчас впереди: `MainActivity` закрывает её в
+`onStop()`, когда выключен сервис, — а `CustomAnimationsActivity` открывает сессию у себя и
+возвращает её ровно в том виде, в каком нашёл. В `onStop()` студия гасит текущий прогон:
+выход из студии не должен оставить полосу горящей.
 
 ### GlyphFeatureCoordinator
 
-Координирует взаимодействие между различными функциями глифов.
+Единственный арбитр полосы LED. За ним стоит `Mutex` и единственный в проекте enum
+`GlyphFeature` — семь значений, которые перечисляют всё, что умеет зажигать глифы. Одновременно
+полосу держит ровно один владелец; текущий публикуется в `currentOwner: StateFlow<GlyphFeature?>`.
 
 **Основные обязанности:**
-- Приоритизация функций
+- Приоритизация фич
 - Разрешение конфликтов
-- Координация сервисов
+- Выдача и освобождение полосы
+
+`withStrip(owner, preempt, timeoutMs, onRelease, block): T?` — это и есть тот способ, которым
+сервис берёт полосу, запускает анимацию и отдаёт полосу назад. Освобождение стоит в `finally`
+внутри самого `withStrip`, потому что вернувшийся, бросивший или отменённый сервис оставил бы
+захваченным не просто свет, а сам `Mutex` — и `release` игнорирует того, кто уже не владелец.
+`preempt = true` для того, что пользователь только что сделал (разблокировка, тап, выключение
+экрана): текущий владелец не смещается, а получает команду прекратить рисование и сам
+отпускает полосу в своём `finally`. `null` означает, что полоса не была взята, — вызывающий
+отличает это от «взял и отработал» без собственного флага.
 
 ## Фоновые сервисы
 
@@ -294,43 +405,70 @@ class GlyphManager @Inject constructor(
 | PulseLockService | Анимации при включении | Bound |
 | QuietHoursService | Тихие часы | Scheduled |
 | ScreenOffGlyphService | Анимации при выключении | Bound |
+| MusicVisualizerService | Визуализатор музыки | Foreground (MediaProjection) |
+
+Сопоставление «фича → сервис → стоп-действие → переключатель настройки» лежит не в сервисах,
+а в `services/FeatureSpec.kt`: `FeatureSpec` описывает фичу одной записью, а `FeatureSpecs`
+(`all`, `of(feature)`, `allFor(features)`) — единственный список. `FeatureServiceController`
+берёт оттуда всё, кроме решения *что* делать. `FeatureSpec.isRunnable(settings)` отвечает сразу
+на оба вопроса, которые задаёт себе каждый сервис: включён ли мой собственный переключатель и
+включён ли главный глиф-сервис.
 
 ## Навигация
 
-Используется Navigation Compose с типобезопасной навигацией:
+Используется Navigation Compose. Маршруты — константы в `ui/navigation/Routes.kt`, а весь граф
+живёт в одном месте, `GlyphNavHost`:
 
 ```kotlin
 @Composable
-fun AppNavGraph(navController: NavHostController) {
-    NavHost(navController, startDestination = "settings") {
-        composable("settings") { SettingsScreen() }
-        composable("theme") { ThemeSettingsScreen() }
-        composable("font") { FontSettingsScreen() }
+fun GlyphNavHost(
+    navController: NavHostController = rememberNavController(),
+) {
+    NavHost(navController, startDestination = Routes.HOME) {
+        composable(Routes.HOME) { HomeScreen() }
+        composable(Routes.SETTINGS) { SettingsScreen(...) }
+        composable(Routes.THEME_SETTINGS) { ThemeSettingsScreen(...) }
+        composable(Routes.FONT_SETTINGS) { FontSettingsScreen(...) }
         // ...
     }
 }
 ```
+
+Хост не принимает зависимостей: каждый экран берёт нужное из композиции — хранилище из
+`LocalSettingsRepository`, `ViewModel` из `hiltViewModel()`. Поэтому экран остаётся достижимым
+из превью или теста без этого хоста.
 
 ## Управление состоянием
 
 ### StateFlow для реактивного состояния
 
 ```kotlin
-class SettingsViewModel @Inject constructor(
-    private val repository: SettingsRepository
+@HiltViewModel
+class HomeViewModel @Inject constructor(
+    @param:ApplicationContext private val context: Context,
+    private val settingsRepository: SettingsRepository,
+    private val glyphManager: GlyphManager,
+    val glyphAnimationManager: GlyphAnimationManager,
+    private val serviceController: FeatureServiceController,
+    private val playbackAudioSource: PlaybackAudioSource,
 ) : ViewModel() {
-    
-    private val _uiState = MutableStateFlow(SettingsUiState())
-    val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
-    
-    fun updateTheme(theme: AppThemeStyle) {
-        viewModelScope.launch {
-            repository.saveTheme(theme)
-            _uiState.update { it.copy(theme = theme) }
-        }
-    }
+
+    private val _uiState = MutableStateFlow(HomeUiState())
+    val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    private val _messages = Channel<String>(Channel.BUFFERED)
+    val messages: Flow<String> = _messages.receiveAsFlow()
 }
 ```
+
+`HomeUiState` и `FeatureUiState` живут в `ui/state/FeatureModels.kt`. Всплывающие сообщения —
+одноразовые события, а не состояние, поэтому они идут через `Channel`, а не через
+`StateFlow`: держать Toast в состоянии означало бы показать его снова при каждой
+рекомпозиции.
+
+`glyphAnimationManager` у `HomeViewModel` — публичный: диалоги фич — обычные composable, и
+`hiltViewModel()` резолвится внутри диалога так же, как внутри экрана. Это и есть точка
+инъекции, которой пользуются их кнопки «Test» (см. `rememberGlyphAnimationManager()`).
 
 ### sealed class для представления состояний
 
@@ -345,32 +483,32 @@ sealed class GlyphState {
 
 ## Обработка ошибок
 
-### Глобальный обработчик ошибок
+### Логирование
+
+`utils/LoggingManager.kt` — обычный `object`, а не инъецируемая зависимость: он пишет в
+файл, а не хранит состояние приложения. `initialize(context)` вызывается при старте, дальше
+всё через статические методы, а сам лог включается и выключается пользователем.
 
 ```kotlin
-class LoggingManager @Inject constructor() {
-    fun logError(tag: String, message: String, throwable: Throwable?)
-    fun logSessionState(state: String, details: String)
-    fun logSDKOperation(operation: String, result: String)
+object LoggingManager {
+    fun initialize(context: Context)
+    fun setLoggingEnabled(enabled: Boolean)
+    fun isLoggingEnabled(): Boolean
+    fun log(tag: String, message: String)
+    fun logSDKOperation(operation: String, details: String)
+    fun logSessionState(state: String, details: String = "")
+    fun logFrameOperation(operation: String, channels: List<Int>, brightness: Int? = null)
+    fun exportLogs(): String
+    // ...
 }
 ```
 
 ### Восстановление после ошибок
 
-```kotlin
-private fun handleError(error: Exception) {
-    when (error) {
-        is GlyphException -> {
-            when (error.message) {
-                "Session not active" -> attemptReconnection()
-                "Service not connected" -> attemptReconnection()
-                else -> cleanup()
-            }
-        }
-        else -> cleanup()
-    }
-}
-```
+`GlyphManager` сам следит за сессией SDK и переподключается сам; `GlyphRenderer` глотает ошибку
+отрисовки, логирует её и гасит полосу вместо того, чтобы выпустить её в сервис. Разбор по
+сообщениям, который раньше прятался в обработчике, теперь живёт там, где возникла ошибка, —
+и не дублируется в каждом вызывающем.
 
 ## Масштабируемость
 
@@ -379,9 +517,11 @@ private fun handleError(error: Exception) {
 Приложение структурировано по функциональным модулям:
 - glyph — управление_glyph interface
   - glyph/script — движок пользовательских анимаций на Lua
-- services — фоновые сервисы
+  - glyph/animations — встроенные анимации и общий раннер
+  - glyph/audio — визуализатор музыки
+- services — фоновые сервисы и реестр фич
 - ui — пользовательский интерфейс
-- data — слой данных
+- data — хранилище настроек и скрипты пользователя
 
 Это позволяет:
 - Легко добавлять новые функции
@@ -390,14 +530,19 @@ private fun handleError(error: Exception) {
 
 ### Расширяемость
 
-Новые функции добавляются через:
-1. Создание нового сервиса в `services/`
-2. Добавление UI компонентов в `ui/components/`
-3. Обновление координатора `GlyphFeatureCoordinator`
+Новая функция добавляется в проекте четырьмя точками, а не двенадцатью:
+1. Новое значение в `GlyphFeature` (`glyph/GlyphFeatureCoordinator.kt`) — единственный enum в проекте
+2. Новая запись `FeatureSpec` в `services/FeatureSpec.kt`: сервис, стоп-действие, пара переключателей, сообщение
+3. Сам сервис в `services/`, берущий полосу через `GlyphFeatureCoordinator.withStrip(...)` и ограничивающий прогон через `GlyphAnimationManager.runCapped(...)`
+4. Карточка и диалог в `ui/components/`, читающие настройки из `LocalSettingsRepository`
+
+Сопоставление фичи с сервисом и переключателем лежит в `FeatureSpecs`; `FeatureServiceController`
+только исполняет, а `GlyphFeatureCoordinator` только арбитрирует — ни один из них не знает,
+какая именно фича включена.
 
 Новые возможности для пользователя добавляются расширением таблицы `glyph`
 в `GlyphLuaApi.kt` — это единственное место, где описан весь язык скрипта.
 
 ---
 
-*Документация актуальна для версии 1.0.30*
+*Документация актуальна для версии 1.0.31*

@@ -27,7 +27,8 @@ import android.text.format.DateFormat
 
 import com.bleelblep.glyphsharge.ui.components.*
 import com.bleelblep.glyphsharge.ui.components.layout.SettingsScaffold
-import com.bleelblep.glyphsharge.data.SettingsRepository
+import com.bleelblep.glyphsharge.ui.theme.LocalSettingsRepository
+import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -40,8 +41,9 @@ import com.bleelblep.glyphsharge.R
 @Composable
 fun QuietHoursSettingsScreen(
     onBackClick: () -> Unit,
-    settingsRepository: SettingsRepository
 ) {
+    // Read from the composition: the nav host holds no store to hand down.
+    val settingsRepository = LocalSettingsRepository.current
     val context = LocalContext.current
 
     val quietHoursEnabled by remember { 
@@ -50,8 +52,8 @@ fun QuietHoursSettingsScreen(
     
     // Update state when settings change
     LaunchedEffect(Unit) {
-        // This will re-read the enabled state when the screen is opened
-        // The toggle is now controlled from the main settings screen
+        // Re-reads the enabled state when the screen is opened; the toggle
+        // itself lives on the main settings screen.
     }
     var startHour by remember {
         mutableIntStateOf(settingsRepository.getQuietHoursStartHour())
@@ -286,6 +288,9 @@ private fun TimeSettingCard(
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     var showTimePicker by remember { mutableStateOf(false) }
 
     Card(
@@ -301,7 +306,7 @@ private fun TimeSettingCard(
                 .fillMaxWidth()
                 .padding(20.dp)
                 .clickable {
-                    HapticUtils.triggerLightFeedback(haptic, context)
+                    HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                     showTimePicker = true
                 },
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -359,6 +364,9 @@ private fun TimePickerDialog(
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     
     // Follow system clock format (12h or 24h)
     val is24Hour = DateFormat.is24HourFormat(context)
@@ -431,7 +439,7 @@ private fun TimePickerDialog(
             ) {
                 OutlinedButton(
                     onClick = { 
-                        HapticUtils.triggerLightFeedback(haptic, context)
+                        HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                         onDismiss() 
                     },
                     modifier = Modifier.weight(1f).height(48.dp),
@@ -450,7 +458,7 @@ private fun TimePickerDialog(
                 
                 Button(
                     onClick = { 
-                        HapticUtils.triggerMediumFeedback(haptic, context)
+                        HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                         onTimeSelected(timePickerState.hour, timePickerState.minute)
                     },
                     modifier = Modifier.weight(1f).height(48.dp),

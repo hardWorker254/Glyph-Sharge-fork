@@ -16,6 +16,24 @@
     <string name="charging_animation_button_enable">Enable</string>
     <string name="charging_animation_toast">Please enable the Glyph service first</string>
 
+    <!-- VPN Connected -->
+    <string name="vpn_connected_title">VPN Connected</string>
+    <string name="vpn_connected_description">Play a glyph sequence when a VPN connects.</string>
+    <string name="vpn_connected_toast">Please enable the Glyph service first</string>
+    <string name="vpn_connected_button_test">Test VPN Connected</string>
+    <string name="vpn_connected_dialog_subtitle">Light up when the VPN connects</string>
+    <string name="vpn_connected_how_it_works_title">How it works:</string>
+    <string name="vpn_connected_how_it_works_description">• Triggers once when a VPN connection is established.\n• Plays your selected animation.\n• Nothing plays if a VPN is already up when the feature starts.\n• Automatically suppressed during Quiet Hours.</string>
+    <string name="vpn_connected_configure_title">Configure</string>
+    <string name="vpn_connected_configure_subtitle">Customize VPN Connected behavior</string>
+    <string name="vpn_connected_animation_title">Select Animation</string>
+    <string name="vpn_connected_animation_test">Test </string>
+    <string name="vpn_connected_duration_title">Duration</string>
+    <string name="vpn_connected_duration_value">%d s</string>
+    <string name="vpn_connected_duration_min">1s</string>
+    <string name="vpn_connected_duration_max">10s</string>
+    <string name="vpn_connected_button_enable">Enable</string>
+
     <!-- Power Peek -->
     <string name="power_peek_title">Power Peek</string>
     <string name="power_peek_description">Peek at your battery life with a quick shake.</string>

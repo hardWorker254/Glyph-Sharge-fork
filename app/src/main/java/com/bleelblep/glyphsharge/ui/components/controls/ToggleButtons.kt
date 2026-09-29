@@ -47,6 +47,7 @@ import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.ui.theme.AppThemeStyle
 import com.bleelblep.glyphsharge.ui.theme.FontVariant
 import com.bleelblep.glyphsharge.ui.theme.LocalThemeState
+import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import com.bleelblep.glyphsharge.ui.theme.NothingGray
 import com.bleelblep.glyphsharge.ui.theme.NothingRed
 import com.bleelblep.glyphsharge.ui.theme.NothingViolate
@@ -82,6 +83,9 @@ fun MorphingToggleButton(
 ) {
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
     val themeState = LocalThemeState.current
 
@@ -148,7 +152,7 @@ fun MorphingToggleButton(
             ) {
                 try {
                     isPressed = true
-                    HapticUtils.triggerLightFeedback(haptic, context)
+                    HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                     onCheckedChange(!checked)
                     scope.launch {
                         delay(120)
@@ -188,6 +192,9 @@ fun ThreeStateFontMorphingButton(
 ) {
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
     val themeState = LocalThemeState.current
 
@@ -278,7 +285,7 @@ fun ThreeStateFontMorphingButton(
             ) {
                 try {
                     isPressed = true
-                    HapticUtils.triggerLightFeedback(haptic, context)
+                    HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                     onVariantSelected(nextVariant)
                     scope.launch {
                         delay(120)

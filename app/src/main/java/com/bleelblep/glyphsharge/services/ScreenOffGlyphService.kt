@@ -20,11 +20,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Foreground service that listens for the device screen turning OFF and plays the
@@ -40,6 +37,14 @@ class ScreenOffGlyphService : Service() {
         const val ACTION_START = "com.bleelblep.glyphsharge.SCREEN_OFF_START"
         const val ACTION_STOP = "com.bleelblep.glyphsharge.SCREEN_OFF_STOP"
     }
+
+    /**
+     * This service's own registry entry, which owns the run gate — my switch
+     * and the master Glyph switch. The screen-off event arrives even while the
+     * feature is off, so the handler and `onStartCommand` have to agree on when
+     * this service is allowed to draw.
+     */
+    private val spec = FeatureSpecs.of(GlyphFeature.SCREEN_OFF)
 
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var glyphAnimationManager: GlyphAnimationManager
@@ -57,9 +62,7 @@ class ScreenOffGlyphService : Service() {
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
     // Lifecycle
-    // ──────────────────────────────────────────────────────────────────────────
 
     override fun onCreate() {
         super.onCreate()
@@ -83,9 +86,7 @@ class ScreenOffGlyphService : Service() {
             return START_NOT_STICKY
         }
 
-        if (!settingsRepository.isScreenOffFeatureEnabled() ||
-            !settingsRepository.getGlyphServiceEnabled()
-        ) {
+        if (!spec.isRunnable(settingsRepository)) {
             shutDown()
             return START_NOT_STICKY
         }
@@ -105,23 +106,17 @@ class ScreenOffGlyphService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        if (!settingsRepository.isScreenOffFeatureEnabled() ||
-            !settingsRepository.getGlyphServiceEnabled()
-        ) return
+        if (!spec.isRunnable(settingsRepository)) return
 
         val restart = Intent(this, ScreenOffGlyphService::class.java).apply { action = ACTION_START }
         startForegroundService(restart)
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
     // Core sequence
-    // ──────────────────────────────────────────────────────────────────────────
 
     private fun playScreenOffSequence() {
         scope.launch {
-            if (!settingsRepository.isScreenOffFeatureEnabled() ||
-                !settingsRepository.getGlyphServiceEnabled()
-            ) {
+            if (!spec.isRunnable(settingsRepository)) {
                 Log.d(TAG, "Feature disabled – skipping sequence")
                 return@launch
             }
@@ -131,52 +126,46 @@ class ScreenOffGlyphService : Service() {
                 return@launch
             }
 
-            // Symmetric with Glow Gate: locking the phone is a thing the user
-            // just did, so it interrupts a leftover animation rather than
-            // being skipped by it.
-            if (!featureCoordinator.acquireNow(GlyphFeature.SCREEN_OFF)) {
-                Log.d(TAG, "Strip still busy after interrupt (owner: ${featureCoordinator.currentOwner.value}) – skipping")
-                return@launch
-            }
-
-            val animationId = settingsRepository.getScreenOffAnimationId()
-            val duration = glyphAnimationManager.runCapMs(
-                animationId,
-                settingsRepository.getScreenOffDuration()
-            )
-
-            Log.d(TAG, "Sequence start – anim=$animationId duration=${duration}ms")
-
-
-            startForeground(NOTIF_ID, buildNotification())
-
             try {
-                val animJob = launch(Dispatchers.Default) {
-                    glyphAnimationManager.playScreenOffAnimation()
+                // Locking the phone is a thing the user just did, so it interrupts
+                // a leftover animation rather than being skipped by it.
+                //
+                // `onRelease` runs `stopForegroundCompat()` after the strip is
+                // handed back, and on the throwing path as well as the normal
+                // one. A failed acquisition returns before the block runs, so
+                // the service stays foregrounded from `onStartCommand`.
+                val played = featureCoordinator.withStrip(
+                    owner = GlyphFeature.SCREEN_OFF,
+                    preempt = true,
+                    onRelease = { stopForegroundCompat() }
+                ) {
+                    val animationId = settingsRepository.getScreenOffAnimationId()
+                    val duration = glyphAnimationManager.runCapMs(
+                        animationId,
+                        settingsRepository.getScreenOffDuration()
+                    )
+
+                    Log.d(TAG, "Sequence start – anim=$animationId duration=${duration}ms")
+
+                    startForeground(NOTIF_ID, buildNotification())
+
+                    glyphAnimationManager.runCapped(
+                        capMs = duration,
+                        onTimeout = { Log.d(TAG, "Duration limit reached – stopping animation") }
+                    ) {
+                        glyphAnimationManager.playScreenOffAnimation()
+                    }
                 }
-
-                val watchdogJob = launch {
-                    delay(duration.milliseconds)
-                    Log.d(TAG, "Duration limit reached – stopping animation")
-                    animJob.cancelAndJoin()
-                    glyphAnimationManager.stopAnimations()
+                if (played == null) {
+                    Log.d(TAG, "Strip still busy after interrupt (owner: ${featureCoordinator.currentOwner.value}) – skipping")
                 }
-
-                animJob.join()
-                watchdogJob.cancel()
-
             } catch (e: Exception) {
                 Log.e(TAG, "Error in Screen Off sequence", e)
-            } finally {
-                featureCoordinator.release(GlyphFeature.SCREEN_OFF)
-                stopForegroundCompat()
             }
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
     // Notification helpers
-    // ──────────────────────────────────────────────────────────────────────────
 
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
@@ -195,9 +184,7 @@ class ScreenOffGlyphService : Service() {
             .setOngoing(true)
             .build()
 
-    // ──────────────────────────────────────────────────────────────────────────
     // Compat helpers
-    // ──────────────────────────────────────────────────────────────────────────
 
     private fun shutDown() {
         stopForegroundCompat()

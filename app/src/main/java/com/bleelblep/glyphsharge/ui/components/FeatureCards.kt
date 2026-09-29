@@ -11,25 +11,18 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.bleelblep.glyphsharge.R
-import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.ui.components.cards.WideFeatureCardWithToggle
+import com.bleelblep.glyphsharge.ui.theme.LocalSettingsRepository
 
 /**
  * The six feature cards shown on the home screen.
  *
- * Each card used to keep its own `isEnabled` state, read the repository on
- * every composition and write to it from three different places — the toggle,
- * the confirmation dialog and the settings dialog. State now arrives as
- * [isEnabled] and leaves through [onEnabledChange], so the repository is
- * touched only by whoever owns the state.
+ * State arrives as `isEnabled` and leaves through [onEnabledChange], which both
+ * persists the preference and starts or stops the backing service, so the
+ * store is touched only by whoever owns the state.
  *
- * [onEnabledChange] covers both persisting the preference and starting or
- * stopping the backing service, which is why the cards no longer take a
- * separate enable and disable callback.
- *
- * The repository is still threaded through because each card's configuration
- * dialog reads and writes per-feature settings such as durations and
- * thresholds.
+ * The store itself is read from [LocalSettingsRepository] by the configuration
+ * dialog, which makes a card callable on its own.
  */
 
 @Composable
@@ -38,7 +31,6 @@ fun PowerPeekCard(
     isServiceActive: Boolean,
     onEnabledChange: (Boolean) -> Unit,
     onTestPowerPeek: () -> Unit,
-    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
     title: String = stringResource(id = R.string.power_peek_title),
     description: String = stringResource(id = R.string.power_peek_description),
@@ -69,8 +61,7 @@ fun PowerPeekCard(
             onTestPowerPeek = { onTestPowerPeek(); showDialog = false },
             onEnablePowerPeek = { onEnabledChange(true); showDialog = false },
             onDisablePowerPeek = { onEnabledChange(false); showDialog = false },
-            onDismiss = { showDialog = false },
-            settingsRepository = settingsRepository
+            onDismiss = { showDialog = false }
         )
     }
 }
@@ -81,7 +72,6 @@ fun PulseLockCard(
     isServiceActive: Boolean,
     onEnabledChange: (Boolean) -> Unit,
     onTestPulseLock: () -> Unit,
-    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
     title: String = stringResource(id = R.string.pulse_lock_title),
     description: String = stringResource(id = R.string.pulse_lock_description),
@@ -112,8 +102,7 @@ fun PulseLockCard(
             onTestPulseLock = { onTestPulseLock(); showDialog = false },
             onEnablePulseLock = { onEnabledChange(true); showDialog = false },
             onDisablePulseLock = { onEnabledChange(false); showDialog = false },
-            onDismiss = { showDialog = false },
-            settingsRepository = settingsRepository
+            onDismiss = { showDialog = false }
         )
     }
 }
@@ -124,7 +113,6 @@ fun LowBatteryAlertCard(
     isServiceActive: Boolean,
     onEnabledChange: (Boolean) -> Unit,
     onTestAlert: () -> Unit,
-    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
     title: String = stringResource(id = R.string.low_battery_alert_title),
     description: String = stringResource(id = R.string.low_battery_alert_description),
@@ -132,6 +120,7 @@ fun LowBatteryAlertCard(
     iconSize: Int = 32,
 ) {
     val context = LocalContext.current
+    val settingsRepository = LocalSettingsRepository.current
     var showDialog by remember { mutableStateOf(false) }
     val toastText = stringResource(id = R.string.low_battery_alert_toast)
 
@@ -154,8 +143,8 @@ fun LowBatteryAlertCard(
         LowBatteryAlertConfirmationDialog(
             onTestAlert = { onTestAlert(); showDialog = false },
             // Enabling closes the dialog and returns to the home screen; the
-            // configuration dialog is reached through the dialog's own
-            // settings button and is owned by the confirmation dialog.
+            // configuration dialog is reached through the confirmation's own
+            // settings button.
             onEnableAlert = { config ->
                 settingsRepository.saveLowBatteryEnabled(config.isEnabled)
                 settingsRepository.saveLowBatteryThreshold(config.threshold)
@@ -168,8 +157,7 @@ fun LowBatteryAlertCard(
                 onEnabledChange(false)
                 showDialog = false
             },
-            onDismiss = { showDialog = false },
-            settingsRepository = settingsRepository
+            onDismiss = { showDialog = false }
         )
     }
 }
@@ -180,7 +168,6 @@ fun ScreenOffCard(
     isServiceActive: Boolean,
     onEnabledChange: (Boolean) -> Unit,
     onTestScreenOff: () -> Unit,
-    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
     title: String = stringResource(id = R.string.screen_off_title),
     description: String = stringResource(id = R.string.screen_off_description),
@@ -217,8 +204,7 @@ fun ScreenOffCard(
             onDisable = {
                 onEnabledChange(false)
                 showConfirmDialog = false
-            },
-            settingsRepository = settingsRepository
+            }
         )
     }
 }
@@ -229,7 +215,6 @@ fun NfcGlyphCard(
     isServiceActive: Boolean,
     onEnabledChange: (Boolean) -> Unit,
     onTestNfc: () -> Unit,
-    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
     title: String = stringResource(id = R.string.nfc_glyph_title),
     description: String = stringResource(id = R.string.nfc_glyph_description),
@@ -237,6 +222,7 @@ fun NfcGlyphCard(
     iconSize: Int = 32,
 ) {
     val context = LocalContext.current
+    val settingsRepository = LocalSettingsRepository.current
     var showConfirmDialog by remember { mutableStateOf(false) }
     val toastText = stringResource(id = R.string.nfc_glyph_toast)
 
@@ -266,8 +252,7 @@ fun NfcGlyphCard(
                 onEnabledChange(false)
                 showConfirmDialog = false
             },
-            onDismiss = { showConfirmDialog = false },
-            settingsRepository = settingsRepository
+            onDismiss = { showConfirmDialog = false }
         )
     }
 }
@@ -278,7 +263,6 @@ fun ChargingAnimationCard(
     isServiceActive: Boolean,
     onEnabledChange: (Boolean) -> Unit,
     onTestAnimation: () -> Unit,
-    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
     title: String = stringResource(id = R.string.charging_animation_title),
     description: String = stringResource(id = R.string.charging_animation_description),
@@ -286,6 +270,7 @@ fun ChargingAnimationCard(
     iconSize: Int = 32,
 ) {
     val context = LocalContext.current
+    val settingsRepository = LocalSettingsRepository.current
     var showDialog by remember { mutableStateOf(false) }
     val toastText = stringResource(id = R.string.charging_animation_toast)
 
@@ -309,8 +294,7 @@ fun ChargingAnimationCard(
             onTestAnimation = { onTestAnimation(); showDialog = false },
             onEnableAnimation = { onEnabledChange(true); showDialog = false },
             onDisableAnimation = { onEnabledChange(false); showDialog = false },
-            onDismiss = { showDialog = false },
-            settingsRepository = settingsRepository
+            onDismiss = { showDialog = false }
         )
     }
 }
@@ -329,7 +313,6 @@ fun MusicVisualizerCard(
     isServiceActive: Boolean,
     onEnabledChange: (Boolean) -> Unit,
     onTestAnimation: () -> Unit,
-    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier,
     title: String = stringResource(id = R.string.music_viz_title),
     description: String = stringResource(id = R.string.music_viz_description),
@@ -337,6 +320,7 @@ fun MusicVisualizerCard(
     iconSize: Int = 32,
 ) {
     val context = LocalContext.current
+    val settingsRepository = LocalSettingsRepository.current
     var showDialog by remember { mutableStateOf(false) }
     val toastText = stringResource(id = R.string.music_viz_toast)
 
@@ -360,8 +344,7 @@ fun MusicVisualizerCard(
             onTestAnimation = { onTestAnimation(); showDialog = false },
             onEnableAnimation = { onEnabledChange(true); showDialog = false },
             onDisableAnimation = { onEnabledChange(false); showDialog = false },
-            onDismiss = { showDialog = false },
-            settingsRepository = settingsRepository
+            onDismiss = { showDialog = false }
         )
     }
 }

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import com.bleelblep.glyphsharge.R
 import androidx.compose.ui.res.painterResource
 import com.bleelblep.glyphsharge.ui.theme.LocalThemeState
+import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import androidx.compose.ui.graphics.painter.Painter
 import com.bleelblep.glyphsharge.ui.theme.AppThemeStyle
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -77,6 +78,9 @@ private fun ThemeResetCard(
     iconSize: Int = 32
 ) {
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
     val themeState = LocalThemeState.current
     val coroutineScope = rememberCoroutineScope()
@@ -100,7 +104,7 @@ private fun ThemeResetCard(
             },
         onClick = {
             isPressed = true
-            HapticUtils.triggerLightFeedback(haptic, context)
+            HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
             onClick()
             // Reset pressed state after animation
             coroutineScope.launch {
@@ -153,6 +157,9 @@ fun ThemeSettingsScreen(
 ) {
     val themeState = LocalThemeState.current
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
 
     SettingsScaffold(
@@ -179,7 +186,7 @@ fun ThemeSettingsScreen(
                         description = stringResource(id = R.string.theme_mode_light_desc),
                         icon = painterResource(id = R.drawable.light_mode_24px),
                         onClick = { 
-                            HapticUtils.triggerMediumFeedback(haptic, context)
+                            HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                             themeState.setDarkTheme(false) 
                         },
                         modifier = Modifier.weight(1f),
@@ -192,7 +199,7 @@ fun ThemeSettingsScreen(
                         description = stringResource(id = R.string.theme_mode_dark_desc),
                         icon = painterResource(id = R.drawable.dark_mode_24px),
                         onClick = { 
-                            HapticUtils.triggerMediumFeedback(haptic, context)
+                            HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                             themeState.setDarkTheme(true) 
                         },
                         modifier = Modifier.weight(1f),
@@ -220,7 +227,7 @@ fun ThemeSettingsScreen(
                         description = stringResource(id = R.string.theme_style_y2k_desc),
                         icon = painterResource(id = R.drawable.palette_24px),
                         onClick = { 
-                            HapticUtils.triggerMediumFeedback(haptic, context)
+                            HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                             themeState.setThemeStyle(AppThemeStyle.Y2K) 
                         },
                         modifier = Modifier.weight(1f),
@@ -233,7 +240,7 @@ fun ThemeSettingsScreen(
                         description = stringResource(id = R.string.theme_style_neon_desc),
                         icon = painterResource(id = R.drawable.invert_colors_24px),
                         onClick = { 
-                            HapticUtils.triggerMediumFeedback(haptic, context)
+                            HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                             themeState.setThemeStyle(AppThemeStyle.NEON) 
                         },
                         modifier = Modifier.weight(1f),
@@ -251,7 +258,7 @@ fun ThemeSettingsScreen(
                         description = stringResource(id = R.string.theme_style_nothing_desc),
                         icon = painterResource(id = R.drawable.dark_mode_24px),
                         onClick = { 
-                            HapticUtils.triggerMediumFeedback(haptic, context)
+                            HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                             themeState.setThemeStyle(AppThemeStyle.AMOLED) 
                         },
                         modifier = Modifier.weight(1f),
@@ -264,7 +271,7 @@ fun ThemeSettingsScreen(
                         description = stringResource(id = R.string.theme_style_pastel_desc),
                         icon = painterResource(id = R.drawable.light_mode_24px),
                         onClick = { 
-                            HapticUtils.triggerMediumFeedback(haptic, context)
+                            HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                             themeState.setThemeStyle(AppThemeStyle.PASTEL) 
                         },
                         modifier = Modifier.weight(1f),
@@ -282,7 +289,7 @@ fun ThemeSettingsScreen(
                         description = stringResource(id = R.string.theme_style_classic_desc),
                         icon = painterResource(id = R.drawable.palette_24px),
                         onClick = { 
-                            HapticUtils.triggerMediumFeedback(haptic, context)
+                            HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                             themeState.setThemeStyle(AppThemeStyle.CLASSIC) 
                         },
                         modifier = Modifier.weight(1f),
@@ -295,7 +302,7 @@ fun ThemeSettingsScreen(
                         description = stringResource(id = R.string.theme_style_expressive_desc),
                         icon = painterResource(id = R.drawable.extension_24px),
                         onClick = { 
-                            HapticUtils.triggerMediumFeedback(haptic, context)
+                            HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                             themeState.setThemeStyle(AppThemeStyle.EXPRESSIVE) 
                         },
                         modifier = Modifier.weight(1f),
@@ -311,7 +318,7 @@ fun ThemeSettingsScreen(
                     description = stringResource(id = R.string.theme_reset_desc),
                     icon = painterResource(id = R.drawable.palette_24px),
                     onClick = { 
-                        HapticUtils.triggerMediumFeedback(haptic, context)
+                        HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                         // Reset to default Classic theme and light mode
                         themeState.setThemeStyle(AppThemeStyle.CLASSIC)
                         themeState.setDarkTheme(false) // Always set light mode

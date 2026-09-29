@@ -45,18 +45,18 @@ internal object GlyphLuaApi {
     fun install(globals: Globals, session: ScriptSession) {
         val glyph = LuaTable()
 
-        // ── Constants ────────────────────────────────────────────────────────
+        // Constants
         glyph.set("MAX", LuaValue.valueOf(GLYPH_MAX_BRIGHTNESS))
         glyph.set("device", LuaValue.valueOf(session.deviceName()))
 
-        // ── Channel groups ───────────────────────────────────────────────────
+        // Channel groups
         val channels = LuaTable()
         session.groupNames().forEach { name ->
             channels.set(name, toLuaArray(session.group(name).orEmpty()))
         }
         glyph.set("ch", channels)
 
-        // ── Live state ────────────────────────────────────────────────────────
+        // Live state
         // These change while a script runs, so they cannot be plain table
         // fields: they are resolved on every read by [liveValueOf], which the
         // single `__index` metamethod installed at the bottom of this function
@@ -67,11 +67,11 @@ internal object GlyphLuaApi {
         // the duration limit instead of stopping when the user presses Stop.
         //
         // A plain function rather than a table of its own because a table
-        // carries exactly one metatable: `glyph.setmetatable(live)` here was
-        // silently overwritten by the `setmetatable(meta)` at the bottom of
-        // this function, and nothing ever read `live`, so every live value
-        // resolved to nil — `glyph.running` was always falsy and
-        // `glyph.batteryBar()` had no battery to draw.
+        // carries exactly one metatable: `glyph.setmetatable(live)` would be
+        // overwritten by the `setmetatable(meta)` at the bottom of this
+        // function, and nothing would read `live`, so every live value would
+        // resolve to nil — `glyph.running` always falsy and `glyph.batteryBar()`
+        // with no battery to draw.
         fun liveValueOf(key: String): LuaValue = when (key) {
             "running" -> LuaValue.valueOf(session.isRunning())
             "battery" -> LuaValue.valueOf(session.batteryPercent())
@@ -79,7 +79,7 @@ internal object GlyphLuaApi {
             else -> LuaValue.NIL
         }
 
-        // ── Audio ────────────────────────────────────────────────────────────
+        // Audio
         // The music visualiser's input. A separate table rather than more
         // fields on `glyph`, because a script that reads it has to be able to
         // tell "no music is playing" (every value 0, `active` false) from "this
@@ -111,7 +111,7 @@ internal object GlyphLuaApi {
         glyph.set("time", luaFunction("time") { LuaValue.valueOf(session.elapsedMs().toInt()) })
         glyph.set("frame", luaFunction("frame") { LuaValue.valueOf(session.frames) })
 
-        // ── Drawing ──────────────────────────────────────────────────────────
+        // Drawing
         glyph.set(
             "set",
             luaFunction("set") { args ->
@@ -170,7 +170,7 @@ internal object GlyphLuaApi {
             }
         )
 
-        // ── Movement ─────────────────────────────────────────────────────────
+        // Movement
         glyph.set(
             "sweep",
             luaFunction("sweep") { args ->
@@ -217,7 +217,7 @@ internal object GlyphLuaApi {
             }
         )
 
-        // ── Randomness and maths ─────────────────────────────────────────────
+        // Randomness and maths
         glyph.set(
             "rnd",
             luaFunction("rnd") { args ->
@@ -255,7 +255,7 @@ internal object GlyphLuaApi {
             }
         )
 
-        // ── Control and output ───────────────────────────────────────────────
+        // Control and output
         glyph.set(
             "exit",
             luaFunction("exit") {
@@ -271,7 +271,7 @@ internal object GlyphLuaApi {
             }
         )
 
-        // ── Which service this script is for ────────────────────────────────
+        // Which service this script is for
         // `glyph.target = "music"` is a declaration, not a setting: it says
         // which picker should offer the script. `__newindex` fires only for a
         // key that is not already there, which is exactly the once-at-the-top
@@ -301,9 +301,9 @@ internal object GlyphLuaApi {
         // script's own declarations.
         //
         // LuaJ calls a function-valued `__index` as __index(table, key), so the
-        // key is argument *2*. Reading argument 1 instead looked the `glyph`
+        // key is argument *2*. Reading argument 1 instead looks the `glyph`
         // table itself up in `declared`, which is why reading `glyph.target`
-        // back after declaring it came back nil.
+        // back after declaring it would come back nil.
         //
         // Live state is consulted first so a declaration cannot shadow a
         // built-in: a script that assigns `glyph.running` must not be able to

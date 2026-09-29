@@ -18,15 +18,19 @@
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.NFC" />
+    <!-- Watching the VPN transport: Android broadcasts no "VPN connected"
+         event, so the feature registers a NetworkCallback for TRANSPORT_VPN,
+         which only needs the network state, not the network itself. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- The visualiser reads the audio other apps are playing through a
          MediaProjection + AudioRecord pair, which Android gates behind the
          microphone permission. The audio becomes a spectrum in memory and is
          never stored.
 
-         FOREGROUND_SERVICE_MEDIA_PROJECTION goes with it: a token can only be
-         used by a foreground service of the mediaProjection type, and that is
-         the only state this feature ever runs in. -->
+         FOREGROUND_SERVICE_MEDIA_PROJECTION goes with it: a projection token
+         can only be used by a foreground service of the mediaProjection
+         type. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
@@ -83,9 +87,10 @@
             </intent-filter>
         </activity>
 
-        <!-- Animation studio: its own back stack and its own file pickers, so it
-             is a separate Activity rather than a route in the settings NavHost.
-             Not exported: nothing outside the app may open a code editor. -->
+        <!-- Animation studio: a separate Activity rather than a route in the
+             settings NavHost, because it has its own back stack and its own
+             system file pickers. Not exported: nothing outside the app may
+             open a code editor. -->
         <activity
             android:name=".CustomAnimationsActivity"
             android:exported="false"
@@ -113,7 +118,6 @@
                 android:value="This service uses the accelerometer to provide the PowerPeek feature when the screen is off." />
         </service>
 
-        <!-- Pulse Lock foreground service -->
         <service
             android:name=".services.PulseLockService"
             android:enabled="true"
@@ -124,7 +128,6 @@
         </service>
 
 
-        <!-- Screen Glyph Lock foreground service -->
         <service
             android:name=".services.ScreenOffGlyphService"
             android:enabled="true"
@@ -134,14 +137,12 @@
                 android:value="This service plays a glyph animation on device lock." />
         </service>
 
-        <!-- Persistent foreground service for glyph features -->
         <service
             android:name=".services.GlyphForegroundService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="specialUse" />
 
-        <!-- Low Battery Alert foreground service -->
         <service
             android:name=".services.LowBatteryAlertService"
             android:enabled="true"
@@ -152,7 +153,6 @@
         </service>
 
 
-        <!-- NFC foreground service -->
         <service
             android:name=".services.NfcGlyphService"
             android:enabled="true"
@@ -163,7 +163,6 @@
         </service>
 
 
-        <!-- Charging animation foreground service -->
         <service
             android:name=".services.ChargingAnimationService"
             android:enabled="true"
@@ -173,7 +172,6 @@
                 android:value="This service monitors battery level and provides low battery alerts using glyph interface." />
         </service>
 
-        <!-- Quiet Hours foreground service -->
         <service
             android:name=".services.QuietHoursService"
             android:enabled="true"
@@ -181,6 +179,18 @@
             android:foregroundServiceType="specialUse" >
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="This service manages quiet hours by automatically disabling glyph animations during specified time periods." />
+        </service>
+
+        <!-- VPN Connected: Android has no broadcast for a VPN coming up, so
+             the service watches the VPN transport through a NetworkCallback
+             and draws the user's animation on the connect event. -->
+        <service
+            android:name=".services.VpnConnectedService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="specialUse" >
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="This service plays a glyph animation when a VPN connection is established." />
         </service>
 
         <!-- Music visualiser foreground service.

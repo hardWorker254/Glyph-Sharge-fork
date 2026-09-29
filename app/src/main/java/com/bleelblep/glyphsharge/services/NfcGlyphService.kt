@@ -24,8 +24,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -99,17 +97,25 @@ class NfcGlyphService : Service() {
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
     // Injected dependencies
-    // ──────────────────────────────────────────────────────────────────────────
 
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var glyphAnimationManager: GlyphAnimationManager
     @Inject lateinit var featureCoordinator: com.bleelblep.glyphsharge.glyph.GlyphFeatureCoordinator
 
-    // ──────────────────────────────────────────────────────────────────────────
+    /**
+     * This service's own registry entry, which owns the run gate — my switch
+     * and the master Glyph switch.
+     *
+     * It is needed in three places here, and one of them is the reason it
+     * matters: a forwarded tag intent returns from `onStartCommand` *before* the
+     * usual run gate, so a tag discovered while the feature is off goes
+     * straight to the trigger handler instead of being turned away by the check
+     * that would have caught it.
+     */
+    private val spec = FeatureSpecs.of(GlyphFeature.NFC)
+
     // Coroutine scope
-    // ──────────────────────────────────────────────────────────────────────────
 
     private val serviceJob = Job()
     private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
@@ -119,16 +125,13 @@ class NfcGlyphService : Service() {
 
     private lateinit var wakeLock: PowerManager.WakeLock
 
-    // ──────────────────────────────────────────────────────────────────────────
     // BroadcastReceiver — HCE / contactless payment transactions
-    // ──────────────────────────────────────────────────────────────────────────
 
     /**
-     * Receives [NfcAdapter.ACTION_TRANSACTION_DETECTED], which is broadcast by
-     * the system whenever the NFC controller processes a contactless transaction
-     * (e.g. Google Pay / tap-to-pay).
-     *
-     * Requires the android.permission.NFC permission (already needed for NFC).
+     * Receives [NfcAdapter.ACTION_TRANSACTION_DETECTED], which the system
+     * broadcasts whenever the NFC controller processes a contactless
+     * transaction (e.g. Google Pay / tap-to-pay). Requires
+     * android.permission.NFC, already needed for NFC.
      */
     private val nfcTransactionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -144,9 +147,7 @@ class NfcGlyphService : Service() {
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
     // Lifecycle
-    // ──────────────────────────────────────────────────────────────────────────
 
     override fun onCreate() {
         super.onCreate()
@@ -183,9 +184,7 @@ class NfcGlyphService : Service() {
             }
         }
 
-        if (!settingsRepository.isNfcFeatureEnabled() ||
-            !settingsRepository.getGlyphServiceEnabled()
-        ) {
+        if (!spec.isRunnable(settingsRepository)) {
             shutDown()
             return START_NOT_STICKY
         }
@@ -205,17 +204,13 @@ class NfcGlyphService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        if (!settingsRepository.isNfcFeatureEnabled() ||
-            !settingsRepository.getGlyphServiceEnabled()
-        ) return
+        if (!spec.isRunnable(settingsRepository)) return
 
         val restart = Intent(this, NfcGlyphService::class.java).apply { action = ACTION_START }
         startForegroundService(restart)
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
     // NFC receiver registration
-    // ──────────────────────────────────────────────────────────────────────────
 
     private fun registerNfcReceiver() {
         val filter = IntentFilter().apply {
@@ -229,15 +224,11 @@ class NfcGlyphService : Service() {
         )
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
     // Core animation sequence
-    // ──────────────────────────────────────────────────────────────────────────
 
     private fun triggerGlyphAnimation(eventLabel: String) {
         animationScope.launch {
-            if (!settingsRepository.isNfcFeatureEnabled() ||
-                !settingsRepository.getGlyphServiceEnabled()
-            ) {
+            if (!spec.isRunnable(settingsRepository)) {
                 Log.d(TAG, "Feature disabled – skipping NFC animation ($eventLabel)")
                 return@launch
             }
@@ -247,52 +238,55 @@ class NfcGlyphService : Service() {
                 return@launch
             }
 
-            if (!featureCoordinator.acquire(GlyphFeature.NFC)) {
-                Log.d(TAG, "LEDs busy – skipping ($eventLabel)")
-                return@launch
-            }
-
-            val animationId = settingsRepository.getNfcAnimationId()
-            val duration    = settingsRepository.getNfcAnimationDuration()
-
-            Log.d(TAG, "NFC sequence start – event=$eventLabel anim=$animationId duration=${duration}ms")
-
             try {
-                wakeLock.acquire(duration + 3000L)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to acquire WakeLock: ${e.message}")
-            }
+                // `preempt` stays false: this feature skips on a busy strip rather
+                // than interrupting whoever holds it, and the default timeout is
+                // the 500 ms the `acquire` call uses on its own.
+                //
+                // The WakeLock teardown hangs off `onRelease` so it fires after
+                // `release`, and only when the strip was really taken. It is
+                // never acquired before the block, so a busy strip still leaves
+                // the WakeLock untouched.
+                val played = featureCoordinator.withStrip(
+                    owner = GlyphFeature.NFC,
+                    onRelease = {
+                        try {
+                            if (wakeLock.isHeld) wakeLock.release()
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Failed to release WakeLock: ${e.message}")
+                        }
+                    }
+                ) {
+                    val animationId = settingsRepository.getNfcAnimationId()
+                    val duration    = settingsRepository.getNfcAnimationDuration()
 
-            try {
-                val animJob = launch(Dispatchers.Default) {
-                    glyphAnimationManager.playNfcAnimation()
+                    Log.d(TAG, "NFC sequence start – event=$eventLabel anim=$animationId duration=${duration}ms")
+
+                    // +3s: the strip is still being blanked out when the cap hits.
+                    try {
+                        wakeLock.acquire(duration + 3000L)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to acquire WakeLock: ${e.message}")
+                    }
+
+                    glyphAnimationManager.runCapped(
+                        capMs = duration,
+                        onTimeout = {
+                            Log.d(TAG, "Duration limit reached – stopping NFC animation")
+                        }
+                    ) {
+                        glyphAnimationManager.playNfcAnimation()
+                    }
                 }
-
-                val watchdogJob = launch {
-                    delay(duration)
-                    Log.d(TAG, "Duration limit reached – stopping NFC animation")
-                    animJob.cancelAndJoin()
-                    glyphAnimationManager.stopAnimations()
+                if (played == null) {
+                    Log.d(TAG, "LEDs busy – skipping ($eventLabel)")
                 }
-
-                animJob.join()
-                watchdogJob.cancel()
-
             } catch (e: Exception) {
                 Log.e(TAG, "Error in NFC glyph sequence", e)
-            } finally {
-                featureCoordinator.release(GlyphFeature.NFC)
-                try {
-                    if (wakeLock.isHeld) wakeLock.release()
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to release WakeLock: ${e.message}")
-                }
             }
         }
     }
-    // ──────────────────────────────────────────────────────────────────────────
     // Notification helpers
-    // ──────────────────────────────────────────────────────────────────────────
 
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
@@ -311,9 +305,7 @@ class NfcGlyphService : Service() {
             .setOngoing(true)
             .build()
 
-    // ──────────────────────────────────────────────────────────────────────────
     // Compat helpers
-    // ──────────────────────────────────────────────────────────────────────────
 
     private fun shutDown() {
         stopForegroundCompat()

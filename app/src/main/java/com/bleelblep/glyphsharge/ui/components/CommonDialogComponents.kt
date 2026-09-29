@@ -18,9 +18,7 @@ import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Themed Value Badge
-// ─────────────────────────────────────────────────────────────────────────────
+// Themed value badge
 
 /**
  * Reusable badge component for displaying values in settings dialogs.
@@ -61,9 +59,7 @@ fun ThemedValueBadge(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Feature Confirmation Buttons
-// ─────────────────────────────────────────────────────────────────────────────
+// Feature confirmation buttons
 
 /**
  * Standardized 3-button layout for feature confirmation dialogs.
@@ -79,6 +75,9 @@ fun FeatureConfirmationButtons(
 ) {
     val themeState = LocalThemeState.current
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
 
     Column(
@@ -87,7 +86,7 @@ fun FeatureConfirmationButtons(
     ) {
         ElevatedButton(
             onClick = {
-                HapticUtils.triggerMediumFeedback(haptic, context)
+                HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                 onPrimary()
             },
             modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -114,7 +113,7 @@ fun FeatureConfirmationButtons(
         ) {
             Button(
                 onClick = {
-                    HapticUtils.triggerLightFeedback(haptic, context)
+                    HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                     onSettings()
                 },
                 modifier = Modifier.weight(1f).height(48.dp),
@@ -135,7 +134,7 @@ fun FeatureConfirmationButtons(
 
             OutlinedButton(
                 onClick = {
-                    HapticUtils.triggerLightFeedback(haptic, context)
+                    HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                     onCancel()
                 },
                 modifier = Modifier.weight(1f).height(48.dp),
@@ -155,9 +154,7 @@ fun FeatureConfirmationButtons(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Feature Save Buttons
-// ─────────────────────────────────────────────────────────────────────────────
+// Feature save buttons
 
 /**
  * Standardized 3-button layout for feature settings/save dialogs.
@@ -174,6 +171,9 @@ fun FeatureSaveButtons(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
 
     Column(
@@ -182,7 +182,7 @@ fun FeatureSaveButtons(
     ) {
         ElevatedButton(
             onClick = {
-                HapticUtils.triggerMediumFeedback(haptic, context)
+                HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                 onSave()
             },
             modifier = Modifier.fillMaxWidth().height(52.dp),
@@ -218,7 +218,7 @@ fun FeatureSaveButtons(
         ) {
             Button(
                 onClick = {
-                    HapticUtils.triggerMediumFeedback(haptic, context)
+                    HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                     onDisable()
                 },
                 modifier = Modifier.weight(1f).height(48.dp),
@@ -237,7 +237,7 @@ fun FeatureSaveButtons(
 
             OutlinedButton(
                 onClick = {
-                    HapticUtils.triggerLightFeedback(haptic, context)
+                    HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                     onCancel()
                 },
                 modifier = Modifier.weight(1f).height(48.dp),

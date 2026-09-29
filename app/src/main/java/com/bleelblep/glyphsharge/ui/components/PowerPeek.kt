@@ -14,12 +14,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.ui.components.dialogs.FeatureConfirmationFlow
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import kotlin.math.roundToInt
 import com.bleelblep.glyphsharge.R
+// Still needed for the named shake steps; the store itself comes from the
+// composition.
+import com.bleelblep.glyphsharge.data.SettingsRepository
 
 data class PowerPeekConfig(
     val isEnabled: Boolean = false,
@@ -34,8 +36,7 @@ fun PowerPeekConfirmationDialog(
     onTestPowerPeek: () -> Unit,
     onEnablePowerPeek: () -> Unit,
     onDisablePowerPeek: () -> Unit,
-    onDismiss: () -> Unit,
-    settingsRepository: SettingsRepository
+    onDismiss: () -> Unit
 ) {
     FeatureConfirmationFlow(
         title = stringResource(R.string.power_peek_title),
@@ -52,8 +53,7 @@ fun PowerPeekConfirmationDialog(
             PowerPeekEnableDialog(
                 onConfirm = { onConfirm() },
                 onDisable = onDisable,
-                onDismiss = onDismissSettings,
-                settingsRepository = settingsRepository
+                onDismiss = onDismissSettings
             )
         }
     )
@@ -64,10 +64,14 @@ fun PowerPeekEnableDialog(
     modifier: Modifier = Modifier,
     onConfirm: (PowerPeekConfig) -> Unit,
     onDismiss: () -> Unit,
-    onDisable: () -> Unit,
-    settingsRepository: SettingsRepository
+    onDisable: () -> Unit
 ) {
+    // The store comes from the composition; the card has none to pass on.
+    val settingsRepository = LocalSettingsRepository.current
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
 
     val currentlyEnabled = remember { settingsRepository.isPowerPeekEnabled() }
@@ -161,7 +165,7 @@ fun PowerPeekEnableDialog(
                         Slider(
                             value = sliderStep,
                             onValueChange = { raw ->
-                                HapticUtils.triggerLightFeedback(haptic, context)
+                                HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                 sliderStep = raw.coerceIn(0f, 4f)
                             },
                             onValueChangeFinished = {
@@ -208,7 +212,7 @@ fun PowerPeekEnableDialog(
                         Slider(
                             value = durationSeconds,
                             onValueChange = {
-                                HapticUtils.triggerLightFeedback(haptic, context)
+                                HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                 durationSeconds = it
                             },
                             valueRange = 2f..10f,

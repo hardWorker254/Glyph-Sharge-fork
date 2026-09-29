@@ -49,14 +49,14 @@ class BootCompletedReceiver : BroadcastReceiver() {
     private suspend fun startServicesInOrder(context: Context) {
         val glyphOn = settingsRepository.getGlyphServiceEnabled()
 
-        // ── Tier 1: start the master session service immediately ──────────────
-        // Everything else depends on an open Glyph session, so this goes first.
+        // Tier 1: master session service first, because everything else
+        // depends on an open Glyph session.
         if (glyphOn) {
             Log.d(TAG, "Tier 1 – starting GlyphForegroundService")
             context.startForegroundServiceCompat(GlyphForegroundService::class.java)
         }
 
-        // ── Tier 2: user-visible features (small delay lets Tier 1 bind first) ─
+        // Tier 2: user-visible features. The small delay lets Tier 1 bind first.
         delay(TIER2_DELAY_MS)
 
         if (glyphOn) {
@@ -84,13 +84,23 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 Log.d(TAG, "Tier 2 – Charging Animation")
                 context.startForegroundServiceCompat(ChargingAnimationService::class.java)
             }
-            // The music visualiser is deliberately absent from this tier.
+            // Started here even though a VPN that is already up at boot must
+            // not fire: the service has to be watching to see the next connect,
+            // and it reads the current state before it registers, so a VPN
+            // carried over the reboot is classified as "already up" rather
+            // than replayed as a connect the user never made.
+            if (settingsRepository.isVpnConnectedEnabled()) {
+                Log.d(TAG, "Tier 2 – VPN Connected")
+                context.startForegroundServiceCompat(VpnConnectedService::class.java)
+            }
+            // The music visualiser is deliberately absent from this tier: it
+            // captures other apps' audio through a MediaProjection token, and a
+            // token cannot be obtained from the background — only from an
+            // Activity result. A boot-time start would either be refused
+            // outright or come up with no capture and sit there showing a dead
+            // card, so the app asks the user to open it instead.
     //
-    // It captures other apps' audio through a MediaProjection token, and a
-    // token cannot be obtained from the background — only from an Activity
-    // result. A boot-time start would either be refused outright or come up
-    // with no capture and sit there showing a dead card, so the app asks the
-    // user to open it instead.
+    // Deliberately outside the tier above: it needs an Activity result.
     if (settingsRepository.isMusicVizEnabled()) {
         Log.d(TAG, "Music Visualizer is on – needs the app opened for consent")
     }
@@ -111,7 +121,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
     }
 }
 
-// ── Extension: removes the Build.VERSION boilerplate everywhere ──────────────
+// Removes the Build.VERSION boilerplate from every call site
 private fun Context.startForegroundServiceCompat(
     clazz: Class<*>,
     configure: Intent.() -> Unit = {}

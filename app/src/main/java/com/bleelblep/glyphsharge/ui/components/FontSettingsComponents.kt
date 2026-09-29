@@ -34,6 +34,9 @@ fun ToggleCard(
     statusText: @Composable (Boolean) -> String = { "" }
 ) {
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
 
     Card(
@@ -69,7 +72,7 @@ fun ToggleCard(
             Switch(
                 checked = checked,
                 onCheckedChange = {
-                    HapticUtils.triggerLightFeedback(haptic, context)
+                    HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                     onCheckedChange(it)
                 },
                 colors = SwitchDefaults.colors(
@@ -92,6 +95,9 @@ fun ThreeStateFontToggle(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
     
     val variants = remember {
@@ -107,7 +113,7 @@ fun ThreeStateFontToggle(
                 variant = variant,
                 isSelected = variant == currentVariant,
                 onClick = {
-                    HapticUtils.triggerLightFeedback(haptic, context)
+                    HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                     onVariantSelected(variant)
                 }
             )
@@ -221,6 +227,9 @@ fun SimpleFontSelector(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
     
     Card(
@@ -258,7 +267,7 @@ fun SimpleFontSelector(
                     preview = "Typography",
                     isSelected = currentVariant == FontVariant.HEADLINE,
                     onClick = { 
-                        HapticUtils.triggerLightFeedback(haptic, context)
+                        HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                         onVariantSelected(FontVariant.HEADLINE) 
                     }
                 )
@@ -270,7 +279,7 @@ fun SimpleFontSelector(
                     preview = "TYPOGRAPHY",
                     isSelected = currentVariant == FontVariant.NDOT,
                     onClick = { 
-                        HapticUtils.triggerLightFeedback(haptic, context)
+                        HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                         onVariantSelected(FontVariant.NDOT) 
                     }
                 )
@@ -282,7 +291,7 @@ fun SimpleFontSelector(
                     preview = "Typography",
                     isSelected = currentVariant == FontVariant.SYSTEM,
                     onClick = { 
-                        HapticUtils.triggerLightFeedback(haptic, context)
+                        HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                         onVariantSelected(FontVariant.SYSTEM) 
                     }
                 )
@@ -422,6 +431,9 @@ fun FontSizeControls(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -445,7 +457,7 @@ fun FontSizeControls(
                 )
 
                 TextButton(onClick = { 
-                    HapticUtils.triggerLightFeedback(haptic, context)
+                    HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                     onReset() 
                 }) {
                     Text("Reset All")
@@ -504,6 +516,9 @@ private fun FontSizeSlider(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
     Column(modifier = modifier) {
         Row(
@@ -538,7 +553,7 @@ private fun FontSizeSlider(
         Slider(
             value = value,
             onValueChange = { newValue ->
-                HapticUtils.triggerLightFeedback(haptic, context)
+                HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                 onValueChange(newValue)
             },
             valueRange = 0.5f..2.0f,

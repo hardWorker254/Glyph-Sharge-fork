@@ -2,16 +2,15 @@ package com.bleelblep.glyphsharge.ui.components
 
 import androidx.annotation.DrawableRes
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bleelblep.glyphsharge.R
-import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.glyph.script.ScriptAnimation
 import com.bleelblep.glyphsharge.glyph.script.ScriptScope
 import com.bleelblep.glyphsharge.glyph.script.isVisibleIn
-import dagger.hilt.android.EntryPointAccessors
+import com.bleelblep.glyphsharge.ui.viewmodel.CustomAnimationsViewModel
 
 /**
  * The catalogue every animation picker renders.
@@ -85,20 +84,14 @@ object GlyphAnimations {
 /**
  * The animations a picker should offer, rebuilt whenever the studio saves.
  *
- * The feature dialogs are plain Composables, so the repository is reached
- * through [GlyphComponent] rather than injected. The list is a `StateFlow` on
- * purpose: a script saved in the studio has to appear on all four feature
- * cards at once, including the one already open behind it.
+ * The list is a `StateFlow` on purpose: a script saved in the studio has to
+ * appear on all four feature cards at once, including the one already open
+ * behind it. The pickers are plain Composables, so they read it through
+ * [CustomAnimationsViewModel] rather than reaching for the store themselves.
  */
 @Composable
 fun rememberAnimationOptions(scope: ScriptScope = ScriptScope.TRIGGER): List<GlyphAnimations.GlyphAnim> {
-    val context = LocalContext.current
-    val repository = remember {
-        EntryPointAccessors.fromApplication(
-            context.applicationContext,
-            GlyphComponent::class.java
-        ).customAnimationRepository()
-    }
-    val custom by repository.animations.collectAsState()
+    val viewModel: CustomAnimationsViewModel = hiltViewModel()
+    val custom by viewModel.animations.collectAsStateWithLifecycle()
     return remember(custom, scope) { GlyphAnimations.withCustomAnimations(custom, scope) }
 }

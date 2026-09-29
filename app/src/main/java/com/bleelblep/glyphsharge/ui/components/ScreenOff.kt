@@ -18,12 +18,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.R
-import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.ui.components.dialogs.FeatureConfirmationFlow
-import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
-import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.launch
 
 @Composable
@@ -32,7 +29,6 @@ fun ScreenOffConfirmationDialog(
     onEnable: () -> Unit,
     onDisable: () -> Unit,
     onDismiss: () -> Unit,
-    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
     FeatureConfirmationFlow(
@@ -54,7 +50,6 @@ fun ScreenOffConfirmationDialog(
                 onDismiss = onDismissSettings,
                 onEnable = onConfirm,
                 onDisable = onDisable,
-                settingsRepository = settingsRepository,
                 modifier = modifier
             )
         }
@@ -67,10 +62,14 @@ fun ScreenOffEnableDialog(
     onDismiss: () -> Unit,
     onEnable: () -> Unit,
     onDisable: () -> Unit,
-    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
+    // The store comes from the composition; the card has none to pass on.
+    val settingsRepository = LocalSettingsRepository.current
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -91,12 +90,7 @@ fun ScreenOffEnableDialog(
     val currentlyEnabled = remember { settingsRepository.isScreenOffFeatureEnabled() }
     var isSaving by remember { mutableStateOf(false) }
 
-    val glyphAnimationManager = remember {
-        EntryPointAccessors.fromApplication(
-            context.applicationContext,
-            GlyphComponent::class.java
-        ).glyphAnimationManager()
-    }
+    val glyphAnimationManager = rememberGlyphAnimationManager()
 
     val cardColor = themeCardContainerColor()
     val accent = themePrimaryActionColor()
@@ -146,7 +140,7 @@ fun ScreenOffEnableDialog(
                                 FilterChip(
                                     selected = anim == selectedAnimation,
                                     onClick = {
-                                        HapticUtils.triggerLightFeedback(haptic, context)
+                                        HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                         selectedAnimation = anim
                                         settingsRepository.saveScreenOffAnimationId(anim.id)
                                     },
@@ -161,7 +155,7 @@ fun ScreenOffEnableDialog(
 
                         Button(
                             onClick = {
-                                HapticUtils.triggerMediumFeedback(haptic, context)
+                                HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                                 scope.launch {
                                     try {
                                         when {
@@ -226,7 +220,7 @@ fun ScreenOffEnableDialog(
                             Slider(
                                 value = durationSeconds,
                                 onValueChange = {
-                                    HapticUtils.triggerLightFeedback(haptic, context)
+                                    HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                     durationSeconds = it
                                 },
                                 valueRange = 1f..10f,

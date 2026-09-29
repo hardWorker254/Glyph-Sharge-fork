@@ -3,13 +3,11 @@ package com.bleelblep.glyphsharge.ui.navigation
 import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.ui.screens.FontSettingsScreen
 import com.bleelblep.glyphsharge.ui.screens.LanguageSettingsScreen
 import com.bleelblep.glyphsharge.ui.screens.QuietHoursSettingsScreen
@@ -17,21 +15,25 @@ import com.bleelblep.glyphsharge.ui.screens.SettingsScreen
 import com.bleelblep.glyphsharge.ui.screens.ThemeSettingsScreen
 import com.bleelblep.glyphsharge.ui.screens.home.HomeScreen
 import com.bleelblep.glyphsharge.ui.theme.LocalFontState
-import com.bleelblep.glyphsharge.ui.viewmodel.HomeViewModel
 
 /**
  * The whole navigation graph.
  *
- * Lifted out of `MainActivity` so the Activity is left with lifecycle duties
- * only. Every destination is registered here next to the [Routes] constant it
- * answers to, which is what makes an unregistered route like the old
- * `hidden_settings` obvious.
+ * Every destination is registered here next to the [Routes] constant it
+ * answers to, so a route with no screen is obvious at the point of use.
+ *
+ * The host takes no dependencies: each screen resolves what it needs from the
+ * composition — the store from `LocalSettingsRepository`, the ViewModel from
+ * `hiltViewModel()` — which leaves a screen reachable from a preview or a test
+ * without this host.
+ *
+ * The animation studio is deliberately absent: `CustomAnimationsActivity`
+ * needs its own back stack and its own system file pickers, which a route in
+ * this graph cannot give it.
  */
 @Composable
 fun GlyphNavHost(
-    settingsRepository: SettingsRepository,
-    homeViewModel: HomeViewModel,
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
 ) {
     val context = LocalContext.current
 
@@ -45,9 +47,7 @@ fun GlyphNavHost(
     ) {
         composable(Routes.HOME) {
             HomeScreen(
-                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                settingsRepository = settingsRepository,
-                viewModel = homeViewModel
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) }
             )
         }
 
@@ -61,8 +61,7 @@ fun GlyphNavHost(
                 },
                 onLanguageSettingsClick = {
                     navController.navigate(Routes.LANGUAGE_SETTINGS)
-                },
-                settingsRepository = settingsRepository
+                }
             )
         }
 
@@ -79,15 +78,13 @@ fun GlyphNavHost(
 
         composable(Routes.QUIET_HOURS_SETTINGS) {
             QuietHoursSettingsScreen(
-                onBackClick = { navController.popBackStack() },
-                settingsRepository = settingsRepository
+                onBackClick = { navController.popBackStack() }
             )
         }
 
         composable(Routes.LANGUAGE_SETTINGS) {
             LanguageSettingsScreen(
                 onBackClick = { navController.popBackStack() },
-                settingsRepository = settingsRepository,
                 onLanguageChanged = {
                     // A locale change only takes effect on a fresh Activity.
                     (context as? ComponentActivity)?.let { activity ->

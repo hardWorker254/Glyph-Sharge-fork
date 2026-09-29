@@ -199,7 +199,7 @@ object DeviceProfileFactory {
 
     /**
      * Every LED channel of the connected phone, or an empty list on
-     * unsupported hardware. Used to light the whole strip at once.
+     * unsupported hardware. This is the list that lights the whole strip at once.
      */
     fun allChannelsForConnectedDevice(): List<Int> =
         forConnectedDevice()?.all.orEmpty()

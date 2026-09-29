@@ -33,23 +33,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bleelblep.glyphsharge.R
+import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 
 /**
  * Shared screen chrome: a collapsing [LargeTopAppBar] over a [LazyColumn].
  *
- * Every settings screen in the app used to repeat the same ~45 lines of
- * `Scaffold` + `LargeTopAppBar` + `LazyColumn` boilerplate. This primitive
- * keeps the exact same look and behaviour, including the transparent
- * container that fades to `surface` once the bar collapses, the
- * status-bar insets, and the navigation-bar padding at the bottom of the list.
+ * The transparent container fades to `surface` once the bar collapses, and the
+ * list carries the status-bar insets plus the navigation-bar padding at the
+ * bottom.
  *
- * @param title text shown in the expanded bar.
  * @param onBackClick when `null` no back arrow is drawn — used by the home
  *   screen, which navigates forward instead of back.
  * @param actions trailing slot for the top bar, e.g. the home screen's
  *   settings icon.
- * @param content items of the scrolling list.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +59,9 @@ fun SettingsScaffold(
     content: LazyListScope.() -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
         rememberTopAppBarState()
@@ -85,7 +85,7 @@ fun SettingsScaffold(
                 navigationIcon = {
                     if (onBackClick != null) {
                         IconButton(onClick = {
-                            HapticUtils.triggerLightFeedback(haptic, context)
+                            HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                             onBackClick()
                         }) {
                             Icon(

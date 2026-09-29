@@ -136,13 +136,12 @@ class ScriptRunner @Inject constructor(
 
         override fun isCharging(): Boolean = BatteryStateReader.read(context).isCharging
 
-        // ── Audio ──────────────────────────────────────────────────────────
         // Reads the same feed the built-in modes do, so a Lua script and a mode
         // are looking at identical numbers — and through the same indirection,
-        // so `glyph.audio.active` is true whenever *either* capture is open
-        // rather than only when the legacy `Visualizer` path is. With no capture
-        // open — the studio, or any other feature — the frame is SILENT and a
-        // script sees zeros, which it can detect through `glyph.audio.active`.
+        // so `glyph.audio.active` is true whenever *either* capture is open.
+        // With no capture open — the studio, or any other feature — the frame
+        // is SILENT and a script sees zeros, which it can detect through
+        // `glyph.audio.active`.
 
         override fun isAudioActive(): Boolean = audioFeed.isActive
 

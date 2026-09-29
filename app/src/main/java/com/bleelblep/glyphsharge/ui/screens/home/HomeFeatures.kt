@@ -21,18 +21,15 @@ import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Nfc
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.core.content.ContextCompat
-import dagger.hilt.EntryPoint
-import dagger.hilt.InstallIn
-import dagger.hilt.android.EntryPointAccessors
-import dagger.hilt.components.SingletonComponent
 import com.bleelblep.glyphsharge.R
-import com.bleelblep.glyphsharge.data.SettingsRepository
+import com.bleelblep.glyphsharge.glyph.GlyphFeature
 import com.bleelblep.glyphsharge.ui.components.ChargingAnimationCard
 import com.bleelblep.glyphsharge.ui.components.LowBatteryAlertCard
 import com.bleelblep.glyphsharge.ui.components.MusicVisualizerCard
@@ -40,21 +37,20 @@ import com.bleelblep.glyphsharge.ui.components.NfcGlyphCard
 import com.bleelblep.glyphsharge.ui.components.PowerPeekCard
 import com.bleelblep.glyphsharge.ui.components.PulseLockCard
 import com.bleelblep.glyphsharge.ui.components.ScreenOffCard
-import com.bleelblep.glyphsharge.ui.state.GlyphFeature
+import com.bleelblep.glyphsharge.ui.components.VpnConnectedCard
 import com.bleelblep.glyphsharge.ui.state.HomeUiState
 import com.bleelblep.glyphsharge.ui.viewmodel.HomeViewModel
 
 /**
  * The list of feature cards on the home screen.
  *
- * Adding a feature is one block here plus a case in [GlyphFeature] and
- * [com.bleelblep.glyphsharge.services.FeatureServiceController]; nothing else
- * in the app needs to change.
+ * Everything a card needs is already on [HomeUiState], so a block here is pure
+ * wiring: read the toggle, name the feature for its test action, hand both
+ * callbacks through.
  */
 internal fun LazyListScope.homeFeatureCards(
     uiState: HomeUiState,
-    settingsRepository: SettingsRepository,
-    viewModel: HomeViewModel
+    viewModel: HomeViewModel,
 ) {
     val glyphServiceEnabled = uiState.glyphServiceEnabled
 
@@ -66,8 +62,7 @@ internal fun LazyListScope.homeFeatureCards(
             onTestAnimation = { viewModel.testFeature(GlyphFeature.CHARGING_ANIMATION) },
             icon = rememberVectorPainter(image = Icons.Default.BatteryChargingFull),
             modifier = Modifier.fillMaxWidth(),
-            iconSize = 32,
-            settingsRepository = settingsRepository
+            iconSize = 32
         )
     }
 
@@ -81,8 +76,7 @@ internal fun LazyListScope.homeFeatureCards(
             onTestPowerPeek = { viewModel.testFeature(GlyphFeature.POWER_PEEK) },
             icon = painterResource(id = R.drawable._44),
             modifier = Modifier.fillMaxWidth(),
-            iconSize = 32,
-            settingsRepository = settingsRepository
+            iconSize = 32
         )
     }
 
@@ -94,8 +88,7 @@ internal fun LazyListScope.homeFeatureCards(
             onTestPulseLock = { viewModel.testFeature(GlyphFeature.PULSE_LOCK) },
             icon = rememberVectorPainter(image = Icons.Default.Lock),
             modifier = Modifier.fillMaxWidth(),
-            iconSize = 32,
-            settingsRepository = settingsRepository
+            iconSize = 32
         )
     }
 
@@ -107,8 +100,7 @@ internal fun LazyListScope.homeFeatureCards(
             onTestScreenOff = { viewModel.testFeature(GlyphFeature.SCREEN_OFF) },
             icon = rememberVectorPainter(image = Icons.Default.PowerSettingsNew),
             modifier = Modifier.fillMaxWidth(),
-            iconSize = 32,
-            settingsRepository = settingsRepository
+            iconSize = 32
         )
     }
 
@@ -120,8 +112,19 @@ internal fun LazyListScope.homeFeatureCards(
             onTestNfc = { viewModel.testFeature(GlyphFeature.NFC) },
             icon = rememberVectorPainter(image = Icons.Default.Nfc),
             modifier = Modifier.fillMaxWidth(),
-            iconSize = 32,
-            settingsRepository = settingsRepository
+            iconSize = 32
+        )
+    }
+
+    item {
+        VpnConnectedCard(
+            isEnabled = uiState.stateOf(GlyphFeature.VPN_CONNECTED).isEnabled,
+            isServiceActive = glyphServiceEnabled,
+            onEnabledChange = { viewModel.setFeatureEnabled(GlyphFeature.VPN_CONNECTED, it) },
+            onTest = { viewModel.testFeature(GlyphFeature.VPN_CONNECTED) },
+            icon = rememberVectorPainter(image = Icons.Default.Shield),
+            modifier = Modifier.fillMaxWidth(),
+            iconSize = 32
         )
     }
 
@@ -133,8 +136,7 @@ internal fun LazyListScope.homeFeatureCards(
             onTestAlert = { viewModel.testFeature(GlyphFeature.LOW_BATTERY) },
             icon = rememberVectorPainter(image = Icons.Default.BatteryAlert),
             modifier = Modifier.fillMaxWidth(),
-            iconSize = 32,
-            settingsRepository = settingsRepository
+            iconSize = 32
         )
     }
 
@@ -142,13 +144,9 @@ internal fun LazyListScope.homeFeatureCards(
         // Placed last: the visualiser holds the Glyph strip for as long as
         // music plays, so it is the one feature that yields to all the others.
         val context = LocalContext.current
-        val audioSource = remember(context) {
-            // The card list is a LazyListScope, not a composable, so the
-            // capture singleton comes in through a Hilt entry point rather
-            // than one more parameter threaded through the screen.
-            EntryPointAccessors.fromApplication(context, MusicCaptureEntryPoint::class.java)
-                .audioSource()
-        }
+        // A LazyListScope cannot inject for itself, so the capture singleton
+        // comes from the ViewModel the list is already given.
+        val audioSource = viewModel.musicCaptureSource
         val onMusicVizToggle = rememberMusicVizToggle(context, viewModel, audioSource)
         MusicVisualizerCard(
             isEnabled = uiState.stateOf(GlyphFeature.MUSIC_VISUALIZER).isEnabled,
@@ -157,8 +155,7 @@ internal fun LazyListScope.homeFeatureCards(
             onTestAnimation = { viewModel.testFeature(GlyphFeature.MUSIC_VISUALIZER) },
             icon = rememberVectorPainter(image = Icons.Default.LibraryMusic),
             modifier = Modifier.fillMaxWidth(),
-            iconSize = 32,
-            settingsRepository = settingsRepository
+            iconSize = 32
         )
     }
 }
@@ -298,17 +295,4 @@ private fun rememberMusicVizToggle(
             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
-}
-
-/**
- * How the card list reaches the capture singleton.
- *
- * The list is a `LazyListScope` and cannot inject for itself, so the dependency
- * arrives through a named entry point rather than another parameter on the
- * screen's signature.
- */
-@EntryPoint
-@InstallIn(SingletonComponent::class)
-interface MusicCaptureEntryPoint {
-    fun audioSource(): PlaybackAudioSource
 }

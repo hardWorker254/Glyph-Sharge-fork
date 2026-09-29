@@ -1,6 +1,7 @@
 package com.bleelblep.glyphsharge
 
 import android.app.Application
+import com.bleelblep.glyphsharge.data.SettingsMigrations
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.glyph.GlyphManager
 import com.bleelblep.glyphsharge.utils.LoggingManager
@@ -13,31 +14,33 @@ class GlyphShargeApplication : Application() {
     @Inject
     lateinit var glyphManager: GlyphManager
 
-    // Force instantiation of SettingsRepository at the earliest point in the app lifecycle so
-    // its `init {}` block reliably writes first-run defaults before *any* component can read
-    // preferences – this avoids race conditions seen in release builds.
+    // Touched in onCreate so first-run defaults and version migrations reach
+    // disk before any component can read preferences. `SettingsMigrations` also
+    // runs them from its own `init` block, so the guarantee holds either way;
+    // both entry points share one idempotent pass.
+    @Inject
+    lateinit var settingsMigrations: SettingsMigrations
+
+    // Needed for the startup settings dump below.
     @Inject
     lateinit var settingsRepository: SettingsRepository
 
     override fun onCreate() {
         super.onCreate()
 
-        // Initialize Logging Manager
         LoggingManager.initialize(this)
 
-        // Initialize Glyph Manager on Nothing phones
         if (glyphManager.isNothingPhone()) {
             glyphManager.initialize()
         }
 
-        // Accessing the repository here guarantees that first-run defaults have executed.
+        settingsMigrations.applyMigrations()
         settingsRepository.dumpAllSettings()
     }
 
     override fun onTerminate() {
         super.onTerminate()
 
-        // Clean up Glyph Manager resources
         if (glyphManager.isNothingPhone()) {
             glyphManager.cleanup()
         }

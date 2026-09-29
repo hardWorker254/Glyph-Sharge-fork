@@ -7,9 +7,6 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import com.bleelblep.glyphsharge.data.SettingsRepository
-import com.bleelblep.glyphsharge.di.AppModule
-import dagger.hilt.android.EntryPointAccessors
 
 /**
  * Utility class for managing haptic feedback across the app
@@ -275,55 +272,31 @@ object HapticUtils {
     }
     
     /**
-     * Legacy compatibility methods for existing code
-     * These methods use the current user intensity setting from SettingsRepository
+     * The five helpers every tap in the app actually goes through.
+     *
+     * `intensity` is the user's own 0..1 setting and is injected by the caller
+     * because these run inside click handlers, which cannot read a repository.
+     * The value arrives from
+     * [com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity], which the
+     * Activity provides once from its injected settings store.
      */
-    
-    private fun getCurrentUserIntensity(context: Context): Float {
-        return try {
-            val hiltEntryPoint = EntryPointAccessors.fromApplication<AppModule.SettingsRepositoryEntryPoint>(
-                context.applicationContext
-            )
-            val settingsRepository = hiltEntryPoint.getSettingsRepository()
-            settingsRepository.getVibrationIntensity()
-        } catch (e: Exception) {
-            android.util.Log.w("HapticUtils", "Failed to get vibration intensity, using default", e)
-            0.66f // Default to medium intensity if settings access fails
-        }
-    }
-    
-    /**
-     * Legacy compatibility methods - now use user's actual intensity setting
-     * These methods bridge the gap during migration to the new system
-     * @deprecated Use performHapticWithIntensity() directly for better performance and consistency
-     */
-    @Deprecated("Use performHapticWithIntensity() directly for better performance and consistency")
-    fun triggerLightFeedback(hapticFeedback: HapticFeedback, context: Context) {
-        val intensity = getCurrentUserIntensity(context)
+    fun triggerLightFeedback(hapticFeedback: HapticFeedback, context: Context, intensity: Float) {
         performHapticWithIntensity(context, hapticFeedback, intensity, HapticType.LIGHT)
     }
-    
-    @Deprecated("Use performHapticWithIntensity() directly for better performance and consistency")
-    fun triggerMediumFeedback(hapticFeedback: HapticFeedback, context: Context) {
-        val intensity = getCurrentUserIntensity(context)
+
+    fun triggerMediumFeedback(hapticFeedback: HapticFeedback, context: Context, intensity: Float) {
         performHapticWithIntensity(context, hapticFeedback, intensity, HapticType.MEDIUM)
     }
-    
-    @Deprecated("Use performHapticWithIntensity() directly for better performance and consistency")
-    fun triggerStrongFeedback(hapticFeedback: HapticFeedback, context: Context) {
-        val intensity = getCurrentUserIntensity(context)
+
+    fun triggerStrongFeedback(hapticFeedback: HapticFeedback, context: Context, intensity: Float) {
         performHapticWithIntensity(context, hapticFeedback, intensity, HapticType.STRONG)
     }
-    
-    @Deprecated("Use performHapticWithIntensity() directly for better performance and consistency")
-    fun triggerSuccessFeedback(hapticFeedback: HapticFeedback, context: Context) {
-        val intensity = getCurrentUserIntensity(context)
+
+    fun triggerSuccessFeedback(hapticFeedback: HapticFeedback, context: Context, intensity: Float) {
         performHapticWithIntensity(context, hapticFeedback, intensity, HapticType.SUCCESS)
     }
-    
-    @Deprecated("Use performHapticWithIntensity() directly for better performance and consistency")
-    fun triggerErrorFeedback(hapticFeedback: HapticFeedback, context: Context) {
-        val intensity = getCurrentUserIntensity(context)
+
+    fun triggerErrorFeedback(hapticFeedback: HapticFeedback, context: Context, intensity: Float) {
         performHapticWithIntensity(context, hapticFeedback, intensity, HapticType.ERROR)
     }
     

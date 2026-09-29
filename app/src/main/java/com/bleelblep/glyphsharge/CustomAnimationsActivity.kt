@@ -18,6 +18,7 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -25,6 +26,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.glyph.GlyphManager
 import com.bleelblep.glyphsharge.glyph.script.ScriptFileFormat
 import com.bleelblep.glyphsharge.ui.screens.animations.AnimationEditorScreen
@@ -32,9 +34,10 @@ import com.bleelblep.glyphsharge.ui.screens.animations.AnimationListScreen
 import com.bleelblep.glyphsharge.ui.screens.applyLocale
 import com.bleelblep.glyphsharge.ui.theme.FontState
 import com.bleelblep.glyphsharge.ui.theme.GlyphZenTheme
+import com.bleelblep.glyphsharge.ui.theme.LocalSettingsRepository
+import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import com.bleelblep.glyphsharge.ui.theme.ThemeState
 import com.bleelblep.glyphsharge.ui.viewmodel.AnimationStudioViewModel
-import com.bleelblep.glyphsharge.utils.WatermarkHelper
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -44,12 +47,10 @@ import javax.inject.Inject
  *
  * A separate Activity on purpose. The studio has its own back stack, its own
  * system file pickers, and a code editor — none of which belong in the shared
- * settings `NavHost`, and all of which would otherwise force the editor to be
- * a route among theme and font settings.
- *
- * It also keeps the blast radius small: a script run here goes through the
- * same [com.bleelblep.glyphsharge.glyph.GlyphAnimationManager] the feature
- * services use, but nothing here can change a feature's configuration.
+ * settings `NavHost`. It also keeps the blast radius small: a script run here
+ * goes through the same [com.bleelblep.glyphsharge.glyph.GlyphAnimationManager]
+ * the feature services use, but nothing here can change a feature's
+ * configuration.
  */
 @AndroidEntryPoint
 class CustomAnimationsActivity : ComponentActivity() {
@@ -57,6 +58,7 @@ class CustomAnimationsActivity : ComponentActivity() {
     @Inject lateinit var fontState: FontState
     @Inject lateinit var themeState: ThemeState
     @Inject lateinit var glyphManager: GlyphManager
+    @Inject lateinit var settingsRepository: SettingsRepository
 
     private val viewModel: AnimationStudioViewModel by viewModels()
 
@@ -92,11 +94,6 @@ class CustomAnimationsActivity : ComponentActivity() {
         configureWindow()
         glyphManager.initialize()
 
-        // The studio writes to the glyph, so it must not be left running while
-        // the user is somewhere else in the app.
-        WatermarkHelper.disable()
-        WatermarkHelper.addToActivity(this)
-
         setContent {
             GlyphZenTheme(themeState = themeState, fontState = fontState) {
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -112,40 +109,48 @@ class CustomAnimationsActivity : ComponentActivity() {
                     }
                 }
 
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                // The same two values `MainActivity` publishes, for the same
+                // reason: the studio's screens should find the store and the
+                // user's own haptic strength already in the composition.
+                CompositionLocalProvider(
+                    LocalSettingsRepository provides settingsRepository,
+                    LocalVibrationIntensity provides settingsRepository.getVibrationIntensity(),
                 ) {
-                    if (state.isEditorOpen) {
-                        BackHandler { viewModel.closeEditor() }
-                        AnimationEditorScreen(
-                            name = state.name,
-                            source = state.source,
-                            console = state.console,
-                            isDirty = state.isDirty,
-                            isRunning = state.isRunning,
-                            onBackClick = { viewModel.closeEditor() },
-                            onNameChange = viewModel::updateName,
-                            onSourceChange = viewModel::updateSource,
-                            onSave = viewModel::save,
-                            onCheck = viewModel::check,
-                            onRunGlyph = { viewModel.runOnGlyph() },
-                            onStop = viewModel::stop
-                        )
-                    } else {
-                        AnimationListScreen(
-                            animations = state.animations,
-                            onBackClick = { finish() },
-                            onOpen = viewModel::open,
-                            onCreate = {
-                                viewModel.newAnimation()
-                            },
-                            onDelete = viewModel::delete,
-                            onDuplicate = viewModel::duplicate,
-                            onPickImportFile = { importLauncher.launch(IMPORT_MIME_TYPES) },
-                            onExportToDownloads = viewModel::exportToDownloads,
-                            onExportToFile = { id -> promptExport(id) }
-                        )
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
+                        if (state.isEditorOpen) {
+                            BackHandler { viewModel.closeEditor() }
+                            AnimationEditorScreen(
+                                name = state.name,
+                                source = state.source,
+                                console = state.console,
+                                isDirty = state.isDirty,
+                                isRunning = state.isRunning,
+                                onBackClick = { viewModel.closeEditor() },
+                                onNameChange = viewModel::updateName,
+                                onSourceChange = viewModel::updateSource,
+                                onSave = viewModel::save,
+                                onCheck = viewModel::check,
+                                onRunGlyph = { viewModel.runOnGlyph() },
+                                onStop = viewModel::stop
+                            )
+                        } else {
+                            AnimationListScreen(
+                                animations = state.animations,
+                                onBackClick = { finish() },
+                                onOpen = viewModel::open,
+                                onCreate = {
+                                    viewModel.newAnimation()
+                                },
+                                onDelete = viewModel::delete,
+                                onDuplicate = viewModel::duplicate,
+                                onPickImportFile = { importLauncher.launch(IMPORT_MIME_TYPES) },
+                                onExportToDownloads = viewModel::exportToDownloads,
+                                onExportToFile = { id -> promptExport(id) }
+                            )
+                        }
                     }
                 }
             }
@@ -161,7 +166,6 @@ class CustomAnimationsActivity : ComponentActivity() {
         super.onStop()
         // Leaving the studio must not leave the strip lit.
         viewModel.stop()
-        WatermarkHelper.removeFromActivity(this)
         closeGlyphSessionIfOurs()
     }
 
@@ -196,7 +200,7 @@ class CustomAnimationsActivity : ComponentActivity() {
             .onFailure { Log.w(TAG, "Could not close the Glyph session", it) }
     }
 
-    // region File pickers
+    // File pickers
 
     private fun registerLaunchers() {
         importLauncher = registerForActivityResult(
@@ -217,8 +221,6 @@ class CustomAnimationsActivity : ComponentActivity() {
         pendingExportId = id
         exportLauncher.launch("${name}.${ScriptFileFormat.EXTENSION}")
     }
-
-    // endregion
 
     private fun configureWindow() {
         enableEdgeToEdge()

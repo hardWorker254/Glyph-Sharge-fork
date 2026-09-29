@@ -23,13 +23,11 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import androidx.core.net.toUri
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Foreground service that listens for the device being unlocked and plays the
@@ -61,6 +59,14 @@ class PulseLockService : Service() {
         const val ACTION_START = "com.bleelblep.glyphsharge.PULSE_LOCK_START"
         const val ACTION_STOP = "com.bleelblep.glyphsharge.PULSE_LOCK_STOP"
     }
+
+    /**
+     * This service's own registry entry, which owns the run gate — my switch
+     * and the master Glyph switch. `onStartCommand`, the OS-driven restart and
+     * the unlock handler all had to answer the same pair of questions, and
+     * only the first two could disagree without it being visible.
+     */
+    private val spec = FeatureSpecs.of(GlyphFeature.PULSE_LOCK)
 
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var glyphAnimationManager: GlyphAnimationManager
@@ -125,9 +131,7 @@ class PulseLockService : Service() {
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
     // Lifecycle
-    // ──────────────────────────────────────────────────────────────────────────
 
     override fun onCreate() {
         super.onCreate()
@@ -156,9 +160,7 @@ class PulseLockService : Service() {
             return START_NOT_STICKY
         }
 
-        if (!settingsRepository.isPulseLockEnabled() ||
-            !settingsRepository.getGlyphServiceEnabled()
-        ) {
+        if (!spec.isRunnable(settingsRepository)) {
             shutDown()
             return START_NOT_STICKY
         }
@@ -179,24 +181,18 @@ class PulseLockService : Service() {
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
         // Only restart if the feature is still supposed to be running
-        if (!settingsRepository.isPulseLockEnabled() ||
-            !settingsRepository.getGlyphServiceEnabled()
-        ) return
+        if (!spec.isRunnable(settingsRepository)) return
 
         val restart = Intent(this, PulseLockService::class.java).apply { action = ACTION_START }
         startForegroundService(restart)
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
     // Core sequence
-    // ──────────────────────────────────────────────────────────────────────────
 
     private fun playPulseLockSequence() {
         scope.launch {
             // Guard: re-check settings before doing any work
-            if (!settingsRepository.isPulseLockEnabled() ||
-                !settingsRepository.getGlyphServiceEnabled()
-            ) {
+            if (!spec.isRunnable(settingsRepository)) {
                 Log.d(TAG, "Feature disabled – skipping sequence")
                 runTrace.record(FEATURE, "skip", "feature or glyph service disabled")
                 return@launch
@@ -208,71 +204,66 @@ class PulseLockService : Service() {
                 return@launch
             }
 
-            // An unlock is something the user just did, so it interrupts whatever
-            // is still playing — usually the screen-off animation, seconds old.
-            if (!featureCoordinator.acquireNow(GlyphFeature.PULSE_LOCK)) {
-                Log.d(TAG, "Strip still busy after interrupt (owner: ${featureCoordinator.currentOwner.value}) – skipping")
-                runTrace.record(
-                    FEATURE,
-                    "skip",
-                    "strip busy, owner=${featureCoordinator.currentOwner.value}"
-                )
-                return@launch
-            }
-
-            val animationId = settingsRepository.getPulseLockAnimationId()
-            val duration = glyphAnimationManager.runCapMs(
-                animationId,
-                settingsRepository.getPulseLockDuration()
-            )
-
-            Log.d(TAG, "Sequence start – anim=$animationId duration=${duration}ms")
-            runTrace.record(FEATURE, "start", "anim=$animationId cap=${duration}ms")
-
-            // Promote to foreground for the duration of the sequence
-            startForeground(NOTIF_ID, buildNotification())
-
             try {
-                val animJob = launch(Dispatchers.Default) {
-                    glyphAnimationManager.playPulseLockAnimation()
-                }
-
-                // Hard-stop watchdog: cancels the animation job and kills audio
-                val watchdogJob = launch {
-                    delay(duration.milliseconds)
-                    Log.d(TAG, "Duration limit reached – stopping animation & audio")
-                    animJob.cancelAndJoin()          // cancel, then wait for cleanup
-                    glyphAnimationManager.stopAnimations()
-                }
-
-                // Animation finished naturally before the watchdog fired – cancel it
-                watchdogJob.cancel()
-
-                // Wait for the animation before leaving the try block.
+                // An unlock is something the user just did, so it interrupts
+                // whatever is still playing — usually the screen-off animation,
+                // seconds old. Hence `preempt = true`.
                 //
-                // `finally` in a coroutine body runs when the *body* exits, not
-                // when the coroutine does, so without this join the lock is
-                // released — and `release()` blanks the strip — while the
-                // animation is still running. Charging, Low Battery, NFC, Screen
-                // Off and Power Peek all join here; Glow Gate did not, which is
-                // why a scripted animation died at its first frame.
-                animJob.join()
+                // `onRelease` runs `stopForegroundCompat()` after the strip is
+                // handed back, and on the throwing path as well as the normal
+                // one. A failed acquisition is the one case that never reaches
+                // it, so an interrupt that did not land leaves the service
+                // foregrounded from `onStartCommand`.
+                val played = featureCoordinator.withStrip(
+                    owner = GlyphFeature.PULSE_LOCK,
+                    preempt = true,
+                    // Demote from foreground but keep service alive for future unlocks
+                    onRelease = { stopForegroundCompat() }
+                ) {
+                    val animationId = settingsRepository.getPulseLockAnimationId()
+                    val duration = glyphAnimationManager.runCapMs(
+                        animationId,
+                        settingsRepository.getPulseLockDuration()
+                    )
 
+                    Log.d(TAG, "Sequence start – anim=$animationId duration=${duration}ms")
+                    runTrace.record(FEATURE, "start", "anim=$animationId cap=${duration}ms")
+
+                    // Promote to foreground for the duration of the sequence
+                    startForeground(NOTIF_ID, buildNotification())
+
+                    // `runCapped` joins the animation before returning, which is what
+                    // keeps the lock from being released — and the strip
+                    // blanked — while frames are still being drawn. A `finally`
+                    // in a coroutine body runs when the *body* exits, not when
+                    // the coroutine does. Charging, Low Battery, NFC, Screen
+                    // Off and Power Peek all join here.
+                    glyphAnimationManager.runCapped(
+                        capMs = duration,
+                        onTimeout = {
+                            Log.d(TAG, "Duration limit reached – stopping animation & audio")
+                        }
+                    ) {
+                        glyphAnimationManager.playPulseLockAnimation()
+                    }
+                }
+                if (played == null) {
+                    Log.d(TAG, "Strip still busy after interrupt (owner: ${featureCoordinator.currentOwner.value}) – skipping")
+                    runTrace.record(
+                        FEATURE,
+                        "skip",
+                        "strip busy, owner=${featureCoordinator.currentOwner.value}"
+                    )
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Error in Glow Gate sequence", e)
                 runTrace.record(FEATURE, "error", e.toString())
-            } finally {
-                featureCoordinator.release(GlyphFeature.PULSE_LOCK)
-                // Demote from foreground but keep service alive for future unlocks
-                stopForegroundCompat()
             }
         }
     }
 
 
-    // ──────────────────────────────────────────────────────────────────────────
     // Notification helpers
-    // ──────────────────────────────────────────────────────────────────────────
 
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
@@ -291,9 +282,7 @@ class PulseLockService : Service() {
             .setOngoing(true)
             .build()
 
-    // ──────────────────────────────────────────────────────────────────────────
     // Compat helpers
-    // ──────────────────────────────────────────────────────────────────────────
 
     private fun shutDown() {
         stopForegroundCompat()

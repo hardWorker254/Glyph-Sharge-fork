@@ -54,6 +54,7 @@ import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.ui.components.controls.MorphingToggleButton
 import com.bleelblep.glyphsharge.ui.theme.AppThemeStyle
 import com.bleelblep.glyphsharge.ui.theme.LocalThemeState
+import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import com.bleelblep.glyphsharge.ui.theme.NothingGreen
 import com.bleelblep.glyphsharge.ui.theme.NothingRed
 import com.bleelblep.glyphsharge.ui.theme.NothingViolate
@@ -74,6 +75,9 @@ fun ContentCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
     val themeState = LocalThemeState.current
     var isPressed by remember { mutableStateOf(false) }
@@ -109,7 +113,7 @@ fun ContentCard(
         onClick = {
             if (onClick != null && !isPressed) {
                 isPressed = true
-                HapticUtils.triggerLightFeedback(haptic, context)
+                HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                 onClick()
                 scope.launch {
                     delay(150)
@@ -156,6 +160,9 @@ fun FeatureCard(
     iconTint: Color? = null
 ) {
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
     var isPressed by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -171,7 +178,7 @@ fun FeatureCard(
         onClick = {
             if (!isPressed) {
                 isPressed = true
-                HapticUtils.triggerLightFeedback(haptic, context)
+                HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                 onClick()
                 scope.launch {
                     delay(150)
@@ -232,6 +239,9 @@ fun SquareFeatureCard(
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
 
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.95f else 1f,
@@ -318,7 +328,7 @@ fun SquareFeatureCard(
             confirmButton = {
                 Button(
                     onClick = {
-                        HapticUtils.triggerMediumFeedback(haptic, context)
+                        HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                         onClick()
                         showDialog = false
                     }
@@ -328,7 +338,7 @@ fun SquareFeatureCard(
             },
             dismissButton = {
                 TextButton(onClick = {
-                    HapticUtils.triggerLightFeedback(haptic, context)
+                    HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                     showDialog = false
                 }) {
                     Text("Cancel")

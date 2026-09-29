@@ -3,11 +3,8 @@ package com.bleelblep.glyphsharge.ui.navigation
 /**
  * Every destination in the app.
  *
- * Routes used to be bare string literals scattered across `MainActivity`
- * (`navController.navigate("theme_settings")`), which meant a typo compiled
- * fine and simply crashed at runtime — that is exactly what had happened with
- * the `hidden_settings` route. Referencing a member of [Routes] instead makes
- * the compiler catch a bad route.
+ * Routes are constants rather than bare string literals at the call site, so a
+ * typo is a compile error instead of a crash at navigation time.
  */
 object Routes {
 

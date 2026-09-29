@@ -25,7 +25,6 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -41,18 +40,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bleelblep.glyphsharge.R
-import com.bleelblep.glyphsharge.data.SettingsRepository
-import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.glyph.audio.MusicVisualizationMode
 import com.bleelblep.glyphsharge.glyph.script.ScriptAnimation
 import com.bleelblep.glyphsharge.glyph.script.ScriptTarget
 import com.bleelblep.glyphsharge.glyph.script.target
 import com.bleelblep.glyphsharge.ui.components.dialogs.FeatureConfirmationFlow
+import com.bleelblep.glyphsharge.ui.theme.LocalSettingsRepository
+import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import com.bleelblep.glyphsharge.ui.theme.themeCardContainerColor
 import com.bleelblep.glyphsharge.ui.theme.themePrimaryActionColor
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
-import dagger.hilt.android.EntryPointAccessors
+import com.bleelblep.glyphsharge.ui.viewmodel.CustomAnimationsViewModel
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -77,7 +78,6 @@ fun MusicVisualizerConfirmationDialog(
     onDisableAnimation: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    settingsRepository: SettingsRepository
 ) {
     FeatureConfirmationFlow(
         title = stringResource(id = R.string.music_viz_title),
@@ -94,8 +94,7 @@ fun MusicVisualizerConfirmationDialog(
             MusicVisualizerEnableDialog(
                 onConfirm = { onConfirm() },
                 onDismiss = onDismissSettings,
-                onDisable = onDisable,
-                settingsRepository = settingsRepository
+                onDisable = onDisable
             )
         }
     )
@@ -111,12 +110,17 @@ fun MusicVisualizerEnableDialog(
     onConfirm: (MusicVisualizerConfig) -> Unit,
     onDismiss: () -> Unit,
     onDisable: () -> Unit,
-    modifier: Modifier = Modifier,
-    settingsRepository: SettingsRepository
+    modifier: Modifier = Modifier
 ) {
+    // The store comes from the composition; the card has none to pass on.
+    val settingsRepository = LocalSettingsRepository.current
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val glyphAnimationManager = rememberGlyphAnimationManager()
 
     val currentlyEnabled = remember { settingsRepository.isMusicVizEnabled() }
 
@@ -198,7 +202,7 @@ fun MusicVisualizerEnableDialog(
                                 FilterChip(
                                     selected = isSelected,
                                     onClick = {
-                                        HapticUtils.triggerLightFeedback(haptic, context)
+                                        HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                         selectedMode = mode
                                         selectedScriptId = null
                                         settingsRepository.saveMusicVizAnimationId(mode.id)
@@ -215,7 +219,7 @@ fun MusicVisualizerEnableDialog(
                                 FilterChip(
                                     selected = selectedScriptId == script,
                                     onClick = {
-                                        HapticUtils.triggerLightFeedback(haptic, context)
+                                        HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                         selectedScriptId = script
                                         settingsRepository.saveMusicVizAnimationId(script.runtimeId)
                                     },
@@ -234,12 +238,9 @@ fun MusicVisualizerEnableDialog(
                         Button(
                             onClick = {
                                 val mode = selectedMode ?: MusicVisualizationMode.DEFAULT
-                                HapticUtils.triggerLightFeedback(haptic, context)
+                                HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                 scope.launch {
-                                    val manager = EntryPointAccessors
-                                        .fromApplication(context.applicationContext, GlyphComponent::class.java)
-                                        .glyphAnimationManager()
-                                    runCatching { manager.previewMusicVisualizer(mode) }
+                                    runCatching { glyphAnimationManager.previewMusicVisualizer(mode) }
                                 }
                             },
                             modifier = Modifier.fillMaxWidth()
@@ -277,7 +278,7 @@ fun MusicVisualizerEnableDialog(
                         Slider(
                             value = sensitivity,
                             onValueChange = {
-                                HapticUtils.triggerLightFeedback(haptic, context)
+                                HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                 sensitivity = it
                             },
                             valueRange = SENSITIVITY_MIN..SENSITIVITY_MAX,
@@ -332,7 +333,7 @@ fun MusicVisualizerEnableDialog(
                         Switch(
                             checked = screenOffOnly,
                             onCheckedChange = {
-                                HapticUtils.triggerLightFeedback(haptic, context)
+                                HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                 screenOffOnly = it
                             }
                         )
@@ -382,12 +383,7 @@ fun MusicVisualizerEnableDialog(
  */
 @Composable
 private fun rememberMusicScriptOptions(): List<ScriptAnimation> {
-    val context = LocalContext.current
-    val repository = remember {
-        EntryPointAccessors
-            .fromApplication(context.applicationContext, GlyphComponent::class.java)
-            .customAnimationRepository()
-    }
-    val scripts by repository.animations.collectAsState()
+    val viewModel: CustomAnimationsViewModel = hiltViewModel()
+    val scripts by viewModel.animations.collectAsStateWithLifecycle()
     return remember(scripts) { scripts.filter { it.target == ScriptTarget.MUSIC } }
 }

@@ -22,27 +22,24 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
-import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.ui.components.layout.SettingsScaffold
+import com.bleelblep.glyphsharge.ui.theme.LocalSettingsRepository
+import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.ui.res.stringResource
 import com.bleelblep.glyphsharge.R
 import java.util.*
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Language option data class
-// ─────────────────────────────────────────────────────────────────────────────
+// Language option data class
 
 data class LanguageOption(
     val code: String,
-    val nativeName: String,   // Displayed in dropdown (e.g., "Русский", "English")
+    val nativeName: String,   // Shown in the dropdown
     val englishName: String   // For internal reference / sorting
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Available languages list (extend as needed)
-// ─────────────────────────────────────────────────────────────────────────────
+// Available languages list
 
 private val availableLanguages = listOf(
     LanguageOption("en", "English", "English"),
@@ -50,19 +47,21 @@ private val availableLanguages = listOf(
     LanguageOption("system", "🔄 System Default", "System")
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Language Settings Screen
-// ─────────────────────────────────────────────────────────────────────────────
+// Language settings screen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LanguageSettingsScreen(
     onBackClick: () -> Unit,
-    settingsRepository: SettingsRepository,
     onLanguageChanged: (String) -> Unit = {}, // Callback for app-wide locale update
     modifier: Modifier = Modifier
 ) {
+    // Read from the composition: the nav host holds no store to hand down.
+    val settingsRepository = LocalSettingsRepository.current
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
 
     // Current language state
@@ -143,7 +142,7 @@ fun LanguageSettingsScreen(
                         ExposedDropdownMenuBox(
                             expanded = expanded,
                             onExpandedChange = {
-                                HapticUtils.triggerLightFeedback(haptic, context)
+                                HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                 expanded = it
                             }
                         ) {
@@ -188,7 +187,7 @@ fun LanguageSettingsScreen(
                                             }
                                         },
                                         onClick = {
-                                            HapticUtils.triggerMediumFeedback(haptic, context)
+                                            HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                                             currentLanguageCode = language.code
                                             settingsRepository.saveAppLanguageCode(language.code)
                                             onLanguageChanged(language.code)
@@ -242,9 +241,7 @@ fun LanguageSettingsScreen(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Extension: Apply locale to Context (call from Activity/ViewModel)
-// ─────────────────────────────────────────────────────────────────────────────
+// Apply the selected locale to a Context
 
 fun Context.applyLocale(languageCode: String): Context {
     return if (languageCode == "system") {

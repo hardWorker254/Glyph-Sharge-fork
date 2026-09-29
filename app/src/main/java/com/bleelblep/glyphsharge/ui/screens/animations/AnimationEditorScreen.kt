@@ -64,6 +64,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.glyph.script.ScriptTarget
+import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import com.bleelblep.glyphsharge.ui.theme.themeCardContainerColor
 import com.bleelblep.glyphsharge.ui.theme.themePrimaryActionColor
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
@@ -73,10 +74,10 @@ import com.bleelblep.glyphsharge.ui.viewmodel.ConsoleLine
  * The editor: a name, a Lua source, and two ways to find out whether it works.
  *
  * **Check** compiles it and reports the first syntax error. **Glyph** plays it
- * on the real hardware, which is the only verdict that counts. There is
- * deliberately no on-screen preview any more: it was a schematic of the LED
- * layout, it was never the same as the phone lighting up, and having a second
- * "run" mode made it easy to mistake a preview for a result.
+ * on the real hardware, which is the only verdict that counts. There is no
+ * on-screen preview: a schematic of the LED layout is not the same as the
+ * phone lighting up, and a second "run" mode invites mistaking one for the
+ * other.
  *
  * @param isRunning `true` while a glyph run is in flight
  */
@@ -98,6 +99,9 @@ fun AnimationEditorScreen(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
     val cardColor = themeCardContainerColor()
     val accent = themePrimaryActionColor()
@@ -126,7 +130,7 @@ fun AnimationEditorScreen(
                 },
                 actions = {
                     IconButton(onClick = {
-                        HapticUtils.triggerMediumFeedback(haptic, context)
+                        HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                         onSave()
                     }) {
                         Icon(
@@ -190,7 +194,7 @@ fun AnimationEditorScreen(
                             icon = Icons.Filled.Check,
                             label = stringResource(R.string.studio_action_check),
                             onClick = {
-                                HapticUtils.triggerLightFeedback(haptic, context)
+                                HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                 onCheck()
                             },
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -201,7 +205,7 @@ fun AnimationEditorScreen(
                             label = if (isRunning) stringResource(R.string.studio_action_stop)
                             else stringResource(R.string.studio_action_run_glyph),
                             onClick = {
-                                HapticUtils.triggerMediumFeedback(haptic, context)
+                                HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                                 if (isRunning) onStop() else onRunGlyph()
                             },
                             containerColor = accent,
@@ -244,7 +248,7 @@ fun AnimationEditorScreen(
 }
 
 /**
- * The result of the last run, in the space the preview canvas used to occupy.
+ * The result of the last run.
  *
  * A button that silently does nothing is the worst outcome here, so the glyph
  * run says what it is doing while it is doing it.
@@ -391,8 +395,8 @@ private const val CONSOLE_VISIBLE_LINES = 4
 /**
  * Every entry of the `glyph` table, in the order a script author meets them.
  *
- * Kept next to the editor rather than in its own file so that adding a binding
- * to `GlyphLuaApi` and documenting it here stays one edit.
+ * Kept next to the editor so that adding a binding to `GlyphLuaApi` and
+ * documenting it here stays one edit.
  */
 private val API_REFERENCE = listOf(
     "glyph.set(list, brightness, [hold])" to "Light channels and keep them lit",

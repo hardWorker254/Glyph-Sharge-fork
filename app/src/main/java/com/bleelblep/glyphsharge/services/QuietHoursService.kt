@@ -45,7 +45,7 @@ class QuietHoursService : Service() {
 
         const val ACTION_STOP = "com.bleelblep.glyphsharge.QUIET_HOURS_STOP"
 
-        // Request codes for PendingIntents – must be unique
+        // Must stay distinct: PendingIntent identity is (requestCode, action).
         private const val RC_START = 100
         private const val RC_END   = 101
     }
@@ -63,16 +63,14 @@ class QuietHoursService : Service() {
         getSystemService(Context.ALARM_SERVICE) as AlarmManager
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
     // Broadcast receiver – receives EXACT alarm broadcasts (getBroadcast PI)
-    // ──────────────────────────────────────────────────────────────────────────
 
     private val quietHoursReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
                 ACTION_QUIET_HOURS_START -> {
                     Log.d(TAG, "Alarm: quiet hours starting")
-                    // Reschedule next occurrence (exact alarms don't repeat automatically)
+                    // Exact alarms do not repeat, so the next occurrence is set here.
                     scheduleExactAlarm(isStartAlarm = true)
                     startQuietHours()
                 }
@@ -85,9 +83,7 @@ class QuietHoursService : Service() {
         }
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
     // Lifecycle
-    // ──────────────────────────────────────────────────────────────────────────
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     override fun onCreate() {
@@ -134,9 +130,7 @@ class QuietHoursService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // Alarm scheduling  (exact alarms, rescheduled each time they fire)
-    // ──────────────────────────────────────────────────────────────────────────
+    // Alarm scheduling (exact alarms, rescheduled each time they fire)
 
     /**
      * Schedules both start and end exact alarms for tomorrow's quiet hours window.
@@ -208,9 +202,7 @@ class QuietHoursService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-    // ──────────────────────────────────────────────────────────────────────────
     // State management
-    // ──────────────────────────────────────────────────────────────────────────
 
     /** Reconciles in-memory state with the real current time on (re)start. */
     private fun syncCurrentState() {
@@ -262,9 +254,7 @@ class QuietHoursService : Service() {
         stopSelf()
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
     // Notification helpers
-    // ──────────────────────────────────────────────────────────────────────────
 
     private fun createNotificationChannel() {
         val channel = NotificationChannel(
@@ -307,9 +297,7 @@ class QuietHoursService : Service() {
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
     // Helpers
-    // ──────────────────────────────────────────────────────────────────────────
 
     /** Simple data holder to avoid long parameter lists in scheduleExactAlarm. */
     private data class AlarmParams(

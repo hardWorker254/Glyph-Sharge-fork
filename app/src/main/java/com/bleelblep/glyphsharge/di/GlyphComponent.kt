@@ -1,23 +1,9 @@
 package com.bleelblep.glyphsharge.di
 
-import com.bleelblep.glyphsharge.data.CustomAnimationRepository
-import com.bleelblep.glyphsharge.glyph.GlyphAnimationManager
-import dagger.hilt.EntryPoint
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
-
 /**
- * The escape hatch for the screens that are not ViewModels.
+ * Empty on purpose, and the file should be deleted.
  *
- * Hilt injects into Activities, Views and ViewModels, but the feature dialogs
- * are plain Composables that only have a `Context`. They reach the animation
- * manager and the custom-animation list through this entry point rather than
- * threading a repository through every call site.
+ * A screen that cannot inject should get a ViewModel, not a back door into the
+ * graph. The script list uses `CustomAnimationsViewModel`, and the "Test"
+ * buttons use `HomeViewModel` (see `rememberGlyphAnimationManager`).
  */
-@EntryPoint
-@InstallIn(SingletonComponent::class)
-interface GlyphComponent {
-    fun glyphAnimationManager(): GlyphAnimationManager
-
-    fun customAnimationRepository(): CustomAnimationRepository
-}

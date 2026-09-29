@@ -185,7 +185,7 @@ class AnimationStudioViewModel @Inject constructor(
      *
      * The pre-flight checks are here rather than inside the manager because
      * they are about what the *studio* is looking at: a phone with no Glyph
-     * interface, or a session that was never opened, both used to look
+     * interface, or a session that was never opened, would otherwise look
      * identical to a script that simply did nothing.
      */
     fun runOnGlyph() {

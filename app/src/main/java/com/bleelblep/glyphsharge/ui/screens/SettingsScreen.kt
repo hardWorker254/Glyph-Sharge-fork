@@ -23,7 +23,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,19 +36,19 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.CustomAnimationsActivity
-import com.bleelblep.glyphsharge.data.SettingsRepository
-import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.components.controls.MorphingToggleButton
 import com.bleelblep.glyphsharge.ui.components.controls.ThreeStateFontMorphingButton
 import com.bleelblep.glyphsharge.ui.components.layout.DraggableSettingsCard
 import com.bleelblep.glyphsharge.ui.components.layout.SettingsScaffold
 import com.bleelblep.glyphsharge.ui.theme.AppThemeStyle
 import com.bleelblep.glyphsharge.ui.theme.LocalFontState
+import com.bleelblep.glyphsharge.ui.theme.LocalSettingsRepository
 import com.bleelblep.glyphsharge.ui.theme.LocalThemeState
-import dagger.hilt.android.EntryPointAccessors
-import kotlinx.coroutines.flow.map
+import com.bleelblep.glyphsharge.ui.viewmodel.CustomAnimationsViewModel
 
 /**
  * Settings screen for the GlyphZen app.
@@ -66,20 +65,16 @@ fun SettingsScreen(
     onFontSettingsClick: () -> Unit = {},
     onQuietHoursSettingsClick: () -> Unit = {},
     onLanguageSettingsClick: () -> Unit = {},
-    settingsRepository: SettingsRepository
 ) {
     val fontState = LocalFontState.current
     val themeState = LocalThemeState.current
     val context = LocalContext.current
 
-    // The studio is a separate Activity, so the count is read straight from the
-    // repository rather than through a callback from GlyphNavHost.
-    val customAnimationCount by remember {
-        EntryPointAccessors.fromApplication(
-            context.applicationContext,
-            GlyphComponent::class.java
-        ).customAnimationRepository().animations.map { it.size }
-    }.collectAsState(initial = 0)
+    // The studio is a separate Activity, so the count is observed straight from
+    // the repository rather than through a callback the nav host would have to
+    // keep up to date.
+    val customAnimations: CustomAnimationsViewModel = hiltViewModel()
+    val customAnimationCount by customAnimations.animationCount.collectAsStateWithLifecycle()
 
     SettingsScaffold(
         title = stringResource(id = R.string.settings_title),
@@ -111,14 +106,12 @@ fun SettingsScreen(
 
         item {
             QuietHoursSettingsCard(
-                settingsRepository = settingsRepository,
                 onNavigate = onQuietHoursSettingsClick
             )
         }
 
         item {
             LanguageSettingsCard(
-                settingsRepository = settingsRepository,
                 onNavigate = onLanguageSettingsClick
             )
         }
@@ -201,9 +194,9 @@ private fun ThemeSettingsCard(
 
 @Composable
 private fun QuietHoursSettingsCard(
-    settingsRepository: SettingsRepository,
     onNavigate: () -> Unit
 ) {
+    val settingsRepository = LocalSettingsRepository.current
     var quietHoursEnabled by remember {
         mutableStateOf(settingsRepository.isQuietHoursEnabled())
     }
@@ -236,9 +229,9 @@ private fun QuietHoursSettingsCard(
 
 @Composable
 private fun LanguageSettingsCard(
-    settingsRepository: SettingsRepository,
     onNavigate: () -> Unit
 ) {
+    val settingsRepository = LocalSettingsRepository.current
     val currentLanguageName = remember {
         when (settingsRepository.getAppLanguageCode()) {
             "system" -> "System Default"
@@ -321,9 +314,7 @@ private fun AboutCard(modifier: Modifier = Modifier) {
     }
 }
 
-// ------------------------------------------------------------
 // Custom attribute card that toggles its supporting text when tapped
-// ------------------------------------------------------------
 
 @Composable
 private fun BetaAttributeCard(modifier: Modifier = Modifier) {

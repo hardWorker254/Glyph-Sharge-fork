@@ -51,7 +51,7 @@ class GlyphForegroundService : Service() {
         }
     }
 
-    // ── Notification ──────────────────────────────────────────────────────────
+    // Notification
 
     private fun createNotificationChannel() {
         val nm = getSystemService(NotificationManager::class.java)

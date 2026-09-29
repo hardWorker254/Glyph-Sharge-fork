@@ -81,19 +81,14 @@ enum class CaptureStatus {
  * either — `AudioPlaybackConfiguration` hands the app a redacted
  * `sessionId: 0`.
  *
- * ### The contract the rest of the app sees
+ * Only `USAGE_MEDIA` is captured, so a notification chime or a ringtone never
+ * reaches the buffer. The PCM becomes a spectrum in memory and is never stored
+ * or sent.
  *
- * Deliberately the same surface the `Visualizer` version had — `stop`,
- * `latest`, `frames`, `status`, `isCapturing`, `setGain`, with `onConsent` in
- * place of `start` — so the six visualisations, the Lua `glyph.audio`
- * bindings and the service loop are untouched by the swap. The visualiser
- * asks "what is playing right now" and never learns where the answer came
- * from.
- *
- * ### What is captured
- *
- * Only `USAGE_MEDIA`, so a notification chime or a ringtone never reaches the
- * buffer. The PCM becomes a spectrum in memory and is never stored or sent.
+ * The surface is deliberately narrow — `stop`, `latest`, `frames`, `status`,
+ * `isCapturing`, `setGain`, with `onConsent` in place of `start` — so the
+ * visualisations, the Lua `glyph.audio` bindings and the service loop ask "what
+ * is playing right now" without ever learning where the answer came from.
  */
 @Singleton
 class PlaybackAudioSource @Inject constructor(
@@ -269,10 +264,10 @@ class PlaybackAudioSource @Inject constructor(
      *
      * Suspending, and the whole reason this is not done inline: a playback
      * capture cannot be built while the previous `AudioRecord` is still open.
-     * Releasing the old one from a side coroutine and building immediately —
-     * which is what this did — is a race the platform resolves by refusing the
-     * new recorder. The service was then left reporting that it was drawing,
-     * with a dead capture behind it, and re-consenting could never recover it.
+     * Releasing the old one from a side coroutine and building immediately is
+     * a race the platform resolves by refusing the new recorder, which leaves
+     * the service reporting that it was drawing with a dead capture behind it,
+     * and re-consenting can never recover it.
      *
      * The teardown therefore finishes before [startRecorder], and [isSwapping]
      * covers the gap so a caller polling the status knows to wait rather than

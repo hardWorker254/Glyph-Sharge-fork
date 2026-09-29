@@ -5,11 +5,11 @@ import java.util.Locale
 /**
  * Which service a user script is written for.
  *
- * A script with no declaration works everywhere, exactly as before this enum
- * existed: the four trigger pickers (Pulse Lock, NFC, Low Battery, Screen Off)
- * and the music visualiser all offer it. A script that declares
- * `glyph.target = "music"` is only offered by the music visualiser, because it
- * reads `glyph.audio` and is meaningless without a running capture.
+ * A script that declares nothing is [ANY] and is offered by the four trigger
+ * pickers (Pulse Lock, NFC, Low Battery, Screen Off) and the music visualiser
+ * alike. A script that declares `glyph.target = "music"` is only offered by the
+ * music visualiser, because it reads `glyph.audio` and is meaningless without a
+ * running capture.
  *
  * The declaration lives in the Lua source, so it is only *known* after the
  * script has run. Two readers therefore exist and they are kept in step by

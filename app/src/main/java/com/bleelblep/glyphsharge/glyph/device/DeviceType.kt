@@ -7,10 +7,8 @@ import com.nothing.ketchum.Glyph
  * Every Nothing Phone model the app supports, together with the single
  * `Common.is*` check that identifies it.
  *
- * This enum is the **only** place that asks the SDK "which phone is this?".
- * [detect] replaces the five near-identical `when` chains that used to be
- * spread over `GlyphManager` and `GlyphAnimationManager`, so adding a model
- * means adding one enum entry.
+ * This enum is the **only** place that asks the SDK "which phone is this?",
+ * so adding a model means adding one enum entry and nothing else.
  */
 enum class DeviceType(
     /** The id handed to `GlyphManager.register(...)` for this model. */

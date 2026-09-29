@@ -19,25 +19,25 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.glyph.GlyphAnimationManager
+import com.bleelblep.glyphsharge.glyph.GlyphFeature
 import com.bleelblep.glyphsharge.glyph.GlyphManager
 import com.bleelblep.glyphsharge.services.FeatureServiceController
 import com.bleelblep.glyphsharge.services.NfcGlyphService
 import com.bleelblep.glyphsharge.services.QuietHoursService
-import com.bleelblep.glyphsharge.ui.components.WatermarkBox
 import com.bleelblep.glyphsharge.ui.navigation.GlyphNavHost
 import com.bleelblep.glyphsharge.ui.screens.applyLocale
-import com.bleelblep.glyphsharge.ui.state.GlyphFeature
 import com.bleelblep.glyphsharge.ui.theme.FontState
 import com.bleelblep.glyphsharge.ui.theme.GlyphZenTheme
+import com.bleelblep.glyphsharge.ui.theme.LocalSettingsRepository
+import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import com.bleelblep.glyphsharge.ui.theme.ThemeState
 import com.bleelblep.glyphsharge.ui.viewmodel.HomeViewModel
-import com.bleelblep.glyphsharge.utils.WatermarkHelper
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -50,13 +50,13 @@ import kotlin.time.Duration.Companion.milliseconds
  * `Activity`: window configuration, runtime permissions, the log export
  * launcher, NFC foreground dispatch and the glyph session lifecycle.
  *
- * Feature state and service control live in [HomeViewModel] — this class used
- * to carry eighteen feature methods and hand them to the UI as lambdas.
+ * Features state and service control live in [HomeViewModel]; this class keeps
+ * only what genuinely needs an `Activity`.
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
-    // ── DI ──────────────────────────────────────────────────────────────────
+    // Dependency injection
     @Inject lateinit var fontState: FontState
     @Inject lateinit var themeState: ThemeState
     @Inject lateinit var settingsRepository: SettingsRepository
@@ -66,7 +66,7 @@ class MainActivity : ComponentActivity() {
 
     private val homeViewModel: HomeViewModel by viewModels()
 
-    // ── State ────────────────────────────────────────────────────────────────
+    // State
     private var animJob: Job? = null
     private var isGlyphDemoRunning = false
     private var wasServiceEnabled = false
@@ -84,7 +84,7 @@ class MainActivity : ComponentActivity() {
         super.attachBaseContext(contextWithLocale)
     }
 
-    // ── Lifecycle ─────────────────────────────────────────────────────────────
+    // Lifecycle
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -104,7 +104,6 @@ class MainActivity : ComponentActivity() {
         startEnabledFeatureServices()
         startQuietHoursService()
         initializeNfcDispatch()
-        WatermarkHelper.disable()
         setupUI()
         startPersistentGlyphService()
     }
@@ -136,7 +135,6 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         if (wasServiceEnabled) glyphManager.openSession()
         maybeRestoreSession()
-        WatermarkHelper.addToActivity(this)
         enableNfcForegroundDispatch()
         // A feature's own dialog may have changed its preference while the
         // home screen was off-screen.
@@ -156,11 +154,10 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         cancelRunningAnimations()
         if (!settingsRepository.getGlyphServiceEnabled()) glyphManager.cleanup()
-        WatermarkHelper.removeFromActivity(this)
         super.onDestroy()
     }
 
-    // ── Window configuration ──────────────────────────────────────────────────
+    // Window configuration
     private fun configureWindow() {
         enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -177,7 +174,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // ── Initialisation helpers ────────────────────────────────────────────────
+    // Initialisation helpers
     private fun initializeGlyphService() {
         glyphManager.initialize()
         // The SDK is the source of truth for the session; mirror it into the
@@ -212,7 +209,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // ── NFC initialisation ───────────────────────────────────────────────────
+    // NFC initialisation
 
     private fun initializeNfcDispatch() {
         nfcAdapter = NfcAdapter.getDefaultAdapter(this)
@@ -250,32 +247,31 @@ class MainActivity : ComponentActivity() {
         if (enabled) enableNfcForegroundDispatch() else disableNfcForegroundDispatch()
     }
 
-    // ── UI ────────────────────────────────────────────────────────────────────
+    // UI
     private fun setupUI() {
         setContent {
             GlyphZenTheme(themeState = themeState, fontState = fontState) {
                 val bgColor = MaterialTheme.colorScheme.background
-                WatermarkBox(
-                    enabled = false,
-                    text = "TESTING",
-                    alpha = 0.5f,
-                    fontSize = 20.sp
+                // The one place the tree is handed the settings store and the
+                // haptic strength: two values that never change for the life of
+                // the Activity, so anything below reads them rather than
+                // carrying them as parameters.
+                CompositionLocalProvider(
+                    LocalSettingsRepository provides settingsRepository,
+                    LocalVibrationIntensity provides settingsRepository.getVibrationIntensity(),
                 ) {
                     Surface(modifier = Modifier.fillMaxSize(), color = bgColor) {
-                        GlyphNavHost(
-                            settingsRepository = settingsRepository,
-                            homeViewModel = homeViewModel,
-                        )
+                        GlyphNavHost()
                     }
                 }
             }
         }
     }
 
-    // ── Diagnostics ───────────────────────────────────────────────────────────
+    // Diagnostics
     private fun writeLogToUri(uri: Uri) { /* ... */ }
 
-    // ── Session management ────────────────────────────────────────────────────
+    // Session management
     private fun maybeRestoreSession() { /* ... */ }
     private fun startPersistentGlyphService() { /* ... */ }
 
@@ -285,7 +281,7 @@ class MainActivity : ComponentActivity() {
         isGlyphDemoRunning = false
     }
 
-    // ── Constants ─────────────────────────────────────────────────────────────
+    // Constants
     companion object {
         private const val TAG                   = "MainActivity"
         private const val STARTUP_DELAY_MS      = 100L

@@ -23,11 +23,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-import kotlin.time.Duration.Companion.milliseconds
 
 @AndroidEntryPoint
 class ChargingAnimationService : Service() {
@@ -40,6 +37,15 @@ class ChargingAnimationService : Service() {
         const val ACTION_START = "com.bleelblep.glyphsharge.CHARGING_ANIM_START"
         const val ACTION_STOP = "com.bleelblep.glyphsharge.CHARGING_ANIM_STOP"
     }
+
+    /**
+     * This service's own registry entry.
+     *
+     * The run gate — my switch *and* the master Glyph switch — is the same
+     * question everywhere it is asked, so it is answered by the entry rather
+     * than re-derived at each call site.
+     */
+    private val spec = FeatureSpecs.of(GlyphFeature.CHARGING_ANIMATION)
 
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var glyphAnimationManager: GlyphAnimationManager
@@ -90,8 +96,7 @@ class ChargingAnimationService : Service() {
             return START_NOT_STICKY
         }
 
-        if (!settingsRepository.getGlyphServiceEnabled()
-            || !settingsRepository.isChargingAnimationEnabled()) {
+        if (!spec.isRunnable(settingsRepository)) {
             shutDown()
             return START_NOT_STICKY
         }
@@ -114,8 +119,7 @@ class ChargingAnimationService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
-        if (!settingsRepository.getGlyphServiceEnabled()
-            || !settingsRepository.isChargingAnimationEnabled()) return
+        if (!spec.isRunnable(settingsRepository)) return
 
         val restart = Intent(this, ChargingAnimationService::class.java).apply { action = ACTION_START }
         startForegroundService(restart)
@@ -136,42 +140,42 @@ class ChargingAnimationService : Service() {
 
     private fun triggerChargingAnimation() {
         animationScope.launch {
-            if (!settingsRepository.getGlyphServiceEnabled()) return@launch
+            if (!spec.isRunnable(settingsRepository)) return@launch
             if (settingsRepository.isCurrentlyInQuietHours()) return@launch
-            if (!settingsRepository.isChargingAnimationEnabled()) return@launch
-            if (!featureCoordinator.acquire(GlyphFeature.CHARGING_ANIMATION)) return@launch
-
-            val duration = settingsRepository.getChargingAnimationDuration()
-
             try {
-                wakeLock.acquire(duration + 1000L)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to acquire WakeLock: ${e.message}")
-            }
+                // `preempt` stays false: this feature skips on a busy strip rather
+                // than interrupting whoever holds it, and the default timeout is
+                // the 500 ms the `acquire` call used on its own.
+                //
+                // The WakeLock teardown hangs off `onRelease` so it keeps its old
+                // position — after `release`, and only when the strip was really
+                // taken. It is never acquired before the block, so a busy strip
+                // still leaves the WakeLock untouched.
+                featureCoordinator.withStrip(
+                    owner = GlyphFeature.CHARGING_ANIMATION,
+                    onRelease = {
+                        try {
+                            if (wakeLock.isHeld) wakeLock.release()
+                        } catch (e: Exception) {}
+                    }
+                ) {
+                    val duration = settingsRepository.getChargingAnimationDuration()
 
-            try {
-                val animJob = launch(Dispatchers.Default) {
-                    glyphAnimationManager.playChargingAnimationAnimation(
-                        this@ChargingAnimationService
-                    )
+                    // +1s: the bar is still drawing its last frames after the cap.
+                    try {
+                        wakeLock.acquire(duration + 1000L)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to acquire WakeLock: ${e.message}")
+                    }
+
+                    glyphAnimationManager.runCapped(duration) {
+                        glyphAnimationManager.playChargingAnimationAnimation(
+                            this@ChargingAnimationService
+                        )
+                    }
                 }
-
-                val watchdogJob = launch {
-                    delay(duration.milliseconds)
-                    animJob.cancelAndJoin()
-                    glyphAnimationManager.stopAnimations()
-                }
-
-                animJob.join()
-                watchdogJob.cancel()
-
             } catch (e: Exception) {
                 Log.e(TAG, "Error in Charging animation sequence", e)
-            } finally {
-                featureCoordinator.release(GlyphFeature.CHARGING_ANIMATION)
-                try {
-                    if (wakeLock.isHeld) wakeLock.release()
-                } catch (e: Exception) {}
             }
         }
     }

@@ -19,12 +19,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.R
-import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.ui.components.dialogs.FeatureConfirmationFlow
-import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
-import dagger.hilt.android.EntryPointAccessors
 import com.bleelblep.glyphsharge.glyph.script.ScriptAnimation
 import kotlinx.coroutines.launch
 
@@ -60,7 +57,6 @@ fun NfcGlyphConfirmationDialog(
     onEnable: () -> Unit,
     onDisable: () -> Unit,
     onDismiss: () -> Unit,
-    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
     FeatureConfirmationFlow(
@@ -78,8 +74,7 @@ fun NfcGlyphConfirmationDialog(
             NfcGlyphEnableDialog(
                 onDismiss = onDismissSettings,
                 onEnable = onConfirm,
-                onDisable = onDisable,
-                settingsRepository = settingsRepository
+                onDisable = onDisable
             )
         }
     )
@@ -91,10 +86,14 @@ fun NfcGlyphEnableDialog(
     onDismiss: () -> Unit,
     onEnable: () -> Unit,
     onDisable: () -> Unit,
-    settingsRepository: SettingsRepository,
     modifier: Modifier = Modifier
 ) {
+    // The store comes from the composition; the card has none to pass on.
+    val settingsRepository = LocalSettingsRepository.current
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -115,12 +114,7 @@ fun NfcGlyphEnableDialog(
     val currentlyEnabled = remember { settingsRepository.isNfcFeatureEnabled() }
     var isSaving by remember { mutableStateOf(false) }
 
-    val glyphAnimationManager = remember {
-        EntryPointAccessors.fromApplication(
-            context.applicationContext,
-            GlyphComponent::class.java
-        ).glyphAnimationManager()
-    }
+    val glyphAnimationManager = rememberGlyphAnimationManager()
 
     val cardColor = themeCardContainerColor()
     val accent = themePrimaryActionColor()
@@ -170,7 +164,7 @@ fun NfcGlyphEnableDialog(
                                 FilterChip(
                                     selected = anim == selectedAnimation,
                                     onClick = {
-                                        HapticUtils.triggerLightFeedback(haptic, context)
+                                        HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                         selectedAnimation = anim
                                         settingsRepository.saveNfcAnimationId(anim.id)
                                     },
@@ -185,7 +179,7 @@ fun NfcGlyphEnableDialog(
 
                         Button(
                             onClick = {
-                                HapticUtils.triggerMediumFeedback(haptic, context)
+                                HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                                 scope.launch {
                                     testAnimation(
                         selectedAnimation.id,
@@ -237,7 +231,7 @@ fun NfcGlyphEnableDialog(
                             Slider(
                                 value = durationSeconds,
                                 onValueChange = {
-                                    HapticUtils.triggerLightFeedback(haptic, context)
+                                    HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                     durationSeconds = it
                                 },
                                 valueRange = 1f..10f,

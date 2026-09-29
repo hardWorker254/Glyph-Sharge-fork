@@ -10,10 +10,12 @@ import androidx.lifecycle.viewModelScope
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.glyph.GlyphAnimationManager
+import com.bleelblep.glyphsharge.glyph.GlyphFeature
 import com.bleelblep.glyphsharge.glyph.GlyphManager
+import com.bleelblep.glyphsharge.glyph.audio.PlaybackAudioSource
 import com.bleelblep.glyphsharge.services.FeatureServiceController
+import com.bleelblep.glyphsharge.services.FeatureSpecs
 import com.bleelblep.glyphsharge.ui.state.FeatureUiState
-import com.bleelblep.glyphsharge.ui.state.GlyphFeature
 import com.bleelblep.glyphsharge.ui.state.HomeUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -31,11 +33,6 @@ import javax.inject.Inject
  * Drives the home screen: the master glyph switch and the six feature
  * toggles.
  *
- * This logic used to be eighteen methods on `MainActivity`, wired to the UI
- * through eighteen lambdas. Keeping it here means the Activity is left with
- * lifecycle concerns, and the screen observes a single [HomeUiState] instead
- * of threading a boolean through five layers.
- *
  * Transient strings still need a Toast, so they are pushed through [messages]
  * as one-shot events rather than held in state.
  */
@@ -44,9 +41,29 @@ class HomeViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val settingsRepository: SettingsRepository,
     private val glyphManager: GlyphManager,
-    private val glyphAnimationManager: GlyphAnimationManager,
+    /**
+     * The manager the feature dialogs' "Test" buttons drive.
+     *
+     * Public because those dialogs are plain Composables: `hiltViewModel()`
+     * resolves from inside a dialog as well as from a screen, which makes this
+     * the injection point they can reach. Same singleton the feature services
+     * hold.
+     */
+    val glyphAnimationManager: GlyphAnimationManager,
     private val serviceController: FeatureServiceController,
+    private val playbackAudioSource: PlaybackAudioSource,
 ) : ViewModel() {
+
+    /**
+     * The capture singleton, for the one card that has to ask it whether a
+     * projection token is already live.
+     *
+     * A `LazyListScope` cannot inject for itself, so the card list reads this
+     * from the ViewModel it is already given. `PlaybackAudioSource` is a
+     * `@Singleton`, so this is the object the visualiser service captures
+     * through.
+     */
+    val musicCaptureSource: PlaybackAudioSource get() = playbackAudioSource
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -101,14 +118,9 @@ class HomeViewModel @Inject constructor(
                 _uiState.update { it.copy(glyphServiceEnabled = enabled) }
                 settingsRepository.saveGlyphServiceEnabled(enabled)
                 // Reconcile the services even when the session was already in the
-                // requested state.
-                //
-                // A feature switched on while the Glyph service was off has a
-                // dead service: it shut itself down on start and registered no
-                // trigger. The switch can then read "on" while nothing works,
-                // and returning early here left it that way — the feature cards
-                // said "on" and the animation never played, with no way out
-                // except switching the Glyph service off and on again.
+                // requested state: a feature switched on while the Glyph service
+                // was off has a dead service, so its switch can read "on" while
+                // nothing works.
                 if (enabled) serviceController.startAllEnabled() else serviceController.stopAll()
                 emit("Glyph service is already ${if (enabled) "enabled" else "disabled"}")
                 return
@@ -156,8 +168,8 @@ class HomeViewModel @Inject constructor(
 
         // A feature cannot run without the master Glyph service: its service
         // shuts itself down on start and never registers its trigger. Refusing
-        // here, rather than only in the service, is what keeps the card honest
-        // — otherwise it sits there saying "on" and nothing ever happens.
+        // here is what keeps the card honest — otherwise it sits there saying
+        // "on" and nothing ever happens.
         if (enabled && !settingsRepository.getGlyphServiceEnabled()) {
             reject(context.getString(serviceOffMessageOf(feature)))
             return
@@ -176,18 +188,12 @@ class HomeViewModel @Inject constructor(
 
     /**
      * The toast each feature already shows when its dialog is opened while the
-     * Glyph service is off. Reusing them keeps one wording per feature instead
-     * of adding a second, slightly different message.
+     * Glyph service is off. It lives in [FeatureSpecs] beside the rest of a
+     * feature's wiring, because it is the same kind of fact — one per feature,
+     * and a feature added without it has no message to show.
      */
-    private fun serviceOffMessageOf(feature: GlyphFeature): Int = when (feature) {
-        GlyphFeature.PULSE_LOCK -> R.string.pulse_lock_toast
-        GlyphFeature.POWER_PEEK -> R.string.power_peek_toast
-        GlyphFeature.SCREEN_OFF -> R.string.screen_off_toast
-        GlyphFeature.NFC -> R.string.nfc_glyph_toast
-        GlyphFeature.LOW_BATTERY -> R.string.low_battery_alert_toast
-        GlyphFeature.CHARGING_ANIMATION -> R.string.charging_animation_toast
-        GlyphFeature.MUSIC_VISUALIZER -> R.string.music_viz_toast
-    }
+    private fun serviceOffMessageOf(feature: GlyphFeature): Int =
+        FeatureSpecs.of(feature).serviceOffMessage
 
     private fun canUseNfc(): Boolean {
         val adapter = NfcAdapter.getDefaultAdapter(context)
@@ -215,6 +221,7 @@ class HomeViewModel @Inject constructor(
                 GlyphFeature.SCREEN_OFF -> glyphAnimationManager.playScreenOffAnimation()
                 GlyphFeature.NFC -> glyphAnimationManager.playNfcAnimation()
                 GlyphFeature.LOW_BATTERY -> glyphAnimationManager.playLowBatteryAnimation()
+                GlyphFeature.VPN_CONNECTED -> glyphAnimationManager.playVpnConnectedAnimation()
                 GlyphFeature.MUSIC_VISUALIZER ->
                     glyphAnimationManager.playMusicVisualizerAnimation()
             }
@@ -224,12 +231,11 @@ class HomeViewModel @Inject constructor(
     /**
      * Hands the system capture result to the service and turns the feature on.
      *
-     * The token is *not* claimed here. `getMediaProjection` refuses to return
+     * The token is *not* claimed here: `getMediaProjection` refuses to return
      * one unless a foreground service of type `mediaProjection` is already
-     * running, so the consent is carried in the start intent and claimed by
-     * [com.bleelblep.glyphsharge.services.MusicVisualizerService] right after
-     * `startForeground`. Doing it the obvious way fails with "Media projections
-     * require a foreground service".
+     * running, so the consent rides in the start intent and is claimed by
+     * `MusicVisualizerService` right after `startForeground`. The obvious way
+     * fails with "Media projections require a foreground service".
      *
      * The flag is set before the service is asked, so the card matches what is
      * happening; if the capture then fails, the service says why in its
@@ -261,6 +267,7 @@ class HomeViewModel @Inject constructor(
             GlyphFeature.SCREEN_OFF to "Testing Screen Off",
             GlyphFeature.NFC to "Testing NFC",
             GlyphFeature.LOW_BATTERY to "Testing Low Battery Alert",
+            GlyphFeature.VPN_CONNECTED to "Testing VPN Connected",
             GlyphFeature.MUSIC_VISUALIZER to "Testing Music Visualizer"
         )
     }

@@ -14,7 +14,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.ui.components.dialogs.FeatureConfirmationFlow
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
@@ -31,8 +30,7 @@ fun ChargingAnimationConfirmationDialog(
     onEnableAnimation: () -> Unit,
     onDisableAnimation: () -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
-    settingsRepository: SettingsRepository
+    modifier: Modifier = Modifier
 ) {
     FeatureConfirmationFlow(
         title = stringResource(id = R.string.charging_animation_title),
@@ -49,8 +47,7 @@ fun ChargingAnimationConfirmationDialog(
             ChargingAnimationEnableDialog(
                 onConfirm = { onConfirm() },
                 onDismiss = onDismissSettings,
-                onDisable = onDisable,
-                settingsRepository = settingsRepository
+                onDisable = onDisable
             )
         }
     )
@@ -61,10 +58,14 @@ fun ChargingAnimationEnableDialog(
     onConfirm: (ChargingAnimationConfig) -> Unit,
     onDismiss: () -> Unit,
     onDisable: () -> Unit,
-    modifier: Modifier = Modifier,
-    settingsRepository: SettingsRepository
+    modifier: Modifier = Modifier
 ) {
+    // The store comes from the composition; the card has none to pass on.
+    val settingsRepository = LocalSettingsRepository.current
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
 
     val currentlyEnabled = remember { settingsRepository.isChargingAnimationEnabled() }
@@ -124,7 +125,7 @@ fun ChargingAnimationEnableDialog(
                         Slider(
                             value = durationSeconds,
                             onValueChange = {
-                                HapticUtils.triggerLightFeedback(haptic, context)
+                                HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                 durationSeconds = it
                             },
                             valueRange = 2f..10f,

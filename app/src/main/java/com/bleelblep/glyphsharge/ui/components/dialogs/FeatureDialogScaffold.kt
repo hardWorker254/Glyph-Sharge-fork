@@ -23,16 +23,15 @@ import com.bleelblep.glyphsharge.ui.theme.themeCardContainerColor
 /**
  * Shared chrome for every feature dialog.
  *
- * All six feature dialogs repeated the same `AlertDialog` skeleton: a centred
- * title plus subtitle in the header, an explanatory "how it works" card, a
- * bottom button row and a 24dp container shape. Only the strings, the sliders
- * and the buttons ever differed.
+ * A centred title plus subtitle in the header, an explanatory "how it works"
+ * card, a bottom button row and a 24dp container shape; only the strings, the
+ * sliders and the buttons differ per feature.
  *
  * Pass [howItWorksTitle] and [howItWorksDescription] for the standard
  * explanation card, or [content] to supply a custom body — the Enable dialogs
  * use the latter to host their slider rows.
  *
- * @param onDismissRequest wired straight to [AlertDialog]; pass a no-op lambda
+ * @param onDismissRequest wired straight to `AlertDialog`; pass a no-op lambda
  *   together with `dismissOnBackPress = false` and
  *   `dismissOnClickOutside = false` for the non-dismissible confirmation dialogs.
  */

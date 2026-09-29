@@ -27,7 +27,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -44,7 +43,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * ### Why the strip is handed over in slices
  *
  * Every other feature is a short burst — a blink, a sweep, a bar — and all of
- * them take the strip through [GlyphFeatureCoordinator.acquire], which gives
+ * them take the strip through [GlyphFeatureCoordinator.withStrip], which gives
  * up rather than fight for it. A visualiser that held the strip for a whole
  * track would therefore swallow charging animations, low-battery alerts and
  * screen-off effects, and those are exactly the ones a user does not want to
@@ -100,6 +99,13 @@ class MusicVisualizerService : Service() {
         const val RETRY_CAPTURE_MS = 4000L
     }
 
+    /**
+     * This service's own registry entry, which owns the run gate — my switch
+     * and the master Glyph switch. Here the gate is polled rather than asked
+     * once, so it must not be spelled out at each of the places the loop exits.
+     */
+    private val spec = FeatureSpecs.of(GlyphFeature.MUSIC_VISUALIZER)
+
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var glyphAnimationManager: GlyphAnimationManager
     @Inject lateinit var featureCoordinator: GlyphFeatureCoordinator
@@ -150,7 +156,7 @@ class MusicVisualizerService : Service() {
             return START_NOT_STICKY
         }
 
-        if (!settingsRepository.getGlyphServiceEnabled() || !settingsRepository.isMusicVizEnabled()) {
+        if (!spec.isRunnable(settingsRepository)) {
             shutDown()
             return START_NOT_STICKY
         }
@@ -251,25 +257,29 @@ class MusicVisualizerService : Service() {
         showNotification(getString(R.string.music_viz_notif_playing, currentModeLabel()))
 
         while (isActive && !shouldStop() && screenAllowsVisualization() && isMusicPlaying()) {
-            if (!featureCoordinator.acquire(GlyphFeature.MUSIC_VISUALIZER, ACQUIRE_TIMEOUT_MS)) {
-                // Busy: another feature is mid-animation. Wait a moment rather
-                // than spinning on tryLock.
-                delay(YIELD_GAP_MS.milliseconds)
-                continue
-            }
-
+            // A busy strip — `withStrip` returns null without running the block —
+            // is treated exactly like a finished slice: either way the visualiser
+            // hands the strip back, waits [YIELD_GAP_MS] and tries again, rather
+            // than spinning on tryLock.
             try {
-                runCatching { wakeLock.acquire(WAKE_LOCK_MS) }
-                val draw = launch(Dispatchers.Default) {
-                    glyphAnimationManager.playMusicVisualizerAnimation()
+                featureCoordinator.withStrip(
+                    owner = GlyphFeature.MUSIC_VISUALIZER,
+                    timeoutMs = ACQUIRE_TIMEOUT_MS,
+                    // The WakeLock is only ever taken inside the block, so
+                    // releasing it here can only undo something that happened.
+                    onRelease = { runCatching { if (wakeLock.isHeld) wakeLock.release() } }
+                ) {
+                    runCatching { wakeLock.acquire(WAKE_LOCK_MS) }
+                    // The slice cap. `runCapped` stops the painter at SLICE_MS
+                    // the way the old `delay` + `cancelAndJoin()` did, and leaves
+                    // the strip blank — the dark seam the design below trades for
+                    // not swallowing charging, low battery and screen-off.
+                    glyphAnimationManager.runCapped(SLICE_MS) {
+                        glyphAnimationManager.playMusicVisualizerAnimation()
+                    }
                 }
-                delay(SLICE_MS.milliseconds)
-                draw.cancelAndJoin()
             } catch (e: Exception) {
                 Log.e(TAG, "Music visualiser slice failed", e)
-            } finally {
-                featureCoordinator.release(GlyphFeature.MUSIC_VISUALIZER)
-                runCatching { if (wakeLock.isHeld) wakeLock.release() }
             }
 
             if (isActive) delay(YIELD_GAP_MS.milliseconds)
@@ -283,8 +293,7 @@ class MusicVisualizerService : Service() {
      * visualiser is exactly what a quiet-hours schedule is meant to silence.
      */
     private fun shouldStop(): Boolean =
-        !settingsRepository.getGlyphServiceEnabled() ||
-            !settingsRepository.isMusicVizEnabled() ||
+        !spec.isRunnable(settingsRepository) ||
             settingsRepository.isCurrentlyInQuietHours()
 
     private fun screenAllowsVisualization(): Boolean {

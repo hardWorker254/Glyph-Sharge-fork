@@ -21,8 +21,15 @@ class GlyphFeatureCoordinator @Inject constructor(
     private val glyphAnimationManager: GlyphAnimationManager,
 ) {
     private companion object {
-        /** How often a contended lock is retried before giving up. */
+        /** How long a contended lock is retried before giving up. */
         const val TRY_LOCK_POLL_MS = 25L
+
+        /**
+         * How long a feature that is willing to be skipped waits for the strip.
+         * Short by design: these are bursts, and a burst that arrives late is
+         * just a burst the user did not see.
+         */
+        const val ACQUIRE_TIMEOUT_MS = 500L
 
         /**
          * How long a preempting feature waits for the interrupted one to let
@@ -43,15 +50,14 @@ class GlyphFeatureCoordinator @Inject constructor(
      *
      * Glow Gate and Screen Off fire seconds apart in the normal course of
      * locking a phone, and a looping custom animation holds the strip for the
-     * whole duration. Whichever ran first would win, and the one the user
-     * actually did would be skipped half the time depending on how quickly
-     * they unlocked.
+     * whole duration, so without an interrupt the one the user actually did
+     * would be skipped half the time.
      *
-     * Interrupting is safe without breaking the lock: the current owner is not
-     * dispossessed, it is asked to stop drawing, returns, and releases in its
-     * own `finally` — which is the only path that unlocks correctly. Taking
-     * the lock out from under it here would strand it, because `release`
-     * deliberately ignores a caller that is no longer the owner.
+     * Interrupting is safe because the current owner is not dispossessed: it is
+     * asked to stop drawing, returns, and releases in its own `finally` — the
+     * only path that unlocks correctly. Taking the lock from under it here
+     * would strand it, because [release] ignores a caller that is no longer
+     * the owner.
      */
     suspend fun acquireNow(
         owner: GlyphFeature,
@@ -65,34 +71,63 @@ class GlyphFeatureCoordinator @Inject constructor(
     }
 
     /**
+     * Runs [block] with exclusive hold of the Glyph strip, and hands the strip
+     * back afterwards.
+     *
+     * The release has to be in a `finally`. The strip is one shared resource
+     * behind a [Mutex], so a service that returns, throws or is cancelled
+     * without releasing leaves the *lock* held, not merely the LEDs lit — and
+     * [release] ignores a caller that is no longer the owner, so nothing can
+     * take it back and every other feature logs "strip busy" on every trigger
+     * until the process dies.
+     *
+     * A failed acquisition returns `null` rather than running [block], so the
+     * caller can tell "never got the strip" from "held it" without its own flag.
+     *
+     * @param preempt `true` for something the user just did, which interrupts
+     *   the current owner through [acquireNow]; `false` gives up after
+     *   [ACQUIRE_TIMEOUT_MS].
+     * @param onRelease runs from the same `finally`, *after* [release], so the
+     *   LEDs are already off — the order the services' own cleanup (WakeLock,
+     *   `stopForeground`) expects. It does not run when acquisition failed,
+     *   because then nothing was taken and nothing needs undoing.
+     * @return whatever [block] returned, or `null` if the strip was not taken.
+     */
+    suspend fun <T> withStrip(
+        owner: GlyphFeature,
+        preempt: Boolean = false,
+        timeoutMs: Long = if (preempt) PREEMPT_TIMEOUT_MS else ACQUIRE_TIMEOUT_MS,
+        onRelease: () -> Unit = {},
+        block: suspend () -> T
+    ): T? {
+        val acquired = if (preempt) {
+            acquireNow(owner, timeoutMs)
+        } else {
+            acquire(owner, timeoutMs)
+        }
+        if (!acquired) return null
+
+        return try {
+            block()
+        } finally {
+            release(owner)
+            onRelease()
+        }
+    }
+
+    /**
      * Takes the LEDs if they are free, and gives up if they are not.
      *
-     * `tryLock`, and deliberately not `withTimeoutOrNull { lock.lock() }`.
-     *
-     * That version has a fatal race: if the timeout fires after the lock has
-     * been granted but before the block returns, the coroutine is cancelled
-     * while *holding* it. The lock is then never released, and from that
-     * moment every feature reports "LEDs busy" on every event until the process
-     * dies — which is exactly what a feature that works once and then never
-     * again looks like.
-     *
-     * A non-blocking `tryLock()` in a poll loop has no such window: it either
-     * returns true and the caller owns the lock, or it returns false and
-     * nothing was taken.
+     * `tryLock` in a poll loop, deliberately not
+     * `withTimeoutOrNull { lock.lock() }`: if that timeout fires after the lock
+     * has been granted but before the block returns, the coroutine is cancelled
+     * while *holding* it. The lock is then never released and every feature
+     * reports "LEDs busy" on every event until the process dies — the same
+     * symptom as a feature that works once and then never again. A
+     * non-blocking `tryLock()` has no such window: it either grants the lock
+     * or takes nothing.
      */
-    suspend fun acquire(owner: GlyphFeature, timeoutMs: Long = 500L): Boolean {
-        // Deliberately not `withTimeoutOrNull { lock.lock(); true }`.
-        //
-        // That version has a fatal race: if the timeout fires after the lock
-        // has been granted but before the block returns, the coroutine is
-        // cancelled while *holding* it. The lock is then never released, and
-        // from that moment every feature reports "LEDs busy" on every event
-        // until the process dies — which is exactly what a feature that works
-        // once and then never again looks like.
-        //
-        // A non-blocking `tryLock()` in a poll loop has no such window: it
-        // either returns true and the caller owns the lock, or it returns false
-        // and nothing was taken.
+    suspend fun acquire(owner: GlyphFeature, timeoutMs: Long = ACQUIRE_TIMEOUT_MS): Boolean {
         if (!tryLockWithin(timeoutMs)) return false
 
         _currentOwner.value = owner
@@ -124,10 +159,17 @@ class GlyphFeatureCoordinator @Inject constructor(
         return false
     }
 
+    /**
+     * Hands the strip back, ignoring any caller that is not the current owner.
+     *
+     * The LEDs are turned off *before* the lock is released, so the next owner
+     * never inherits a strip that is still lit. A caller that lost ownership
+     * mid-run is ignored on purpose: it has already returned, and letting it
+     * unlock would free a lock the real owner is still holding.
+     */
     fun release(owner: GlyphFeature) {
         if (_currentOwner.value != owner) return
 
-        // Сначала гасим LED, и только потом отдаём lock следующему владельцу.
         runCatching { glyphManager.turnOffAll() }
 
         _currentOwner.value = null
@@ -137,16 +179,19 @@ class GlyphFeatureCoordinator @Inject constructor(
     }
 }
 
-/** All high level app features that can drive Glyph LEDs. */
+/**
+ * All high level app features that can drive the Glyph LEDs.
+ *
+ * The single enumeration the feature list, the service wiring and the UI all
+ * agree on, so a feature cannot be switched on without something behind it.
+ */
 enum class GlyphFeature {
     PULSE_LOCK,
     POWER_PEEK,
-    GLYPH_GUARD,
-    BATTERY_STORY,
-    MANUAL_DEMO,
     LOW_BATTERY,
     SCREEN_OFF,
     NFC,
     CHARGING_ANIMATION,
     MUSIC_VISUALIZER,
+    VPN_CONNECTED,
 }

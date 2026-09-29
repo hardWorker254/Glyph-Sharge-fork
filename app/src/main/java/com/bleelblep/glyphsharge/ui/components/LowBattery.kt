@@ -18,12 +18,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.R
-import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.ui.components.dialogs.FeatureConfirmationFlow
-import com.bleelblep.glyphsharge.di.GlyphComponent
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
-import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.launch
 
 data class LowBatteryAlertConfig(
@@ -39,8 +36,7 @@ fun LowBatteryAlertConfirmationDialog(
     onTestAlert: () -> Unit,
     onEnableAlert: (LowBatteryAlertConfig) -> Unit,
     onDisableAlert: () -> Unit,
-    onDismiss: () -> Unit,
-    settingsRepository: SettingsRepository
+    onDismiss: () -> Unit
 ) {
     // The configuration is threaded through the flow rather than dropped, so
     // the card receives the threshold, animation and duration the user picked.
@@ -64,8 +60,7 @@ fun LowBatteryAlertConfirmationDialog(
                     onConfirm()
                 },
                 onDisable = onDisable,
-                onDismiss = onDismissSettings,
-                settingsRepository = settingsRepository
+                onDismiss = onDismissSettings
             )
         }
     )
@@ -78,9 +73,13 @@ fun LowBatteryAlertEnableDialog(
     onConfirm: (LowBatteryAlertConfig) -> Unit,
     onDismiss: () -> Unit,
     onDisable: () -> Unit,
-    settingsRepository: SettingsRepository,
 ) {
+    // The store comes from the composition; the card has none to pass on.
+    val settingsRepository = LocalSettingsRepository.current
     val haptic = LocalHapticFeedback.current
+    // The user's haptic strength is a setting, so it is read once per
+    // composition here and handed to HapticUtils, which cannot fetch it itself.
+    val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
 
     val currentlyEnabled = remember { settingsRepository.isLowBatteryEnabled() }
@@ -157,7 +156,7 @@ fun LowBatteryAlertEnableDialog(
                         Slider(
                             value = threshold,
                             onValueChange = {
-                                HapticUtils.triggerLightFeedback(haptic, context)
+                                HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                 threshold = it.coerceIn(5f, 50f)
                             },
                             valueRange = 5f..50f,
@@ -178,12 +177,7 @@ fun LowBatteryAlertEnableDialog(
                     colors = CardDefaults.cardColors(containerColor = cardColor),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    val glyphAnimationManager = remember {
-                        EntryPointAccessors.fromApplication(
-                            context.applicationContext,
-                            GlyphComponent::class.java
-                        ).glyphAnimationManager()
-                    }
+                    val glyphAnimationManager = rememberGlyphAnimationManager()
                     val scope = rememberCoroutineScope()
 
                     Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -202,7 +196,7 @@ fun LowBatteryAlertEnableDialog(
                                 FilterChip(
                                     selected = anim == selectedAnimation,
                                     onClick = {
-                                        HapticUtils.triggerLightFeedback(haptic, context)
+                                        HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                         selectedAnimation = anim
                                     },
                                     label = { Text(anim.displayName) },
@@ -216,7 +210,7 @@ fun LowBatteryAlertEnableDialog(
 
                         Button(
                             onClick = {
-                                HapticUtils.triggerMediumFeedback(haptic, context)
+                                HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                                 scope.launch {
                                     try {
                                         when {
@@ -281,7 +275,7 @@ fun LowBatteryAlertEnableDialog(
                             Slider(
                                 value = durationSeconds,
                                 onValueChange = {
-                                    HapticUtils.triggerLightFeedback(haptic, context)
+                                    HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                     durationSeconds = it
                                 },
                                 valueRange = 1f..10f,

@@ -50,6 +50,7 @@ Whether you're checking charge levels or activating security features, Glyph Sha
 - NFC Glyph activation for smart tags
 - Pulse Lock — heart rate verification for device security
 - Screen-off glyph notifications
+- **VPN Connected** — your chosen animation plays once when a VPN connection is established
 
 ### 🎵 Personalization
 - 6 unique theme styles (Classic, Y2K, Neon, AMOLED, Pastel, Expressive)
@@ -117,26 +118,40 @@ app/
 ├── src/main/
 │   ├── java/com/bleelblep/glyphsharge/
 │   │   ├── di/                          # Dependency Injection (Hilt)
-│   │   │   ├── AppModule.kt
-│   │   │   └── GlyphComponent.kt
+│   │   │   └── AppModule.kt             # Provides the one @GlyphPrefs SharedPreferences
 │   │   │
 │   │   ├── glyph/                       # Glyph Interface Management
-│   │   │   ├── GlyphManager.kt
-│   │   │   ├── GlyphAnimationManager.kt
-│   │   │   ├── GlyphFeatureCoordinator.kt
-│   │   │   ├── device/                   # Per-model LED layout and timings
-│   │   │   ├── engine/                   # Frame drawing, run flag, error handling
-│   │   │   ├── animations/               # The animations
-│   │   │   ├── script/                   # User-written Lua animations (LuaJ sandbox)
+│   │   │   ├── GlyphManager.kt          # Nothing SDK session
+│   │   │   ├── GlyphAnimationManager.kt # Public façade: the animation entry points
+│   │   │   ├── GlyphFeatureCoordinator.kt # Mutex + enum GlyphFeature — sole strip arbitrator
+│   │   │   ├── AnimationCatalog.kt      # The animation ids the settings store
+│   │   │   ├── RunTrace.kt
+│   │   │   ├── device/                  # Per-model LED layout and timings
+│   │   │   ├── engine/                  # Frame drawing, run flag, error handling
+│   │   │   ├── animations/              # Built-in animations + the shared runner
+│   │   │   │   ├── AnimationRunner.kt   #   Guards and the blank-strip lifecycle
+│   │   │   │   ├── BuiltInAnimations.kt
+│   │   │   │   ├── AudioAnimations.kt
+│   │   │   │   ├── ParticleAnimations.kt
+│   │   │   │   └── SequenceAnimations.kt
+│   │   │   ├── audio/                   # Music visualiser: capture, FFT, synthetic track
+│   │   │   │   ├── MusicVisualisation.kt
+│   │   │   │   ├── SyntheticTrack.kt
+│   │   │   │   └── ...
+│   │   │   ├── script/                  # User-written Lua animations (LuaJ sandbox)
 │   │   │   │   ├── LuaScriptEngine.kt    #   Sandbox, watchdog, validate()
 │   │   │   │   ├── GlyphLuaApi.kt        #   The `glyph` table — the whole script language
-│   │ │   │   ├── ScriptSession.kt       #   Per-run state and interruptible waits
+│   │   │   │   ├── ScriptSession.kt      #   Per-run state and interruptible waits
 │   │   │   │   ├── ScriptRunner.kt       #   The only bridge from the VM to the LEDs
+│   │   │   │   ├── ScriptPlayback.kt     #   Hosting a script animation on the strip
+│   │   │   │   ├── ScriptTarget.kt       #   Which pickers may offer a script
 │   │   │   │   ├── ScriptFileFormat.kt   #   The .glyphlua container
 │   │   │   │   └── ScriptAnimation.kt    #   Model, custom:<12 hex> ids
-│   │   │   └── battery/                  # Charging / Power Peek bar
+│   │   │   └── battery/                 # Charging / Power Peek bar
 │   │   │
 │   │   ├── services/                    # Background Services
+│   │   │   ├── FeatureSpec.kt           # Feature → service → preference registry
+│   │   │   ├── FeatureServiceController.kt
 │   │   │   ├── GlyphForegroundService.kt
 │   │   │   ├── ChargingAnimationService.kt
 │   │   │   ├── NfcGlyphService.kt
@@ -144,28 +159,48 @@ app/
 │   │   │   ├── PowerPeekService.kt
 │   │   │   ├── PulseLockService.kt
 │   │   │   ├── QuietHoursService.kt
-│   │   │   └── ScreenOffGlyphService.kt
+│   │   │   ├── ScreenOffGlyphService.kt
+│   │   │   ├── VpnConnectedService.kt
+│   │   │   └── MusicVisualizerService.kt
 │   │   │
 │   │   ├── ui/                          # UI Components
 │   │   │   ├── components/              # Reusable Composables
-│   │   │   │   └── GlyphAnimations.kt  # Animation catalogue + custom scripts
+│   │   │   │   ├── FeatureCards.kt      # One card per GlyphFeature
+│   │   │   │   ├── GlyphAnimations.kt   # Animation catalogue + rememberAnimationOptions
+│   │   │   │   ├── GlyphDependencies.kt # rememberGlyphAnimationManager()
+│   │   │   │   ├── CommonDialogComponents.kt
+│   │   │   │   ├── cards/               # ContentCard, FeatureCard, SquareFeatureCard
+│   │   │   │   ├── controls/            # Morphing toggles
+│   │   │   │   ├── dialogs/             # Shared dialog scaffold and confirmation flow
+│   │   │   │   └── layout/              # Settings scaffold, section header, feature grid
 │   │   │   ├── screens/                 # App Screens
-│   │   │   │   └── animations/         # Animation studio: list, editor, preview
-│   │   │   ├── viewmodel/               # HomeViewModel, AnimationStudioViewModel
-│   │   │   ├── theme/                   # Themes & Styling
-│   │   │   └── utils/                   # UI Utilities
+│   │   │   │   ├── home/                # Home
+│   │   │   │   └── animations/          # Animation studio: list, editor, preview
+│   │   │   ├── navigation/              # Routes and the NavHost
+│   │   │   ├── state/                   # FeatureUiState, HomeUiState
+│   │   │   ├── viewmodel/               # Home, animation studio, custom animations
+│   │   │   ├── theme/                   # Themes, typography, CompositionLocals
+│   │   │   └── utils/                   # HapticUtils
 │   │   │
-│   │   ├── data/                        # Data Layer
-│   │   │   ├── SettingsRepository.kt
-│   │   │   ├── CustomAnimationRepository.kt  # User scripts: files + index, import/export
-│   │   │   └── local/                   # Room Database
+│   │   ├── data/                        # Settings store: slices + a thin facade
+│   │   │   ├── ThemeSettings.kt         #   Each slice owns its own keys
+│   │   │   ├── FontSettings.kt
+│   │   │   ├── GlyphServiceSettings.kt
+│   │   │   ├── FeatureSettings.kt
+│   │   │   ├── QuietHoursSettings.kt
+│   │   │   ├── LanguageSettings.kt
+│   │   │   ├── UserPresenceSettings.kt
+│   │   │   ├── SettingsMigrations.kt
+│   │   │   ├── SettingsDiagnostics.kt
+│   │   │   ├── SettingsPrefs.kt         #   Typed reified read/write helpers
+│   │   │   ├── SettingsRepository.kt    # Facade forwarding to the slices
+│   │   │   └── CustomAnimationRepository.kt  # User scripts: files + index, import/export
 │   │   │
 │   │   ├── receiver/                    # Broadcast Receivers
 │   │   │   └── BootCompletedReceiver.kt
 │   │   │
 │   │   ├── utils/                       # Utilities
-│   │   │   ├── LoggingManager.kt
-│   │   │   └── WatermarkHelper.kt
+│   │   │   └── LoggingManager.kt
 │   │   │
 │   │   ├── GlyphZenApplication.kt       # Application Class
 │   │   ├── MainActivity.kt              # Main Activity
@@ -174,7 +209,13 @@ app/
 │   ├── res/                             # Android Resources
 │   └── AndroidManifest.xml
 │
-└── build.gradle                         # Build Configuration
+├── src/test/java/com/bleelblep/glyphsharge/
+│   └── glyph/                           # 118 unit tests: audio, device, script
+│
+├── build.gradle.kts                     # Build Configuration
+└── proguard-rules.pro
+
+gradle/libs.versions.toml                 # The single source of every plugin and library version
 ```
 
 ---
@@ -184,11 +225,35 @@ app/
 Glyph Sharge follows modern Android development best practices:
 
 - **MVVM (Model-View-ViewModel)** — Separation of concerns
-- **Dependency Injection** — Hilt for scalable DI
-- **Repository Pattern** — Abstracted data access
+- **Dependency Injection** — Hilt for scalable DI. `di/AppModule.kt` provides the one settings `SharedPreferences` under the `@GlyphPrefs` qualifier; the UI reaches the rest of the graph through `@HiltViewModel` and `hiltViewModel()`
+- **Repository Pattern** — `data/` keeps the settings in `SharedPreferences`, split into one slice per concern (`ThemeSettings`, `FontSettings`, `FeatureSettings`, …); `SettingsRepository` is a thin facade that forwards to them
 - **Single Activity Architecture** — Jetpack Compose Navigation (plus one dedicated Activity for the animation studio, which owns its own file pickers and back stack)
 - **Unidirectional Data Flow** — Predictable state management
+- **One strip, one owner** — `GlyphFeatureCoordinator` holds a `Mutex` behind the single `GlyphFeature` enum, so only one feature drives the LEDs at a time; services take the strip through `withStrip(...)` and bound a run through `GlyphAnimationManager.runCapped(...)`
+- **Features as data** — `services/FeatureSpec.kt` maps every feature to its service, its stop action and its preference in one record, so `FeatureServiceController` never hard-codes which service a feature means
 - **Script runtime** — user-written Lua animations run on [LuaJ](https://github.com/luaj/luaj) 3.0.1 (`org.luaj:luaj-jse`, a pure-JVM Lua 5.2) in a sandbox stripped of `io`, `os`, `luajava`, `load`/`dofile`/`require`, `coroutine` and `debug`, with a watchdog that enforces the feature's Duration setting and a 200,000,000-instruction ceiling
+
+---
+
+## 🎨 Tech Stack
+
+Every version below lives in `gradle/libs.versions.toml` — the single source of truth for plugins and libraries. The build is Kotlin DSL (`.kts`) in both the root and `app/`.
+
+| Layer | Choice | Version |
+|-------|--------|---------|
+| Language | Kotlin | 1.9.10 |
+| Build | Android Gradle Plugin | 8.13.2 |
+| Annotation processing | KSP (Hilt compiler) | 1.9.10-1.0.13 |
+| Dependency injection | Hilt | 2.50 |
+| UI | Jetpack Compose, Material 3 | BOM 2024.02.00, material3 1.2.0 |
+| Compose compiler | `composeOptions.kotlinCompilerExtensionVersion` | 1.5.3 |
+| Navigation | Navigation Compose | 2.7.7 |
+| Scripting | LuaJ (`org.luaj:luaj-jse`) | 3.0.1 |
+| Tests | JUnit 4, Robolectric | 4.13.2, 4.11.1 |
+
+- **JDK 17**, `compileSdk 36`, `minSdk 34`, `targetSdk 34`
+- **No `kapt`** — Hilt's compiler runs through KSP, so the module runs one annotation-processing pass per compile
+- Release builds ship with `isMinifyEnabled = false`
 
 ---
 
@@ -218,15 +283,17 @@ Official Nothing fonts with dynamic scaling:
 
 ### Core Components
 
-| Component | Description |
-|-----------|-------------|
-| `StandardCard` | Base card with animations and haptics |
-| `SimpleCard` | Minimalist card variant |
-| `IconCard` | Icon-focused card |
-| `ActionCard` | Call-to-action card |
-| `ContentCard` | Custom content container |
-| `WavyProgressIndicator` | Animated sine wave progress |
-| `TransparentTopAppBar` | Scroll-aware app bar |
+| Component | File | Description |
+|-----------|------|-------------|
+| `FeatureCard`, `SquareFeatureCard`, `WideFeatureCardWithToggle` | `ui/components/cards/ContentCards.kt` | Feature presentation, square and wide-with-toggle variants |
+| `GlyphControlCard` | `ui/components/cards/ContentCards.kt` | The master Glyph on/off card |
+| `ContentCard` | `ui/components/cards/ContentCards.kt` | Custom content container |
+| `PowerPeekCard`, `PulseLockCard`, `LowBatteryAlertCard`, `ScreenOffCard`, `NfcGlyphCard`, `ChargingAnimationCard`, `MusicVisualizerCard`, `VpnConnectedCard` | `ui/components/FeatureCards.kt`, `ui/components/VpnConnected.kt` | One card per `GlyphFeature` |
+| `SettingsScaffold`, `DraggableSettingsCard` | `ui/components/layout/SettingsScaffold.kt`, `.../DraggableSettingsCard.kt` | Settings screen frame and swipe-to-navigate card |
+| `HomeSectionHeader`, `FeatureGrid` | `ui/components/layout/SectionLayout.kt` | Section header and the feature grid |
+| `MorphingToggleButton`, `ThreeStateFontMorphingButton` | `ui/components/controls/ToggleButtons.kt` | Morphing on/off toggle |
+| `ThreeStateFontToggle` | `ui/components/FontSettingsComponents.kt` | HEADLINE / NDOT / SYSTEM picker |
+| `FeatureDialogScaffold`, `FeatureConfirmationFlow` | `ui/components/dialogs/` | Shared dialog chrome for every feature |
 
 ---
 
@@ -243,6 +310,7 @@ Official Nothing fonts with dynamic scaling:
 | `ScreenOffGlyphService` | Notifications with screen off |
 | `QuietHoursService` | Scheduled silent mode |
 | `MusicVisualizerService` | Spectrum visualisation of whatever is playing |
+| `VpnConnectedService` | Plays the chosen animation when a VPN connects |
 
 ---
 

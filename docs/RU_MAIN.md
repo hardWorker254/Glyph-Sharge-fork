@@ -72,20 +72,27 @@ app/
 ├── src/main/
 │   ├── java/com/bleelblep/glyphsharge/
 │   │   ├── di/                    # Dependency Injection (Hilt)
-│   │   │   ├── AppModule.kt       # Модули DI
-│   │   │   └── GlyphComponent.kt  # Компоненты DI
+│   │   │   └── AppModule.kt       # Провайдер @GlyphPrefs — единственный SharedPreferences
 │   │   │
 │   │   ├── glyph/                 # Управление Glyph Interface
 │   │   │   ├── GlyphManager.kt          # Сессия Nothing SDK
 │   │   │   ├── GlyphAnimationManager.kt # Точки входа анимаций
-│   │   │   ├── GlyphFeatureCoordinator.kt # Координатор функций
+│   │   │   ├── GlyphFeatureCoordinator.kt # Единственный арбитр полосы LED
 │   │   │   ├── AnimationCatalog.kt     # id анимаций
+│   │   │   ├── RunTrace.kt
 │   │   │   ├── device/                 # Раскладка LED по модели
 │   │   │   ├── engine/                 # Движок отрисовки кадров
-│   │   │   ├── animations/             # Сами анимации
+│   │   │   ├── animations/             # Встроенные анимации + общий раннер
+│   │   │   │   ├── AnimationRunner.kt   #   Проверки и гашение полосы
+│   │   │   │   ├── BuiltInAnimations.kt
+│   │   │   │   └── ...
+│   │   │   ├── audio/                   # Визуализатор: захват, FFT, синтетический трек
+│   │   │   ├── script/                 # Пользовательские анимации на Lua (LuaJ)
 │   │   │   └── battery/                # Анимация заряда и Power Peek
 │   │   │
 │   │   ├── services/              # Фоновые сервисы
+│   │   │   ├── FeatureSpec.kt         # Реестр фича → сервис → настройка
+│   │   │   ├── FeatureServiceController.kt
 │   │   │   ├── GlyphForegroundService.kt
 │   │   │   ├── ChargingAnimationService.kt
 │   │   │   ├── NfcGlyphService.kt
@@ -93,27 +100,40 @@ app/
 │   │   │   ├── PowerPeekService.kt
 │   │   │   ├── PulseLockService.kt
 │   │   │   ├── QuietHoursService.kt
-│   │   │   └── ScreenOffGlyphService.kt
+│   │   │   ├── ScreenOffGlyphService.kt
+│   │   │   └── MusicVisualizerService.kt
 │   │   │
 │   │   ├── ui/                    # UI компоненты
 │   │   │   ├── components/        # Переиспользуемые компоненты
+│   │   │   │   ├── FeatureCards.kt      # По карточке на каждый GlyphFeature
+│   │   │   │   ├── GlyphAnimations.kt   # Каталог анимаций
+│   │   │   │   ├── GlyphDependencies.kt # rememberGlyphAnimationManager()
+│   │   │   │   ├── cards/, controls/, dialogs/, layout/
 │   │   │   ├── screens/           # Экраны приложения
+│   │   │   ├── navigation/        # Маршруты и NavHost
+│   │   │   ├── state/             # FeatureUiState, HomeUiState
+│   │   │   ├── viewmodel/         # ViewModel'ы экранов
 │   │   │   ├── theme/             # Темы и стили
-│   │   │   └── utils/             # UI утилиты
+│   │   │   └── utils/             # UI утилиты (HapticUtils)
 │   │   │
-│   │   ├── data/                  # Слой данных
-│   │   │   ├── SettingsRepository.kt
-│   │   │   └── local/             # Локальное хранилище (Room)
+│   │   ├── data/                  # Настройки: срезы + тонкий фасад
+│   │   │   ├── ThemeSettings.kt, FontSettings.kt, GlyphServiceSettings.kt
+│   │   │   ├── FeatureSettings.kt, QuietHoursSettings.kt, LanguageSettings.kt
+│   │   │   ├── UserPresenceSettings.kt
+│   │   │   ├── SettingsMigrations.kt, SettingsDiagnostics.kt
+│   │   │   ├── SettingsPrefs.kt   # Типизированные reified-хелперы чтения/записи
+│   │   │   ├── SettingsRepository.kt   # Фасад, делегирующий срезам
+│   │   │   └── CustomAnimationRepository.kt # Скрипты пользователя: файлы + индекс
 │   │   │
 │   │   ├── receiver/              # Broadcast receivers
 │   │   │   └── BootCompletedReceiver.kt
 │   │   │
 │   │   ├── utils/                 # Общие утилиты
-│   │   │   ├── LoggingManager.kt
-│   │   │   └── WatermarkHelper.kt
+│   │   │   └── LoggingManager.kt
 │   │   │
 │   │   ├── GlyphZenApplication.kt # Application класс
-│   │   └── MainActivity.kt        # Главная активность
+│   │   ├── MainActivity.kt        # Главная активность
+│   │   └── CustomAnimationsActivity.kt # Студия анимаций (отдельная активность)
 │   │
 │   ├── res/                       # Ресурсы Android
 │   │   ├── values/                # Строки, цвета, темы
@@ -121,7 +141,7 @@ app/
 │   │
 │   └── AndroidManifest.xml        # Манифест приложения
 │
-└── build.gradle                   # Конфигурация сборки
+└── build.gradle.kts                 # Конфигурация сборки
 ```
 
 ### Архитектурные паттерны
@@ -129,10 +149,11 @@ app/
 Приложение следует современным рекомендациям Android разработки:
 
 - **MVVM (Model-View-ViewModel)** — разделение логики и UI
-- **Dependency Injection** — Hilt для внедрения зависимостей
-- **Repository Pattern** — абстракция доступа к данным
-- **Single Activity Architecture** — навигация через Compose Navigation
+- **Dependency Injection** — Hilt; `di/AppModule.kt` провайдит единственный `SharedPreferences` настроек под квалификатором `@GlyphPrefs`, UI получает остальной граф через `@HiltViewModel` и `hiltViewModel()`
+- **Repository Pattern** — `data/` хранит настройки в `SharedPreferences`, разбитом на срезы по областям (`ThemeSettings`, `FontSettings`, `FeatureSettings`, …); `SettingsRepository` — тонкий фасад, делегирующий срезам
+- **Single Activity Architecture** — навигация через Compose Navigation (плюс отдельная активность студии анимаций со своим стеком и файловыми диалогами)
 - **Unidirectional Data Flow** — поток данных в одном направлении
+- **Одна полоса — один владелец** — `GlyphFeatureCoordinator` держит `Mutex` за единственным enum `GlyphFeature`; сервисы берут полосу через `withStrip(...)`, а прогон ограничивают по времени через `GlyphAnimationManager.runCapped(...)`
 
 ---
 
@@ -356,4 +377,4 @@ LinearWavyProgressIndicator(
 
 ---
 
-*Документация актуальна для версии 1.0.30*
+*Документация актуальна для версии 1.0.31*
