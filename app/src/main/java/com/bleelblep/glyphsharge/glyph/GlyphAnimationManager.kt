@@ -139,7 +139,7 @@ class GlyphAnimationManager @Inject constructor(
     ) = playBatteryBar(
         context = context,
         durationMs = settingsRepository.getPowerPeekDuration(),
-        onProgressUpdate = onProgressUpdate
+        onProgressUpdate = onProgressUpdate,
     )
 
     suspend fun playChargingAnimationAnimation(
@@ -148,7 +148,7 @@ class GlyphAnimationManager @Inject constructor(
     ) = playBatteryBar(
         context = context,
         durationMs = settingsRepository.getChargingAnimationDuration(),
-        onProgressUpdate = onProgressUpdate
+        onProgressUpdate = onProgressUpdate,
     )
 
     /**
@@ -165,7 +165,9 @@ class GlyphAnimationManager @Inject constructor(
 
         val state = BatteryStateReader.read(context)
 
-        runner.anim { animateBattery(it, state.percentage, state.isCharging, durationMs, onProgressUpdate) }
+        runner.anim {
+            animateBattery(it, state.percentage, state.isCharging, durationMs, onProgressUpdate)
+        }
     }
 
     // endregion

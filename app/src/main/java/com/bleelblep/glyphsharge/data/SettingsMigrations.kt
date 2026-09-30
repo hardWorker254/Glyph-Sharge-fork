@@ -37,7 +37,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class SettingsMigrations @Inject constructor(
-    @GlyphPrefs private val prefs: SharedPreferences,
+    @param:GlyphPrefs private val prefs: SharedPreferences,
     private val glyphService: GlyphServiceSettings
 ) {
 

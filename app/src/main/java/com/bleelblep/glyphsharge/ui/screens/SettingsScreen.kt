@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -141,8 +142,9 @@ private fun CustomAnimationsCard(
         subtitle = if (animationCount == 0) {
             stringResource(id = R.string.settings_card_custom_animations_subtitle)
         } else {
-            stringResource(
-                id = R.string.settings_card_custom_animations_count,
+            pluralStringResource(
+                id = R.plurals.settings_card_custom_animations_count,
+                count = animationCount,
                 animationCount
             )
         },

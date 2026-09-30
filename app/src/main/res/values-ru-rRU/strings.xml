@@ -53,7 +53,7 @@
     <string name="power_peek_sensitivity_hard">Сильно</string>
     <string name="power_peek_sensitivity_hardest">Очень сильно</string>
     <string name="power_peek_duration_title">Длительность</string>
-    <string name="power_peek_duration_value">с</string>
+    <string name="power_peek_duration_value">%d с</string>
     <string name="power_peek_duration_min">2с</string>
     <string name="power_peek_duration_max">10с</string>
     <string name="power_peek_button_enable">Включить</string>
@@ -160,13 +160,23 @@
   <!-- Animation Studio -->
   <string name="settings_card_custom_animations">Свои анимации</string>
   <string name="settings_card_custom_animations_subtitle">Пишите свои на Lua</string>
-  <string name="settings_card_custom_animations_count">Сохранено: %1$d</string>
+  <plurals name="settings_card_custom_animations_count">
+    <item quantity="one">Сохранено: %1$d анимация</item>
+    <item quantity="few">Сохранено: %1$d анимации</item>
+    <item quantity="many">Сохранено: %1$d анимаций</item>
+    <item quantity="other">Сохранено: %1$d анимации</item>
+  </plurals>
   <string name="studio_title">Студия</string>
   <string name="studio_new">Создать</string>
   <string name="studio_import">Импорт</string>
   <string name="studio_empty_title">Анимаций пока нет</string>
   <string name="studio_empty_body">Напишите скрипт на Lua или импортируйте файл .glyphlua, который вы сохраняли раньше. После сохранения свои анимации появятся рядом со встроенными на карточках фич.</string>
-  <string name="studio_row_meta">%1$d символов · изменено %2$s</string>
+  <plurals name="studio_row_meta">
+    <item quantity="one">%1$d символ · изменено %2$s</item>
+    <item quantity="few">%1$d символа · изменено %2$s</item>
+    <item quantity="many">%1$d символов · изменено %2$s</item>
+    <item quantity="other">%1$d символа · изменено %2$s</item>
+  </plurals>
   <string name="studio_row_menu">Действия с анимацией</string>
   <string name="studio_action_open">Открыть</string>
   <string name="studio_action_duplicate">Дублировать</string>
@@ -188,7 +198,12 @@
   <string name="studio_msg_syntax_ok">Всё в порядке — ошибок синтаксиса нет.</string>
   <string name="studio_msg_syntax_error">Ошибка синтаксиса: %1$s</string>
   <string name="studio_msg_missing_module">Проблема с модулем: %1$s</string>
-  <string name="studio_msg_done">Готово — %1$d кадров за %2$d мс.</string>
+  <plurals name="studio_msg_done">
+    <item quantity="one">Готово — %1$d кадр за %2$d мс.</item>
+    <item quantity="few">Готово — %1$d кадра за %2$d мс.</item>
+    <item quantity="many">Готово — %1$d кадров за %2$d мс.</item>
+    <item quantity="other">Готово — %1$d кадра за %2$d мс.</item>
+  </plurals>
   <string name="studio_msg_timeout">Остановлено по лимиту длительности.</string>
   <string name="studio_msg_stopped">Остановлено.</string>
   <string name="studio_msg_runtime_error">Ошибка: %1$s</string>

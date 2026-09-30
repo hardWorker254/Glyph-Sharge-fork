@@ -35,7 +35,7 @@ data class FeatureSpec(
      * reusing each feature's existing wording beats adding a second, slightly
      * different message next to it.
      */
-    @StringRes val serviceOffMessage: Int,
+    @param:StringRes val serviceOffMessage: Int,
 ) {
     /**
      * Whether this feature is allowed to do anything at all.

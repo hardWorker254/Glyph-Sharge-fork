@@ -17,7 +17,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class FontSettings @Inject constructor(
-    @GlyphPrefs private val prefs: SharedPreferences
+    @param:GlyphPrefs private val prefs: SharedPreferences
 ) {
 
     fun saveFontVariant(variant: FontVariant) = prefs.putSetting(KEY_FONT_VARIANT, variant.name)

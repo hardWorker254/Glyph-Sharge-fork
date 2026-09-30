@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import android.content.Context
 import android.text.format.DateFormat
+import java.util.Locale
 
 import com.bleelblep.glyphsharge.ui.components.*
 import com.bleelblep.glyphsharge.ui.components.layout.SettingsScaffold
@@ -490,7 +491,7 @@ private fun formatTime(context: Context, hour: Int, minute: Int): String {
     
     return if (is24Hour) {
         // 24-hour format
-        String.format("%02d:%02d", hour, minute)
+        String.format(Locale.getDefault(), "%02d:%02d", hour, minute)
     } else {
         // 12-hour format
         val displayHour = when {
@@ -499,6 +500,6 @@ private fun formatTime(context: Context, hour: Int, minute: Int): String {
             else -> hour
         }
         val amPm = if (hour < 12) "AM" else "PM"
-        String.format("%d:%02d %s", displayHour, minute, amPm)
+        String.format(Locale.getDefault(), "%d:%02d %s", displayHour, minute, amPm)
     }
 } 

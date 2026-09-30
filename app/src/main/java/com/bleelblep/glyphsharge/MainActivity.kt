@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.net.Uri
 import android.nfc.NfcAdapter
 import android.os.Bundle
@@ -159,13 +158,14 @@ class MainActivity : ComponentActivity() {
 
     // Window configuration
     private fun configureWindow() {
+        // enableEdgeToEdge() already lays the window out behind both bars and
+        // makes them transparent, so statusBarColor/navigationBarColor and the
+        // platform setDecorFitsSystemWindows() only repeated it — and all three
+        // are deprecated from API 35 on.
         enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.apply {
-            statusBarColor = Color.TRANSPARENT
-            navigationBarColor = Color.TRANSPARENT
             isNavigationBarContrastEnforced = false
-            setDecorFitsSystemWindows(false)
             addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED)
         }
         WindowCompat.getInsetsController(window, window.decorView).apply {

@@ -2,7 +2,6 @@ package com.bleelblep.glyphsharge
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.util.Log
@@ -223,11 +222,12 @@ class CustomAnimationsActivity : ComponentActivity() {
     }
 
     private fun configureWindow() {
+        // enableEdgeToEdge() already lays the window out behind both bars and
+        // makes them transparent, so statusBarColor/navigationBarColor only
+        // repeated it — and both are deprecated from API 35 on.
         enableEdgeToEdge()
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.apply {
-            statusBarColor = Color.TRANSPARENT
-            navigationBarColor = Color.TRANSPARENT
             isNavigationBarContrastEnforced = false
             addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED)
         }

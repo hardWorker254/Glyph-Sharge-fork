@@ -15,6 +15,7 @@ import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.IntentCompat
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.glyph.GlyphAnimationManager
 import com.bleelblep.glyphsharge.glyph.GlyphFeature
@@ -89,7 +90,7 @@ class NfcGlyphService : Service() {
                 action = ACTION_NFC_TAG_FORWARDED
                 putExtra(EXTRA_NFC_ACTION, intent.action)
                 // Forward the Tag parcelable so we can log / inspect it if needed
-                intent.getParcelableExtra<Tag>(NfcAdapter.EXTRA_TAG)?.let {
+                IntentCompat.getParcelableExtra(intent, NfcAdapter.EXTRA_TAG, Tag::class.java)?.let {
                     putExtra(NfcAdapter.EXTRA_TAG, it)
                 }
             }

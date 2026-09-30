@@ -26,6 +26,17 @@ private const val FULL_BATTERY_PERCENT = 100
 private const val TWINKLE_PERIOD = 20
 
 /**
+ * Segments lit past the fill point to hint that there is more charge above it.
+ *
+ * One, and that is the point. This used to be a run of three at full brightness,
+ * which made it the loudest thing on a twenty-segment strip while carrying the
+ * least: a battery at eighty per cent read as nineteen segments long, and the
+ * tail kept strobing for the rest of the animation. A single dimmer neighbour
+ * still says "more above this" without overstating the level.
+ */
+private const val END_BLINK_SEGMENTS = 1
+
+/**
  * Fills the C strip from empty to [batteryPercentage] over [durationMs],
  * reporting progress to [onProgressUpdate] as it goes.
  *
@@ -72,7 +83,7 @@ internal suspend fun GlyphRenderer.animateBattery(
             // The accents only make sense once the bar has reached its level.
             if (current == target) {
                 if (isCharging) {
-                    addBatteryEndBlink(builder, profile, bar, batteryPercentage, target, base, step)
+                    addBatteryEndBlink(builder, bar, batteryPercentage, target, base, step)
                     addChargeDot(builder, profile, base, step)
                 } else {
                     addIdleAccents(builder, profile, batteryPercentage, current, bar, base, step)
@@ -96,19 +107,27 @@ private fun baseBrightness(batteryPercentage: Int, isCharging: Boolean): Int = w
     else -> (GLYPH_MAX_BRIGHTNESS * 0.7f).toInt()
 }
 
-/** A travelling wave so a full bar still reads as "charging", not "done". */
+/**
+ * A slow swell travelling along a charging bar.
+ *
+ * Both numbers were turned down on purpose. The amplitude used to swing the
+ * whole bar between 60% and 100%, so twenty segments shimmered at once and the
+ * strip read as busy rather than as alive; a quarter of the range still says
+ * "charging" and lets the level be read off the length. The spacing sets the
+ * wavelength, and a longer one means a single swell crosses the bar instead of
+ * two ripples fitting into it.
+ */
 private fun chargingWave(profile: DeviceProfile, index: Int, base: Int, step: Int): Int {
-    val spacing = if (profile.type == DeviceType.PHONE1) 0.5f else 0.3f
+    val spacing = if (profile.type == DeviceType.PHONE1) 0.5f else 0.2f
     val offset = index * spacing
-    return (base * (0.6f + 0.4f * sin(step * 0.2f - offset))).toInt()
+    return (base * (0.75f + 0.25f * sin(step * 0.15f - offset))).toInt()
 }
 
 // region Charging accents
 
-/** Fades a short run of segments past the fill point, hinting at more charge. */
+/** One segment past the fill point, breathing to say there is more charge. */
 private fun addBatteryEndBlink(
     builder: GlyphFrame.Builder,
-    profile: DeviceProfile,
     bar: List<Int>,
     batteryPercentage: Int,
     target: Int,
@@ -118,12 +137,13 @@ private fun addBatteryEndBlink(
     // A full battery has nothing left to hint at.
     if (batteryPercentage >= FULL_BATTERY_PERCENT) return
 
-    val extra = if (profile.type == DeviceType.PHONE1) 2 else 3
-    val end = minOf(target + extra, bar.size)
+    val end = minOf(target + END_BLINK_SEGMENTS, bar.size)
 
     for (j in target until end) {
-        val offset = (j - target) * if (profile.type == DeviceType.PHONE1) 0.8f else 0.5f
-        val brightness = (base * (0.1f + 0.9f * abs(sin(step * 0.15f - offset)))).toInt()
+        // Breathes between a fifth and two thirds rather than from almost dark to
+        // full: the tip should be legible as a tip, not read as another segment
+        // of charge.
+        val brightness = (base * (0.2f + 0.45f * abs(sin(step * 0.12f)))).toInt()
         builder.buildChannel(bar[j], brightness.coerceIn(0, GLYPH_MAX_BRIGHTNESS))
     }
 }

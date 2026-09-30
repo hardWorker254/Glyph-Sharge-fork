@@ -25,7 +25,7 @@ object GlyphAnimations {
     data class GlyphAnim(
         val id: String,
         val displayName: String,
-        @DrawableRes val iconRes: Int,
+        @param:DrawableRes val iconRes: Int,
         /** `true` for a Lua animation, which the duration setting bounds. */
         val isCustom: Boolean = false
     )

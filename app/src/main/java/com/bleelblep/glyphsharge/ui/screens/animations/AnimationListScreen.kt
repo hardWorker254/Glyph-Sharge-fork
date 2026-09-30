@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -172,6 +173,7 @@ private fun AnimationRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
+                val charCount = animation.source.length.coerceAtMost(9999)
                 Text(
                     text = animation.name,
                     style = MaterialTheme.typography.titleMedium,
@@ -181,9 +183,10 @@ private fun AnimationRow(
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = stringResource(
-                        R.string.studio_row_meta,
-                        animation.source.length.coerceAtMost(9999),
+                    text = pluralStringResource(
+                        R.plurals.studio_row_meta,
+                        charCount,
+                        charCount,
                         formatDate(animation.updatedAt)
                     ),
                     style = MaterialTheme.typography.bodySmall,

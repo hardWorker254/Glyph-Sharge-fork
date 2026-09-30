@@ -15,7 +15,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class ThemeSettings @Inject constructor(
-    @GlyphPrefs private val prefs: SharedPreferences
+    @param:GlyphPrefs private val prefs: SharedPreferences
 ) {
 
     fun saveTheme(isDarkTheme: Boolean) = prefs.putSetting(KEY_IS_DARK_THEME, isDarkTheme)

@@ -16,7 +16,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class GlyphServiceSettings @Inject constructor(
-    @GlyphPrefs private val prefs: SharedPreferences
+    @param:GlyphPrefs private val prefs: SharedPreferences
 ) {
 
     fun saveGlyphServiceEnabled(enabled: Boolean) =

@@ -1,11 +1,21 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlin.compose)
     // No `kapt` plugin: the module has no `kapt(...)` dependency, so it only
     // cost a second annotation-processing pass per compile.
     // KSP stays — Hilt's compiler runs through it.
+}
+
+kotlin {
+    compilerOptions {
+        // Replaces android.kotlinOptions, which AGP 9 deprecates.
+        jvmTarget.set(JvmTarget.JVM_17)
+    }
 }
 
 android {
@@ -40,12 +50,18 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     buildFeatures {
         compose = true
+    }
+
+    // The app ships an in-app language switcher (LanguageSettingsScreen applies
+    // a locale at runtime). With Play's per-language resource splits on, the
+    // bundle would only carry the device language and the switcher would show
+    // nothing to switch to.
+    bundle {
+        language {
+            enableSplit = false
+        }
     }
 
     testOptions {
@@ -54,12 +70,6 @@ android {
             // uses it for diagnostics, so returning defaults is enough.
             isReturnDefaultValues = true
         }
-    }
-
-    composeOptions {
-        // Kotlin 1.9.x needs the standalone Compose compiler; the Compose
-        // Gradle plugin only exists from Kotlin 2.0 on.
-        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
     }
 
     packaging {

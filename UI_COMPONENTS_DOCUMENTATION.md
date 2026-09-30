@@ -993,8 +993,9 @@ fun DraggableSettingsCard(
 ```kotlin
 DraggableSettingsCard(
     title = stringResource(id = R.string.settings_card_custom_animations),
-    subtitle = stringResource(
-        id = R.string.settings_card_custom_animations_count,
+    subtitle = pluralStringResource(
+        id = R.plurals.settings_card_custom_animations_count,
+        count = animationCount,
         animationCount
     ),
     onNavigate = onClick,

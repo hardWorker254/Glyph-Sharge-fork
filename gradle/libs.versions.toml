@@ -3,13 +3,16 @@
 
 [versions]
 # Plugins / toolchain (kept in sync with the toolchain the project builds with:
-# AGP 8.13.2 + Kotlin 1.9.10 + the Compose compiler extension below).
-agp = "8.13.2"
-kotlin = "1.9.10"
-ksp = "1.9.10-1.0.13"
-hilt = "2.50"
-# Compose compiler for Kotlin 1.9.x (the Compose Gradle plugin starts at 2.0).
-composeCompiler = "1.5.3"
+# AGP 9.4.1 + Gradle 9.6.0 + Kotlin 2.2.10).
+# KSP is standalone-versioned from 2.3.0 (no Kotlin prefix) and must stay in the
+# 2.3.x line for AGP 9 (2.3.1+ = AGP 9 support).
+# Hilt must be >= 2.59: earlier releases hard-reference the KSP1 task class
+# `com.google.devtools.ksp.gradle.KspTaskJvm`, which no longer exists in KSP2,
+# so the Hilt plugin blows up with "KspTaskJvm ... could not be found".
+agp = "9.4.1"
+kotlin = "2.2.10"
+ksp = "2.3.6"
+hilt = "2.60.1"
 
 # AndroidX / libraries
 activityCompose = "1.8.2"
@@ -67,3 +70,4 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

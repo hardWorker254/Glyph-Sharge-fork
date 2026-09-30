@@ -287,6 +287,11 @@ class QuietHoursService : Service() {
             .build()
     }
 
+    // This re-posts the notification the service already owns as its foreground
+    // notification (started in onStartCommand under the same NOTIFICATION_ID),
+    // and Android exempts foreground-service notifications from
+    // POST_NOTIFICATIONS — so lint's warning does not apply here.
+    @SuppressLint("NotificationPermission")
     private fun updateNotification() {
         getSystemService(NotificationManager::class.java)
             .notify(NOTIFICATION_ID, buildNotification())

@@ -19,7 +19,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class FeatureSettings @Inject constructor(
-    @GlyphPrefs private val prefs: SharedPreferences
+    @param:GlyphPrefs private val prefs: SharedPreferences
 ) {
 
     // Power Peek

@@ -160,13 +160,19 @@
   <!-- Animation Studio -->
   <string name="settings_card_custom_animations">Custom Animations</string>
   <string name="settings_card_custom_animations_subtitle">Write your own in Lua</string>
-  <string name="settings_card_custom_animations_count">%1$d saved</string>
+  <plurals name="settings_card_custom_animations_count">
+    <item quantity="one">%1$d saved</item>
+    <item quantity="other">%1$d saved</item>
+  </plurals>
   <string name="studio_title">Animation Studio</string>
   <string name="studio_new">New</string>
   <string name="studio_import">Import</string>
   <string name="studio_empty_title">No animations yet</string>
   <string name="studio_empty_body">Write a Lua script, or import a .glyphlua file you exported earlier. Once saved, your animations appear next to the built-in ones on every feature card.</string>
-  <string name="studio_row_meta">%1$d characters · edited %2$s</string>
+  <plurals name="studio_row_meta">
+    <item quantity="one">%1$d character · edited %2$s</item>
+    <item quantity="other">%1$d characters · edited %2$s</item>
+  </plurals>
   <string name="studio_row_menu">Animation actions</string>
   <string name="studio_action_open">Open</string>
   <string name="studio_action_duplicate">Duplicate</string>
@@ -192,7 +198,10 @@
   <!-- Its own string, not a second flavour of syntax error: the file is valid
        Lua and the mistake is a name the app does not ship. -->
   <string name="studio_msg_missing_module">Module problem: %1$s</string>
-  <string name="studio_msg_done">Done — %1$d frames in %2$d ms.</string>
+  <plurals name="studio_msg_done">
+    <item quantity="one">Done — %1$d frame in %2$d ms.</item>
+    <item quantity="other">Done — %1$d frames in %2$d ms.</item>
+  </plurals>
   <string name="studio_msg_timeout">Stopped at the duration limit.</string>
   <string name="studio_msg_stopped">Stopped.</string>
   <string name="studio_msg_runtime_error">Error: %1$s</string>

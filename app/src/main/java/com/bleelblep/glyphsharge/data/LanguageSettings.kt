@@ -16,7 +16,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class LanguageSettings @Inject constructor(
-    @GlyphPrefs private val prefs: SharedPreferences
+    @param:GlyphPrefs private val prefs: SharedPreferences
 ) {
 
     fun getAppLanguageCode(): String = prefs.getSetting(LANGUAGE, DEFAULT_LANGUAGE)

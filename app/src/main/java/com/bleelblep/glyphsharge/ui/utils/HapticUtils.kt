@@ -1,7 +1,6 @@
 package com.bleelblep.glyphsharge.ui.utils
 
 import android.content.Context
-import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -104,16 +103,14 @@ object HapticUtils {
         intensity: Int = Intensity.MEDIUM
     ) {
         // Use predefined VibrationEffect if available (API 29+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val vibrator = getVibrator(context)
-            if (vibrator.hasVibrator()) {
-                try {
-                    val effect = VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
-                    vibrator.vibrate(effect)
-                    return
-                } catch (e: Exception) {
-                    // Fall back to custom vibration
-                }
+        val vibrator = getVibrator(context)
+        if (vibrator.hasVibrator()) {
+            try {
+                val effect = VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK)
+                vibrator.vibrate(effect)
+                return
+            } catch (e: Exception) {
+                // Fall back to custom vibration
             }
         }
         
@@ -157,21 +154,15 @@ object HapticUtils {
         
         val safeIntensity = validateIntensity(intensity, vibrator)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            try {
-                val effect = if (safeIntensity == Intensity.DEFAULT) {
-                    VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE)
-                } else {
-                    VibrationEffect.createOneShot(duration, safeIntensity)
-                }
-                vibrator.vibrate(effect)
-            } catch (e: Exception) {
-                // Fallback for very old devices
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(duration)
+        try {
+            val effect = if (safeIntensity == Intensity.DEFAULT) {
+                VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE)
+            } else {
+                VibrationEffect.createOneShot(duration, safeIntensity)
             }
-        } else {
-            // Pre-API 26 fallback
+            vibrator.vibrate(effect)
+        } catch (e: Exception) {
+            // Fallback for very old devices
             @Suppress("DEPRECATION")
             vibrator.vibrate(duration)
         }
@@ -188,7 +179,7 @@ object HapticUtils {
         val vibrator = getVibrator(context)
         if (!vibrator.hasVibrator()) return
         
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && vibrator.hasAmplitudeControl()) {
+        if (vibrator.hasAmplitudeControl()) {
             try {
                 val effect = VibrationEffect.createWaveform(pattern, amplitudes, -1)
                 vibrator.vibrate(effect)
@@ -225,13 +216,8 @@ object HapticUtils {
      * Gets the system vibrator service
      */
     private fun getVibrator(context: Context): Vibrator {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-            vibratorManager.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        }
+        val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+        return vibratorManager.defaultVibrator
     }
     
     /**
@@ -311,19 +297,15 @@ object HapticUtils {
         val vibrator = getVibrator(context)
         return VibrationInfo(
             hasVibrator = vibrator.hasVibrator(),
-            hasAmplitudeControl = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator.hasAmplitudeControl()
-            } else false,
-            supportedEffects = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                listOf(
-                    VibrationEffect.EFFECT_CLICK,
-                    VibrationEffect.EFFECT_DOUBLE_CLICK,
-                    VibrationEffect.EFFECT_TICK
-                ).filter { effect ->
-                    val supportResults = vibrator.areEffectsSupported(effect)
-                    supportResults.isNotEmpty() && supportResults[0] == Vibrator.VIBRATION_EFFECT_SUPPORT_YES
-                }
-            } else emptyList()
+            hasAmplitudeControl = vibrator.hasAmplitudeControl(),
+            supportedEffects = listOf(
+                VibrationEffect.EFFECT_CLICK,
+                VibrationEffect.EFFECT_DOUBLE_CLICK,
+                VibrationEffect.EFFECT_TICK
+            ).filter { effect ->
+                val supportResults = vibrator.areEffectsSupported(effect)
+                supportResults.isNotEmpty() && supportResults[0] == Vibrator.VIBRATION_EFFECT_SUPPORT_YES
+            }
         )
     }
 }

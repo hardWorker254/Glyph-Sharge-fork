@@ -2,6 +2,7 @@ package com.bleelblep.glyphsharge.ui.viewmodel
 
 import android.content.Context
 import android.net.Uri
+import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -78,6 +79,13 @@ class AnimationStudioViewModel @Inject constructor(
 
     private fun text(@StringRes id: Int, vararg args: Any): String =
         context.getString(id, *args)
+
+    /**
+     * The plural-aware sibling of [text]: [quantity] picks the wording, and it
+     * is the first [args] entry so the formatted string can interpolate it too.
+     */
+    private fun plural(@PluralsRes id: Int, quantity: Int, vararg args: Any): String =
+        context.resources.getQuantityString(id, quantity, *args)
 
     private val _uiState = MutableStateFlow(StudioUiState())
     val uiState: StateFlow<StudioUiState> = _uiState.asStateFlow()
@@ -261,7 +269,7 @@ class AnimationStudioViewModel @Inject constructor(
         val fromScript = logLines.map { ConsoleLine(it.text, it.level) }
         val outcome = when (status) {
             ScriptStatus.COMPLETED ->
-                ConsoleLine(text(R.string.studio_msg_done, frames, elapsedMs))
+                ConsoleLine(plural(R.plurals.studio_msg_done, frames, frames, elapsedMs))
 
             // A timeout carries the watchdog's own sentence when it has one,
             // and the plain fallback otherwise. Not an error: the script did

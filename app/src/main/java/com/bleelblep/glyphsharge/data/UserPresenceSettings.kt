@@ -14,7 +14,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class UserPresenceSettings @Inject constructor(
-    @GlyphPrefs private val prefs: SharedPreferences
+    @param:GlyphPrefs private val prefs: SharedPreferences
 ) {
 
     /**

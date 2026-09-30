@@ -16,7 +16,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class QuietHoursSettings @Inject constructor(
-    @GlyphPrefs private val prefs: SharedPreferences
+    @param:GlyphPrefs private val prefs: SharedPreferences
 ) {
 
     fun saveQuietHoursEnabled(enabled: Boolean) = prefs.putSetting(KEY_QUIET_HOURS_ENABLED, enabled)
