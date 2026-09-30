@@ -9,6 +9,8 @@ import com.bleelblep.glyphsharge.glyph.audio.AudioFrameFeed
 import com.bleelblep.glyphsharge.glyph.device.DeviceProfile
 import com.bleelblep.glyphsharge.glyph.device.DeviceProfileFactory
 import com.bleelblep.glyphsharge.glyph.engine.GlyphRenderer
+import com.bleelblep.glyphsharge.glyph.net.NetworkSource
+import com.bleelblep.glyphsharge.glyph.sensor.SensorSource
 import dagger.hilt.android.qualifiers.ApplicationContext
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +38,25 @@ class ScriptRunner @Inject constructor(
     private val glyphManager: GlyphManager,
     private val runTrace: RunTrace,
     private val audioFeed: AudioFrameFeed,
+    /**
+     * Read by `glyph.net`, and passed by method reference rather than by
+     * value: the source caches for a second on its own, and handing the
+     * engine a `() -> NetworkSnapshot` keeps that decision on the side that
+     * knows about the binder cost.
+     */
+    private val networkSource: NetworkSource,
+    /**
+     * Read and started by `glyph.sensor`, and the only reason the VM is ever
+     * handed a way to open hardware.
+     *
+     * Both halves are passed down rather than wired into the host, because
+     * they are not part of drawing: the source decides when a listener is
+     * worth registering and reference counts the runs that want one, which is
+     * knowledge the engine has no business holding. The same reasoning as
+     * [networkSource] above, and the same care about the trailing lambda —
+     * named arguments only from here on, since the engine takes three of them.
+     */
+    private val sensorSource: SensorSource
 ) {
     private companion object {
         const val TAG = "SCRIPT"
@@ -48,7 +69,13 @@ class ScriptRunner @Inject constructor(
     /**
      * Compiles and plays [source] for at most [durationMs].
      *
-     * @return why the run ended, for the studio console
+     * The whole [ScriptRunResult] comes back, not just its status: whatever
+     * the script printed or logged while it was drawing is part of the
+     * outcome, and it has already been read off the session by the time this
+     * returns, so the studio has nothing left to go and ask for.
+     *
+     * @return why the run ended, and what the script said, for the studio
+     *   console
      */
     suspend fun runScript(source: String, durationMs: Long): ScriptRunResult =
         withContext(Dispatchers.Default) {
@@ -59,7 +86,13 @@ class ScriptRunner @Inject constructor(
                 )
 
             val host = RendererHost(renderer, context, glyphManager, audioFeed)
-            val engine = LuaScriptEngine(profile, host)
+            val engine = LuaScriptEngine(
+                profile = profile,
+                host = host,
+                network = networkSource::snapshot,
+                sensor = sensorSource::snapshot,
+                sensorControl = sensorSource
+            )
             active = engine
             Log.d(TAG, "Running script for ${durationMs}ms on ${profile.type}")
 
@@ -95,10 +128,24 @@ class ScriptRunner @Inject constructor(
         active?.stop(reason)
     }
 
-    /** Compiles without running, for the editor's Check button. */
-    fun check(source: String): String? {
-        val profile = DeviceProfileFactory.forConnectedDevice() ?: return null
-        return LuaScriptEngine(profile, RendererHost(renderer, context, glyphManager, audioFeed))
+    /**
+     * Compiles without running, for the editor's Check button.
+     *
+     * A phone whose LED layout is unknown cannot be checked against, and
+     * says so by returning [ScriptCheckResult.OK] — the same "nothing to
+     * report" it returned before the result was typed, rather than a failure
+     * the author could do nothing about.
+     */
+    fun check(source: String): ScriptCheckResult {
+        val profile = DeviceProfileFactory.forConnectedDevice() ?: return ScriptCheckResult.OK
+        val host = RendererHost(renderer, context, glyphManager, audioFeed)
+        return LuaScriptEngine(
+            profile = profile,
+            host = host,
+            network = networkSource::snapshot,
+            sensor = sensorSource::snapshot,
+            sensorControl = sensorSource
+        )
             .validate(source)
     }
 

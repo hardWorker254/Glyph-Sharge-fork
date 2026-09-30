@@ -1196,23 +1196,31 @@ fun AnimationEditorScreen(
 ```
 
 **Features:**
-- **Check** compiles the source and prints the first syntax error; nothing is drawn
+- **Check** compiles the source and reports the first thing wrong with it — a syntax error, or a `require` naming a module this build does not ship; nothing is drawn
 - **Glyph** plays it for real through `GlyphAnimationManager.previewScript` — the only verdict that counts
 - The run button becomes **Stop** while a run is in flight; `isRunning` drives both the icon and the hint line
 - A line under the name field reports the script's `glyph.target`, read back out of the source on every keystroke, so the author finds out the line has to go *before* the first `glyph.set()` instead of wondering why nothing ever picked it up
 - `BasicTextField` code surface in a private `CodeEditor`: monospace, scrolls in both axes, no floating form decoration
 - Collapsible `glyph API reference` card listing every call and what it does — its contents are the private `API_REFERENCE` list next to the composable, so adding a binding in `GlyphLuaApi.kt` and documenting it here stays one edit
+- A second collapsible card under it, `require — the six modules`: the `MODULE_REFERENCE` list (one line per module, in the alphabetical order the registry reports, so a name read here is the name on the error message a mistyped one produces), a hardcoded-English note that `require` resolves those six and nothing else, and a worked day/night dimming example. Hardcoded for the same reason as `API_REFERENCE` — half a translated cheat sheet reads worse than none
+- Each console line is coloured by its `LogLevel`: `INFO` as `onSurfaceVariant`, `WARN` as `tertiary`, `ERROR` as `error` — three roles out of the existing scheme rather than three literal colours, so a line keeps its meaning in the AMOLED and classic themes
 - The title shows the dirty variant while there are unsaved changes, and a Save action in the app bar
 - There is no on-screen preview: a schematic of the LED layout is not the same as the phone lighting up, and a second run mode invites mistaking one for the other
 
+> [!WARNING]
+> The `WARN` colour uses the **`tertiary` role**, and that is a known rough edge rather than
+> a design decision: the app's palette has no amber, and `tertiary` is green in the AMOLED and
+> classic schemes. A green warning is a weak signal on its own — read the text, not just the
+> colour.
+
 > [!NOTE]
-> The cheat sheet is an abbreviated index, not the contract. It writes `glyph.running` and
-> `glyph.battery / .charging` without parentheses, but in `GlyphLuaApi.kt` all five
-> runtime-state accessors are bound as Lua **functions** — a script must call
-> `glyph.running()`, `glyph.battery()` and `glyph.charging()`. Without the parentheses a
-> value like `glyph.running` is always truthy, so a `while` loop never winds down.
-> `glyph.MAX` and `glyph.device` really are plain values. The full reference, and the full
-> list of calls, are in
+> The cheat sheet is an abbreviated index, not the contract. It is **right** where it writes
+> `glyph.running` and `glyph.battery / .charging` without parentheses, and right again where it
+> writes `glyph.elapsed()` / `glyph.frame()` with them: the first three are bound as live Lua
+> **values** and the rest as **functions**. Getting this backwards is expensive — a function is
+> truthy in Lua, so `while glyph.running() do` never winds down and the watchdog kills the run
+> at its wall-clock limit instead of the stop request ending it. The full reference, and the
+> full list of calls, are in
 > [the main documentation](docs/DOCUMENTATION_EN.md#14-custom-animations-lua).
 
 **Usage Example:**
@@ -1278,7 +1286,7 @@ data class StudioUiState(
     val isRunning: Boolean = false
 )
 
-data class ConsoleLine(val text: String, val isError: Boolean = false)
+data class ConsoleLine(val text: String, val level: LogLevel = LogLevel.INFO)
 ```
 
 **Features:**
@@ -1286,7 +1294,8 @@ data class ConsoleLine(val text: String, val isError: Boolean = false)
 - `isEditorOpen` is stored, not derived from `editing`: a brand new script has a draft to edit, but an editor that opens on an empty buffer would then be impossible to represent
 - `runOnGlyph` pre-flights the hardware — a phone with no Glyph interface and a session that was never open both report through the console rather than looking like a script that did nothing
 - A run has no duration parameter: a script runs until its code is done, Stop is the user's way out, and `SAFETY_CAP_MS` only catches a script that never returns
-- Turns a `ScriptRunResult` into console lines: frames and elapsed time, or the error message, per `ScriptStatus`
+- Turns a `ScriptRunResult` into console lines: **the script's own output first, then the outcome**, so a script that logs its way to a failure reads top to bottom. Each line keeps the `LogLevel` it was written at; a run that logged nothing produces the outcome line alone
+- A Check verdict is one line from a `ScriptCheckResult`: a clean file, a syntax error, and a missing module each get their own string, because reporting a typo as a parse failure sends the author hunting for a bracket that was never missing
 - Messages flow through a `StateFlow<String?>` consumed once by the Activity and shown as a Toast
 
 ### 5. CustomAnimationsViewModel - The Script List For the Feature Cards

@@ -130,6 +130,22 @@ class LuaScriptEngineTest {
         assertEquals(1, host.frames.size)
     }
 
+    @Test
+    fun `elapsed time is available under both names`() {
+        // `glyph.time` was renamed because the `glyph.time` module now owns
+        // wall-clock time, and two things called "time" on one table is a name
+        // nobody can hold. The old name has to keep working: these scripts are
+        // saved on the user's phone and nothing is going to re-save them.
+        val result = run(
+            """
+            assert(type(glyph.elapsed()) == "number", "glyph.elapsed must report a number")
+            assert(type(glyph.time()) == "number", "the old name must still work")
+            """
+        )
+
+        assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
+    }
+
     // endregion
 
     // region Looping
@@ -335,7 +351,10 @@ class LuaScriptEngineTest {
         val host = FakeHost()
         val result = run(
             """
-            local banned = { 'io', 'os', 'package', 'require', 'luajava',
+            -- `require` is deliberately absent: it was banned until the module
+            -- registry replaced it, and it now resolves five in-memory modules
+            -- and nothing else. ModuleRegistryTest is where that is pinned.
+            local banned = { 'io', 'os', 'package', 'luajava',
                              'coroutine', 'load', 'loadstring', 'dofile', 'debug' }
             for i = 1, #banned do
               assert(_G[banned[i]] == nil, banned[i] .. ' must not be reachable')
@@ -360,7 +379,7 @@ class LuaScriptEngineTest {
     fun `validate reports a syntax error and stays quiet otherwise`() {
         val engine = LuaScriptEngine(profile(), FakeHost())
 
-        assertNull(engine.validate("glyph.set({ 1 }, 1000)"))
-        assertNotNull(engine.validate("for i = 1 do"))
+        assertTrue(engine.validate("glyph.set({ 1 }, 1000)").isOk)
+        assertEquals(ScriptCheckStatus.SYNTAX_ERROR, engine.validate("for i = 1 do").status)
     }
 }

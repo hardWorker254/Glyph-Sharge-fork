@@ -182,11 +182,16 @@
   <string name="studio_editor_title_dirty">Edit animation •</string>
   <string name="studio_name_label">Name</string>
   <string name="studio_reference_title">glyph API reference</string>
+  <string name="studio_reference_modules_title">require — the six modules</string>
+  <string name="studio_reference_example_title">A script that answers the time of day</string>
 
   <!-- Studio: console, toasts and defaults -->
   <string name="studio_msg_new_script">New script. Press Check, then Glyph.</string>
   <string name="studio_msg_syntax_ok">Looks good — no syntax errors.</string>
   <string name="studio_msg_syntax_error">Syntax error: %1$s</string>
+  <!-- Its own string, not a second flavour of syntax error: the file is valid
+       Lua and the mistake is a name the app does not ship. -->
+  <string name="studio_msg_missing_module">Module problem: %1$s</string>
   <string name="studio_msg_done">Done — %1$d frames in %2$d ms.</string>
   <string name="studio_msg_timeout">Stopped at the duration limit.</string>
   <string name="studio_msg_stopped">Stopped.</string>
@@ -211,7 +216,7 @@
 
   <!-- The template a new animation starts from. Only the comments differ per
        locale; the Lua is byte-for-byte identical. -->
-  <string name="studio_starter_script">-- A wave along the long C strip.\n-- The whole file is the animation: write plain Lua here.\n-- It plays once, and stops when the code runs out.\n-- Try changing 60 to 120, or glyph.MAX to 2000.\n\nlocal strip = glyph.ch.c\nlocal step = 60\n\nfor i = 1, #strip do\n  glyph.set({ strip[i] }, glyph.MAX)\n  glyph.hold(step)\nend\n\n-- Fade the whole strip out, one segment at a time.\nfor i = #strip, 1, -1 do\n  glyph.set({ strip[i] }, 1500)\n  glyph.hold(step)\nend</string>
+  <string name="studio_starter_script">-- A wave along the long C strip.\n-- The whole file is the animation: write plain Lua here.\n-- It plays once, and stops when the code runs out.\n-- Try changing the 600, or the two numbers inside util.lerp.\n\nlocal util = require(\"glyph.util\")\n\nlocal strip = glyph.ch.c\nlocal n = #strip\n\n-- The C strip is 4 segments on a Phone (1) and 24 on a Phone (2a), so the\n-- step is worked out from its length: one pass takes about the same time on\n-- every phone. A fixed 60 ms would crawl on the small one and blur on the big\n-- one.\nlocal step = math.max(25, math.floor(600 / n))\n\n-- util.lerp gives every segment its own brightness, so the wave has a head\n-- and a tail instead of every segment being equally bright.\nfor i = 1, n do\n  glyph.set({ strip[i] }, util.lerp(1000, glyph.MAX, i / n), step)\nend\n\n-- Fade the whole strip out, one segment at a time.\nfor i = n, 1, -1 do\n  glyph.set({ strip[i] }, util.lerp(1000, glyph.MAX, i / n), step)\nend</string>
 
   <!-- Lua error text that reaches the console -->
   <string name="studio_lua_unknown_group">unknown channel group ‘%1$s’</string>

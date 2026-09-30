@@ -49,9 +49,15 @@ enum class ScriptTarget {
          * by far the most common comment form here. The two forms are enough:
          * this is a classifier, not a parser, and the runtime handler is what
          * actually decides.
+         *
+         * `internal` rather than private because
+         * [com.bleelblep.glyphsharge.glyph.script.module.ModuleSourceScan]
+         * strips the same two forms before looking for `require`, and the two
+         * scanners agreeing is what keeps a script from being classified one
+         * way and then rejected by the other.
          */
-        private val BLOCK_COMMENT = Regex("""--\[(=*)\[.*?]\1]""", RegexOption.DOT_MATCHES_ALL)
-        private val LINE_COMMENT = Regex("""--[^\n]*""")
+        internal val BLOCK_COMMENT = Regex("""--\[(=*)\[.*?]\1]""", RegexOption.DOT_MATCHES_ALL)
+        internal val LINE_COMMENT = Regex("""--[^\n]*""")
 
         /** The target named in [source], or [ANY] when it names none. */
         fun detectIn(source: String): ScriptTarget {

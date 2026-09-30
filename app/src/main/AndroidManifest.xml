@@ -153,23 +153,30 @@
         </service>
 
 
+        <!-- NFC: the subtype must describe what the service actually does.
+             Google Play rejects a declaration that does not match, and this
+             one was a copy of the low-battery text from a service that has
+             nothing to do with NFC. -->
         <service
             android:name=".services.NfcGlyphService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="specialUse" >
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="This service monitors battery level and provides low battery alerts using glyph interface." />
+                android:value="This service plays a glyph animation on the glyph interface when an NFC tag is scanned." />
         </service>
 
 
+        <!-- Charging: see the NFC service above. This one was the other half
+             of the same copy-paste — a low-battery declaration on a service
+             that never looks at the battery gauge. -->
         <service
             android:name=".services.ChargingAnimationService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="specialUse" >
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="This service monitors battery level and provides low battery alerts using glyph interface." />
+                android:value="This service plays a charging animation and battery bar on the glyph interface while the device is charging." />
         </service>
 
         <service

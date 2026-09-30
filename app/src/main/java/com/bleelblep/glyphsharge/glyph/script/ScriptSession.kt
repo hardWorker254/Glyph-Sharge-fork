@@ -4,7 +4,11 @@ import android.util.Log
 import com.bleelblep.glyphsharge.glyph.audio.AudioBand
 import com.bleelblep.glyphsharge.glyph.device.DeviceProfile
 import com.bleelblep.glyphsharge.glyph.engine.GLYPH_MAX_BRIGHTNESS
+import com.bleelblep.glyphsharge.glyph.net.NetworkSnapshot
+import com.bleelblep.glyphsharge.glyph.sensor.SensorControl
+import com.bleelblep.glyphsharge.glyph.sensor.SensorSnapshot
 import org.luaj.vm2.Varargs
+import java.time.ZonedDateTime
 import java.util.Random
 
 /**
@@ -22,7 +26,51 @@ internal class ScriptSession(
     private val profile: DeviceProfile,
     private val host: GlyphScriptHost,
     private val maxDurationMs: Long,
-    private val nowMs: () -> Long
+    private val nowMs: () -> Long,
+    /**
+     * The wall clock, injectable for the same reason [nowMs] is: `glyph.time`
+     * branches on the hour, and a test for its 22:00 boundary cannot wait for
+     * 22:00 or assert anything useful about the rest of the day.
+     */
+    private val clock: () -> ZonedDateTime = { ZonedDateTime.now() },
+    /**
+     * The network state, injectable for the same reason [clock] is:
+     * `glyph.net` branches on whether the phone is connected, and a test that
+     * waited for a VPN to come up would be a test that never ran.
+     *
+     * Defaults to [NetworkSnapshot.DISCONNECTED] rather than to a real read, so
+     * a session built by something that has not wired the platform in still
+     * answers a question a script can act on. "Offline" is the safe answer —
+     * it is the state in which an animation should be doing nothing.
+     */
+    private val network: () -> NetworkSnapshot = { NetworkSnapshot.DISCONNECTED },
+    /**
+     * The accelerometer reading, injectable for the same reason [clock] and
+     * [network] are: `glyph.sensor` branches on whether the phone is moving,
+     * and a test that waited for someone to shake the test machine would be a
+     * test that never ran.
+     *
+     * Defaults to [SensorSnapshot.STILL] rather than to a real read, so a
+     * session that has not been wired to the platform still answers a question
+     * a script can act on — a still phone is a state an animation can simply
+     * not react to.
+     */
+    private val sensor: () -> SensorSnapshot = { SensorSnapshot.STILL },
+    /**
+     * What opens and closes the accelerometer, injected separately from
+     * [sensor] so the reader and the lifecycle are not the same object.
+     *
+     * A session given only a reading could express "here is the answer" but
+     * not "do not start the sensor", so every session would have to be built
+     * with one or the other. With the pair split, a test hands in a recording
+     * fake and asserts that a `require` did — or did not — start anything,
+     * which is the only evidence available without a device in the room.
+     *
+     * Defaults to [SensorControl.NONE] rather than to a real sensor, so a
+     * session that was never given a control can still be asked for a reading
+     * and cannot accidentally open hardware.
+     */
+    private val sensorControl: SensorControl = SensorControl.NONE
 ) {
     private companion object {
         const val TAG = "ScriptSession"
@@ -49,7 +97,8 @@ internal class ScriptSession(
     private val startedAt = nowMs()
     @Volatile
     private var random: Random = Random(DEFAULT_SEED)
-    private val messages = mutableListOf<String>()
+    /** Log lines with the severity they were written at, in the order written. */
+    private val messages = mutableListOf<ScriptLogLine>()
 
     /** Number of frames handed to the glyph, reported back in the result. */
     var frames: Int = 0
@@ -195,6 +244,122 @@ internal class ScriptSession(
     fun elapsedMs(): Long = nowMs() - startedAt
 
     /**
+     * Now, in the device's own time zone.
+     *
+     * Local, not UTC, because the only question a script is asking is whether
+     * it is evening *where the phone is* — a user in CET whose phone is on UTC
+     * would otherwise get a sunrise animation at 8pm.
+     */
+    fun wallClock(): ZonedDateTime = clock()
+
+    /**
+     * What `glyph.net` reads, afresh, on every field access.
+     *
+     * One reading answers all four fields at once. Returning a [NetworkSnapshot]
+     * rather than four separate queries is what keeps a script that checks
+     * `net.vpn` and then `net.metered` from seeing two different instants — see
+     * `NetworkSnapshot` for the handover that would otherwise be observable.
+     */
+    fun networkSnapshot(): NetworkSnapshot = network()
+
+    // region Sensor
+
+    /**
+     * Whether this run has already given its sensor back.
+     *
+     * Volatile because a run may be abandoned by a stop request from another
+     * thread while the interpreter is somewhere else entirely, and the
+     * release must happen exactly once whichever thread gets there first.
+     */
+    @Volatile
+    private var sensorClosed = false
+
+    /**
+     * Whether this run is the one currently holding the reference.
+     *
+     * The session's half of a two-level count, and the half that is easy to
+     * get wrong. [SensorControl.start] counts *across* runs, because two
+     * services can be running scripts at once and whichever finished first
+     * must not unregister a listener the other is still reading. This flag
+     * counts *within* one: a script in a draw loop reads `sensor.magnitude`
+     * sixty times a second, and a reference taken per read is a reference no
+     * single [close] can ever give back — the listener would outlive the run
+     * by an unbounded amount, which is the very failure the count exists to
+     * prevent. Latched here, so a run takes at most one and always returns
+     * exactly what it took.
+     */
+    @Volatile
+    private var sensorHeld = false
+
+    /**
+     * What `glyph.sensor` reads, afresh, on every field access.
+     *
+     * The reader is asked for the *whole* snapshot, never for one axis, and
+     * this is what makes that possible: acceleration arrives as a single event
+     * and a script that could pull x at one instant and y at another would be
+     * reading a smear rather than a vector. See `SensorSnapshot`.
+     *
+     * Does not start the sensor by itself — the source starts it on the first
+     * read as well, so a caller that never came through [startSensor] still
+     * gets an answer instead of a permanently still phone. The pairing that
+     * matters is [startSensor] with [close].
+     */
+    fun sensorSnapshot(): SensorSnapshot = sensor()
+
+    /**
+     * Asks for accelerometer samples for the rest of this run.
+     *
+     * Takes at most one reference however many times it is called, which is
+     * what lets `glyph.sensor` call it from every field getter: a draw loop
+     * asking for `magnitude` sixty times a second still leaves exactly one
+     * reference for [close] to return.
+     */
+    fun startSensor() {
+        // Refused after the run is over: the matching release has already
+        // happened, and a late acquire would be a reference nothing can bring
+        // back to zero.
+        if (sensorClosed || sensorHeld) return
+        sensorHeld = true
+        sensorControl.start()
+    }
+
+    /**
+     * Gives up the reference this run took, if it took one.
+     *
+     * Guarded rather than blind for the same reason [startSensor] is latched.
+     * A run that never read the sensor holds nothing, and releasing on its
+     * behalf would decrement a count it never incremented — and when the count
+     * belongs to *another* run, that is not an underflow that gets clamped
+     * away, it is a live listener being torn out from under a script that is
+     * still reading it.
+     */
+    fun stopSensor() {
+        if (!sensorHeld) return
+        sensorHeld = false
+        sensorControl.stop()
+    }
+
+    /**
+     * Releases whatever this run took, and ends it.
+     *
+     * Idempotent because the engine calls it from a `finally` on every exit
+     * path, including the watchdog abort: a second call must not be a second
+     * release. Latching the flag as well as testing it means a close on a run
+     * that already closed is a no-op rather than a count driven one lower.
+     *
+     * Not a general teardown: the strip is blanked by the host, which the
+     * engine owns, and the sensor is the only thing this run can have
+     * registered and therefore the only thing it has to unregister.
+     */
+    fun close() {
+        if (sensorClosed) return
+        sensorClosed = true
+        stopSensor()
+    }
+
+    // endregion
+
+    /**
      * Waits [ms] without blocking cancellation.
      *
      * The strip keeps whatever was last drawn, which is what makes
@@ -259,13 +424,29 @@ internal class ScriptSession(
 
     fun deviceName(): String = profile.type.name
 
-    fun log(message: String) {
+    /**
+     * Records a line for the studio console, at [level].
+     *
+     * The severity goes into logcat with the matching call rather than being
+     * folded into the text: a warning the author has to notice is worth
+     * nothing if it comes out at the same priority as the progress notes
+     * around it.
+     */
+    fun log(message: String, level: LogLevel = LogLevel.INFO) {
         val line = message.trim()
         if (line.isEmpty()) return
         // Bounded: a script in a `for` loop must not grow the list without end.
-        if (messages.size < MAX_LOG_LINES) messages.add(line)
-        Log.d(TAG, "[script] $line")
+        if (messages.size < MAX_LOG_LINES) messages.add(ScriptLogLine(line, level))
+        val tagged = "[script] $line"
+        when (level) {
+            LogLevel.INFO -> Log.d(TAG, tagged)
+            LogLevel.WARN -> Log.w(TAG, tagged)
+            LogLevel.ERROR -> Log.e(TAG, tagged)
+        }
     }
+
+    /** What the script wrote, for the studio console. A snapshot, not the live list. */
+    fun logLines(): List<ScriptLogLine> = messages.toList()
 
     // endregion
 

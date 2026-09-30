@@ -75,6 +75,12 @@ class ScriptPlayback @Inject constructor(
      *
      * No service check: the studio is an explicit user action, and the glyph
      * session is opened by `MainActivity` regardless of the feature toggles.
+     *
+     * The script's own output rides along on the result — nothing is fetched
+     * from the runner afterwards, because there is nothing left to fetch it
+     * from. The two results built here, for a phone with no glyph, are the
+     * exception: no script ran, so they have no lines and say so by being
+     * empty.
      */
     suspend fun previewScript(source: String, durationMs: Long): ScriptRunResult {
         if (!glyphManager.isNothingPhone()) {
@@ -83,8 +89,14 @@ class ScriptPlayback @Inject constructor(
         return playScript { scriptRunner.runScript(source, durationMs) }
     }
 
-    /** Compiles without drawing anything, for the editor's Check button. */
-    fun checkScript(source: String): String? = scriptRunner.check(source)
+    /**
+     * Compiles without drawing anything, for the editor's Check button.
+     *
+     * The typed result is passed through untouched: a missing module and a
+     * syntax error are different findings and the studio has different things
+     * to say about them, so the distinction has to survive the hop.
+     */
+    fun checkScript(source: String): ScriptCheckResult = scriptRunner.check(source)
 
     /**
      * Runs a script under the same guards as a built-in animation: the strip is

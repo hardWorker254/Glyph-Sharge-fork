@@ -60,11 +60,14 @@ Whether you're checking charge levels or activating security features, Glyph Sha
   up to Phone (3a)'s 20
 - Your own visuals in Lua — `glyph.target = "music"` makes a studio script show
   up only in the visualiser, and `glyph.audio.bass` / `bands()` feed it the spectrum
+- `require("glyph.time")`, `glyph.battery`, `glyph.net`, `glyph.sensor`, `glyph.log` and
+  `glyph.util` — a closed, sandboxed set of six modules, every field **live** rather than
+  a snapshot, and **no new service or permission** to use them
 - Yields the Glyph to charging, lock and low-battery features instead of holding it
 - Custom font support with official Nothing fonts (NType Headline, NDot 57 Caps)
 - Scalable text sizes for accessibility
 - Material You dynamic theming
-- **Custom animations written in Lua** — a built-in animation studio (Settings → Custom Animations) with a sandboxed editor, on-screen and on-glyph preview, and `.glyphlua` import/export
+- **Custom animations written in Lua** — a built-in animation studio (Settings → Custom Animations) with a sandboxed editor, an on-glyph run, a Check button that catches a misspelt `require` before a phone does, and `.glyphlua` import/export
 
 ### ⚙️ Advanced Controls
 - Quiet Hours mode for scheduled silence
@@ -145,8 +148,15 @@ app/
 │   │   │   │   ├── ScriptRunner.kt       #   The only bridge from the VM to the LEDs
 │   │   │   │   ├── ScriptPlayback.kt     #   Hosting a script animation on the strip
 │   │   │   │   ├── ScriptTarget.kt       #   Which pickers may offer a script
+│   │   │   │   ├── LogLevel.kt           #   INFO / WARN / ERROR for a console line
 │   │   │   │   ├── ScriptFileFormat.kt   #   The .glyphlua container
-│   │   │   │   └── ScriptAnimation.kt    #   Model, custom:<12 hex> ids
+│   │   │   │   ├── ScriptAnimation.kt    #   Model, custom:<12 hex> ids
+│   │   │   │   └── module/               #   The six names require("…") resolves
+│   │   │   │       ├── ModuleRegistry.kt #     The closed set, and the require that reads it
+│   │   │   │       ├── ModuleBuilder.kt  #     value / live / func — assembling one module
+│   │   │   │       └── Glyph*Module.kt   #     One file per module, plus ModuleSourceScan.kt
+│   │   │   ├── net/                      # Network state for glyph.net
+│   │   │   ├── sensor/                   # Accelerometer for glyph.sensor
 │   │   │   └── battery/                 # Charging / Power Peek bar
 │   │   │
 │   │   ├── services/                    # Background Services
@@ -210,7 +220,7 @@ app/
 │   └── AndroidManifest.xml
 │
 ├── src/test/java/com/bleelblep/glyphsharge/
-│   └── glyph/                           # 118 unit tests: audio, device, script
+│   └── glyph/                           # 198 unit tests: audio, device, script
 │
 ├── build.gradle.kts                     # Build Configuration
 └── proguard-rules.pro
@@ -231,7 +241,7 @@ Glyph Sharge follows modern Android development best practices:
 - **Unidirectional Data Flow** — Predictable state management
 - **One strip, one owner** — `GlyphFeatureCoordinator` holds a `Mutex` behind the single `GlyphFeature` enum, so only one feature drives the LEDs at a time; services take the strip through `withStrip(...)` and bound a run through `GlyphAnimationManager.runCapped(...)`
 - **Features as data** — `services/FeatureSpec.kt` maps every feature to its service, its stop action and its preference in one record, so `FeatureServiceController` never hard-codes which service a feature means
-- **Script runtime** — user-written Lua animations run on [LuaJ](https://github.com/luaj/luaj) 3.0.1 (`org.luaj:luaj-jse`, a pure-JVM Lua 5.2) in a sandbox stripped of `io`, `os`, `luajava`, `load`/`dofile`/`require`, `coroutine` and `debug`, with a watchdog that enforces the feature's Duration setting and a 200,000,000-instruction ceiling
+- **Script runtime** — user-written Lua animations run on [LuaJ](https://github.com/luaj/luaj) 3.0.1 (`org.luaj:luaj-jse`, a pure-JVM Lua 5.2) in a sandbox stripped of `io`, `os`, `luajava`, `load`/`dofile`/`loadstring`, `coroutine` and `debug`, with a watchdog that enforces the feature's Duration setting and a 200,000,000-instruction ceiling. `require` is blanked with the rest and then deliberately replaced by one that resolves **six in-memory names and nothing else** — no `package.path`, no file system behind it
 
 ---
 

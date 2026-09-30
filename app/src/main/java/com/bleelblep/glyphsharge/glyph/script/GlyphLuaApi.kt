@@ -108,7 +108,32 @@ internal object GlyphLuaApi {
         audio.setmetatable(audio)
         glyph.set("audio", audio)
 
-        glyph.set("time", luaFunction("time") { LuaValue.valueOf(session.elapsedMs().toInt()) })
+        // Milliseconds since this run started. Named `elapsed` because the
+        // `glyph.time` module now owns wall-clock time, and two things called
+        // "time" on one table is a name an author cannot hold in their head.
+        //
+        // `glyph.time` stays as an alias because these scripts are saved to the
+        // user's storage and nothing is going to re-save them. The flag is
+        // local to this `install`, which runs once per run, so a script that
+        // calls it every frame is told once and not sixty times a second.
+        var timeAliasWarned = false
+        val elapsed: (Array<LuaValue>) -> LuaValue = {
+            LuaValue.valueOf(session.elapsedMs().toInt())
+        }
+        glyph.set("elapsed", luaFunction("elapsed") { elapsed(it) })
+        glyph.set(
+            "time",
+            luaFunction("time") { args ->
+                if (!timeAliasWarned) {
+                    timeAliasWarned = true
+                    session.log(
+                        "glyph.time() is deprecated — use glyph.elapsed() instead",
+                        LogLevel.WARN
+                    )
+                }
+                elapsed(args)
+            }
+        )
         glyph.set("frame", luaFunction("frame") { LuaValue.valueOf(session.frames) })
 
         // Drawing
@@ -212,7 +237,7 @@ internal object GlyphLuaApi {
         glyph.set(
             "batteryBar",
             luaFunction("batteryBar") { args ->
-                session.batteryBar(args.intOr(1, session.batteryPercent()), msOf(args, 2, 2_000L))
+                session.drawBatteryBar(args.intOr(1, session.batteryPercent()), msOf(args, 2, 2_000L))
                 LuaValue.NIL
             }
         )
@@ -379,18 +404,6 @@ internal object GlyphLuaApi {
         }
     }
 
-    /** A battery bar along the C strip, the same shape the charging animation uses. */
-    private fun ScriptSession.batteryBar(percent: Int, durationMs: Long) {
-        val bar = group("c").orEmpty()
-        if (bar.isEmpty() || durationMs <= 0) return
-        val target = (percent.coerceIn(0, 100) / 100f * bar.size).toInt()
-        val perStep = (durationMs / bar.size).coerceAtLeast(1L)
-        bar.indices.forEach { i ->
-            draw(bar.take((i + 1).coerceAtMost(target)), GLYPH_MAX_BRIGHTNESS, perStep)
-        }
-        blank()
-    }
-
     // endregion
 
     // region Argument helpers
@@ -440,8 +453,21 @@ internal object GlyphLuaApi {
      * Errors become Lua errors so the script gets a message that points at the
      * offending call; a [ScriptAbortedError] is rethrown, because the watchdog
      * must not be catchable from inside a script.
+     *
+     * @param prefix what the function is called *through*, so a failure is
+     *   reported as the author wrote it. `glyph.set` keeps the default; a
+     *   module passes its own name and gets `glyph.util.clamp: …` rather than
+     *   a bare `glyph.clamp`, which would point at an `__index` nobody called.
+     *
+     *   Ahead of [block] rather than after it: Kotlin binds a trailing lambda
+     *   to the *last* parameter, so a third parameter in last place would stop
+     *   every `luaFunction("set") { … }` in this file from compiling.
      */
-    fun luaFunction(name: String, block: (Array<LuaValue>) -> LuaValue): VarArgFunction =
+    fun luaFunction(
+        name: String,
+        prefix: String = "glyph",
+        block: (Array<LuaValue>) -> LuaValue
+    ): VarArgFunction =
         object : VarArgFunction() {
             override fun invoke(args: Varargs): LuaValue {
                 val values = Array(args.narg()) { args.arg(it + 1) }
@@ -450,12 +476,30 @@ internal object GlyphLuaApi {
                 } catch (e: ScriptAbortedError) {
                     throw e
                 } catch (e: Exception) {
-                    LuaValue.error("glyph.$name: ${e.message ?: e::class.java.simpleName}")
+                    error("$prefix.$name: ${e.message ?: e::class.java.simpleName}")
                 }
             }
 
-            override fun toString(): String = "glyph.$name"
+            override fun toString(): String = "$prefix.$name"
         }
+}
+
+/**
+ * A battery bar along the C strip, the same shape the charging animation uses.
+ *
+ * Top level rather than a member of [GlyphLuaApi] because `glyph.battery.bar`
+ * has to draw exactly what `glyph.batteryBar` draws, and two copies of this
+ * loop would be two places for the two to drift apart.
+ */
+internal fun ScriptSession.drawBatteryBar(percent: Int, durationMs: Long) {
+    val bar = group("c").orEmpty()
+    if (bar.isEmpty() || durationMs <= 0) return
+    val target = (percent.coerceIn(0, 100) / 100f * bar.size).toInt()
+    val perStep = (durationMs / bar.size).coerceAtLeast(1L)
+    bar.indices.forEach { i ->
+        draw(bar.take((i + 1).coerceAtMost(target)), GLYPH_MAX_BRIGHTNESS, perStep)
+    }
+    blank()
 }
 
 /**

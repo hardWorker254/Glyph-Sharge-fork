@@ -63,6 +63,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.bleelblep.glyphsharge.R
+import com.bleelblep.glyphsharge.glyph.script.LogLevel
 import com.bleelblep.glyphsharge.glyph.script.ScriptTarget
 import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import com.bleelblep.glyphsharge.ui.theme.themeCardContainerColor
@@ -223,8 +224,7 @@ fun AnimationEditorScreen(
                                 Text(
                                     text = line.text,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = if (line.isError) MaterialTheme.colorScheme.error
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = line.color()
                                 )
                             }
                         }
@@ -260,6 +260,22 @@ private fun RunningHint() {
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.primary
     )
+}
+
+/**
+ * The colour a console line is drawn in.
+ *
+ * Three roles out of the existing scheme rather than three literal colours, so
+ * a line keeps its meaning in the AMOLED and classic themes. The progression
+ * is deliberate: ordinary output is the dimmest thing on the card, a warning is
+ * an accent, and only a failure is red — so the eye is drawn to the one line
+ * that ended the run.
+ */
+@Composable
+private fun ConsoleLine.color(): Color = when (level) {
+    LogLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
+    LogLevel.WARN -> MaterialTheme.colorScheme.tertiary
+    LogLevel.ERROR -> MaterialTheme.colorScheme.error
 }
 
 /**
@@ -310,6 +326,8 @@ private fun CodeEditor(
  *
  * Worth more than a help page here: a script is a handful of lines, and the
  * only thing a first-time author needs is the list of calls and what they do.
+ * The `require` modules are in the same card for the same reason — an author
+ * who cannot find the module list has no way to discover that one exists.
  */
 @Composable
 private fun ApiReference(modifier: Modifier = Modifier) {
@@ -342,26 +360,70 @@ private fun ApiReference(modifier: Modifier = Modifier) {
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     API_REFERENCE.forEach { entry ->
-                        Row {
-                            Text(
-                                text = entry.first,
-                                style = TextStyle(
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 12.sp,
-                                    color = MaterialTheme.colorScheme.primary
-                                ),
-                                modifier = Modifier.width(170.dp)
-                            )
-                            Text(
-                                text = entry.second,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        ReferenceRow(entry)
                     }
+                    Text(
+                        text = stringResource(R.string.studio_reference_modules_title),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                    MODULE_REFERENCE.forEach { entry ->
+                        ReferenceRow(entry)
+                    }
+                    Text(
+                        text = MODULE_REFERENCE_NOTE,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    Text(
+                        text = stringResource(R.string.studio_reference_example_title),
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                    Text(
+                        text = MODULE_REFERENCE_EXAMPLE,
+                        style = TextStyle(
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp,
+                            color = MaterialTheme.colorScheme.onSurface
+                        ),
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
                 }
             }
         }
+    }
+}
+
+/**
+ * One line of the reference: the call on the left, what it does on the right.
+ *
+ * Extracted because the cheat sheet now has two sections and a reader must
+ * not be able to tell them apart by accident.
+ */
+@Composable
+private fun ReferenceRow(entry: Pair<String, String>) {
+    Row {
+        Text(
+            text = entry.first,
+            style = TextStyle(
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.primary
+            ),
+            modifier = Modifier.width(170.dp)
+        )
+        Text(
+            text = entry.second,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -415,10 +477,74 @@ private val API_REFERENCE = listOf(
     "glyph.group(\"c\")" to "The same list, by name",
     "glyph.MAX" to "4000 — the brightest a channel goes",
     "glyph.battery / .charging" to "Snapshot while the script runs",
-    "glyph.time() / glyph.frame()" to "Milliseconds elapsed, frames drawn",
+    "glyph.elapsed() / glyph.frame()" to "Milliseconds elapsed, frames drawn",
     "glyph.running" to "False once the animation is stopped",
     "glyph.rnd(a, b) / .seed(n)" to "Reproducible randomness",
     "glyph.ease(t, kind)" to "linear, in, out, inout, bounce, wave, pulse",
     "glyph.exit()" to "Finish early",
     "glyph.log(text) / print(text)" to "Write to this console"
 )
+
+/**
+ * The six modules `require` can resolve, in the alphabetical order the
+ * registry reports them in, so a name read here is the name on the error
+ * message a mistyped one produces.
+ *
+ * Hardcoded English for the same reason [API_REFERENCE] is: the whole cheat
+ * sheet is one card of developer-facing text, and half of it translated would
+ * read worse than none of it. The module names themselves are identifiers and
+ * are never reworded.
+ */
+private val MODULE_REFERENCE = listOf(
+    "local time = require(\"glyph.time\")" to "How a require call reads: bind it to a local",
+    "glyph.time" to "The wall clock, live: hour, minute, minuteOfDay, isNight",
+    "glyph.battery" to "Charge, live: percent, charging, level() segments",
+    "glyph.net" to "Network, live: connected, wifi, metered, vpn",
+    "glyph.sensor" to "Movement, live: x, y, z, magnitude, shaken",
+    "glyph.log" to "This console: info, warn, and error — which stops the run",
+    "glyph.util" to "Pure arithmetic: clamp, lerp, mapRange, shuffle"
+)
+
+/**
+ * The one thing about `require` an author will otherwise get wrong.
+ *
+ * The registry is a closed list, and the error a mistyped name produces is
+ * the only place the app ever says so — at run time, on a phone, in the
+ * middle of an animation. A line of prose in the one place the author is
+ * already looking costs nothing and prevents that.
+ */
+private const val MODULE_REFERENCE_NOTE =
+    "require resolves these six names and nothing else. There is no " +
+        "require(\"os\"), and no way to read a file: that is the sandbox, and " +
+        "it is deliberate."
+
+    /**
+     * One worked example, because six names and a warning do not tell a reader
+     * what `require` is *for*.
+     *
+     * The three-step day/night dimming is the shape most people reach a script
+     * for: the feature woke it, and the script decides how loudly to answer.
+     * It needs no new service and no permission — the same source runs
+     * unchanged on every feature that can host a script, which is the point a
+     * list of module names cannot make on its own.
+     *
+     * Kept out of [MODULE_REFERENCE] deliberately: that list is one line per
+     * module in a two-column layout, and this needs the lines it actually
+     * takes. Hardcoded for the same reason as everything else on this card.
+     */
+    private val MODULE_REFERENCE_EXAMPLE = """
+        local time = require("glyph.time")
+
+        -- 22:00–06:00 the strip stays dark, 12:00–22:00 it dims,
+        -- 06:00–12:00 it runs at full brightness.
+        local level = time.DAY
+        if time.hour >= 12 then level = time.DUSK end
+        if time.isNight then level = time.NIGHT end
+
+        if level == 0 then
+          glyph.off()
+          return
+        end
+
+        glyph.setAll(level)
+    """.trimIndent()

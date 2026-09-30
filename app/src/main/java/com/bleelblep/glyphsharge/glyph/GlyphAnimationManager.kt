@@ -11,6 +11,7 @@ import com.bleelblep.glyphsharge.glyph.battery.BatteryStateReader
 import com.bleelblep.glyphsharge.glyph.battery.animateBattery
 import com.bleelblep.glyphsharge.glyph.engine.GlyphRenderer
 import com.bleelblep.glyphsharge.glyph.script.ScriptAnimation
+import com.bleelblep.glyphsharge.glyph.script.ScriptCheckResult
 import com.bleelblep.glyphsharge.glyph.script.ScriptPlayback
 import com.bleelblep.glyphsharge.glyph.script.ScriptRunResult
 import com.bleelblep.glyphsharge.glyph.script.ScriptRunner
@@ -189,12 +190,24 @@ class GlyphAnimationManager @Inject constructor(
     suspend fun playCustomAnimation(runtimeId: String): ScriptRunResult =
         scriptPlayback.playCustomAnimation(runtimeId)
 
-    /** Previews a script from the editor, before the animation has been saved. */
+    /**
+     * Previews a script from the editor, before the animation has been saved.
+     *
+     * The whole [ScriptRunResult] is passed back, log lines included: the
+     * studio is the only reader of a preview, and it needs the script's own
+     * output as well as the verdict on it.
+     */
     suspend fun previewScript(source: String, durationMs: Long): ScriptRunResult =
         scriptPlayback.previewScript(source, durationMs)
 
-    /** Compiles without drawing anything, for the editor's Check button. */
-    fun checkScript(source: String): String? = scriptPlayback.checkScript(source)
+    /**
+     * Compiles without drawing anything, for the editor's Check button.
+     *
+     * Typed rather than a bare message because "this file does not parse" and
+     * "this file names a module we do not ship" are two different findings,
+     * and the studio words them differently.
+     */
+    fun checkScript(source: String): ScriptCheckResult = scriptPlayback.checkScript(source)
 
     // endregion
 

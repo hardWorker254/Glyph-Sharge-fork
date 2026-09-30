@@ -182,9 +182,12 @@
   <string name="studio_editor_title_dirty">Правка анимации •</string>
   <string name="studio_name_label">Название</string>
   <string name="studio_reference_title">Справочник по glyph API</string>
+  <string name="studio_reference_modules_title">require — шесть модулей</string>
+  <string name="studio_reference_example_title">Скрипт, отвечающий на время суток</string>
   <string name="studio_msg_new_script">Новый скрипт. Нажмите «Проверить», затем «Глиф».</string>
   <string name="studio_msg_syntax_ok">Всё в порядке — ошибок синтаксиса нет.</string>
   <string name="studio_msg_syntax_error">Ошибка синтаксиса: %1$s</string>
+  <string name="studio_msg_missing_module">Проблема с модулем: %1$s</string>
   <string name="studio_msg_done">Готово — %1$d кадров за %2$d мс.</string>
   <string name="studio_msg_timeout">Остановлено по лимиту длительности.</string>
   <string name="studio_msg_stopped">Остановлено.</string>
@@ -206,7 +209,7 @@
   <string name="studio_untitled">Без названия</string>
   <string name="studio_default_import_name">Импортированная</string>
   <string name="studio_copy_suffix">копия</string>
-  <string name="studio_starter_script">-- Волна по длинной полосе C.\n-- Весь файл и есть анимация: пишите на Lua.\n-- Проигрывается один раз и заканчивается, когда кончится код.\n-- Попробуйте заменить 60 на 120 или glyph.MAX на 2000.\n\nlocal strip = glyph.ch.c\nlocal step = 60\n\nfor i = 1, #strip do\n  glyph.set({ strip[i] }, glyph.MAX)\n  glyph.hold(step)\nend\n\n-- Гасим всю полосу по одному сегменту.\nfor i = #strip, 1, -1 do\n  glyph.set({ strip[i] }, 1500)\n  glyph.hold(step)\nend</string>
+  <string name="studio_starter_script">-- Волна по длинной полосе C.\n-- Весь файл и есть анимация: пишите на Lua.\n-- Проигрывается один раз и заканчивается, когда кончится код.\n-- Попробуйте заменить 600 или оба числа внутри util.lerp.\n\nlocal util = require(\"glyph.util\")\n\nlocal strip = glyph.ch.c\nlocal n = #strip\n\n-- Полоса C — это 4 сегмента на Phone (1) и 24 на Phone (2a), поэтому шаг\n-- считается от её длины: один проход занимает примерно одинаковое время на\n-- любом телефоне. Фиксированные 60 мс ползли бы по маленькому и сливались бы\n-- на большом.\nlocal step = math.max(25, math.floor(600 / n))\n\n-- util.lerp даёт каждому сегменту свою яркость, поэтому у волны есть голова\n-- и хвост, а не все сегменты горят одинаково.\nfor i = 1, n do\n  glyph.set({ strip[i] }, util.lerp(1000, glyph.MAX, i / n), step)\nend\n\n-- Гасим всю полосу по одному сегменту.\nfor i = n, 1, -1 do\n  glyph.set({ strip[i] }, util.lerp(1000, glyph.MAX, i / n), step)\nend</string>
   <string name="studio_lua_unknown_group">неизвестная группа каналов «%1$s»</string>
   <string name="studio_lua_bad_channels">ожидался список каналов, номер канала или название группы</string>
   <string name="pulse_lock_notification_channel">Сервис Glow Gate</string>

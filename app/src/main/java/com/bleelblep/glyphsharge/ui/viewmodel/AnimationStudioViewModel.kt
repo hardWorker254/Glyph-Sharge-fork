@@ -9,7 +9,10 @@ import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.CustomAnimationRepository
 import com.bleelblep.glyphsharge.glyph.GlyphAnimationManager
 import com.bleelblep.glyphsharge.glyph.GlyphManager
+import com.bleelblep.glyphsharge.glyph.script.LogLevel
 import com.bleelblep.glyphsharge.glyph.script.ScriptAnimation
+import com.bleelblep.glyphsharge.glyph.script.ScriptCheckResult
+import com.bleelblep.glyphsharge.glyph.script.ScriptCheckStatus
 import com.bleelblep.glyphsharge.glyph.script.ScriptRunResult
 import com.bleelblep.glyphsharge.glyph.script.ScriptStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,8 +26,17 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-/** One line in the studio console. */
-data class ConsoleLine(val text: String, val isError: Boolean = false)
+/**
+ * One line in the studio console.
+ *
+ * [level] rather than an `isError` flag because a script's own output now
+ * reaches this console, and that output has three severities: a script that
+ * warns, then fails, has said something the author needs to see, and a flag
+ * with two states cannot tell those apart. The outcome line the studio writes
+ * itself uses the same three, so everything in the console is coloured by one
+ * rule.
+ */
+data class ConsoleLine(val text: String, val level: LogLevel = LogLevel.INFO)
 
 /** Everything the studio screen renders, in one immutable snapshot. */
 data class StudioUiState(
@@ -161,22 +173,20 @@ class AnimationStudioViewModel @Inject constructor(
 
     // region Running
 
-    /** Compiles without drawing anything. */
+    /**
+     * Compiles without drawing anything.
+     *
+     * One line, whatever the verdict, because Check reports a single finding:
+     * the first thing wrong with the file. A missing module gets its own
+     * wording rather than being reported as a syntax error, which it is not,
+     * and which would send the author hunting for a bracket that was never
+     * missing.
+     */
     fun check() {
         val source = _uiState.value.source
         viewModelScope.launch(Dispatchers.Default) {
-            val error = glyphAnimationManager.checkScript(source)
-            _uiState.update {
-                it.copy(
-                    console = listOf(
-                        if (error == null) {
-                            ConsoleLine(text(R.string.studio_msg_syntax_ok))
-                        } else {
-                            ConsoleLine(text(R.string.studio_msg_syntax_error, error), isError = true)
-                        }
-                    )
-                )
-            }
+            val result = glyphAnimationManager.checkScript(source)
+            _uiState.update { it.copy(console = listOf(result.toConsoleLine())) }
         }
     }
 
@@ -194,7 +204,11 @@ class AnimationStudioViewModel @Inject constructor(
         when {
             !glyphManager.isNothingPhone() -> {
                 _uiState.update {
-                    it.copy(console = listOf(ConsoleLine(text(R.string.studio_msg_no_glyph), isError = true)))
+                    it.copy(
+                        console = listOf(
+                            ConsoleLine(text(R.string.studio_msg_no_glyph), LogLevel.ERROR)
+                        )
+                    )
                 }
                 return
             }
@@ -202,7 +216,7 @@ class AnimationStudioViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         console = listOf(
-                            ConsoleLine(text(R.string.studio_msg_session_closed), isError = true)
+                            ConsoleLine(text(R.string.studio_msg_session_closed), LogLevel.ERROR)
                         )
                     )
                 }
@@ -233,26 +247,59 @@ class AnimationStudioViewModel @Inject constructor(
         glyphAnimationManager.stopAnimations()
     }
 
-    private fun ScriptRunResult.toConsole(): List<ConsoleLine> = when (status) {
-        ScriptStatus.COMPLETED ->
-            listOf(ConsoleLine(text(R.string.studio_msg_done, frames, elapsedMs)))
+    /**
+     * The console for one finished run.
+     *
+     * The script's own lines come first and the outcome last, so a script
+     * that logs its way to a failure reads top to bottom: the last thing it
+     * said is above the verdict, which is the order the two happened in. A
+     * run that logged nothing produces the outcome line on its own — there is
+     * no empty section to render and no "the script said nothing" filler to
+     * explain an absence.
+     */
+    private fun ScriptRunResult.toConsole(): List<ConsoleLine> {
+        val fromScript = logLines.map { ConsoleLine(it.text, it.level) }
+        val outcome = when (status) {
+            ScriptStatus.COMPLETED ->
+                ConsoleLine(text(R.string.studio_msg_done, frames, elapsedMs))
 
-        ScriptStatus.TIMED_OUT ->
-            listOf(ConsoleLine(message ?: text(R.string.studio_msg_timeout)))
+            // A timeout carries the watchdog's own sentence when it has one,
+            // and the plain fallback otherwise. Not an error: the script did
+            // nothing wrong, the run simply ran out of time.
+            ScriptStatus.TIMED_OUT ->
+                ConsoleLine(message ?: text(R.string.studio_msg_timeout))
 
-        ScriptStatus.STOPPED ->
-            listOf(ConsoleLine(message ?: text(R.string.studio_msg_stopped), isError = true))
+            ScriptStatus.STOPPED ->
+                ConsoleLine(message ?: text(R.string.studio_msg_stopped), LogLevel.ERROR)
 
-        ScriptStatus.SYNTAX_ERROR ->
-            listOf(
+            ScriptStatus.SYNTAX_ERROR ->
                 ConsoleLine(
                     text(R.string.studio_msg_syntax_error, message.orEmpty()),
-                    isError = true
+                    LogLevel.ERROR
                 )
-            )
 
-        ScriptStatus.RUNTIME_ERROR ->
-            listOf(ConsoleLine(text(R.string.studio_msg_runtime_error, message.orEmpty()), isError = true))
+            ScriptStatus.RUNTIME_ERROR ->
+                ConsoleLine(text(R.string.studio_msg_runtime_error, message.orEmpty()), LogLevel.ERROR)
+        }
+        return fromScript + outcome
+    }
+
+    /**
+     * One line for one Check verdict.
+     *
+     * Each case gets its own string rather than a shared "check failed": the
+     * point of the typed result is that the author is told which of the two
+     * things is actually wrong with their file.
+     */
+    private fun ScriptCheckResult.toConsoleLine(): ConsoleLine = when (status) {
+        ScriptCheckStatus.OK ->
+            ConsoleLine(text(R.string.studio_msg_syntax_ok))
+
+        ScriptCheckStatus.SYNTAX_ERROR ->
+            ConsoleLine(text(R.string.studio_msg_syntax_error, message.orEmpty()), LogLevel.ERROR)
+
+        ScriptCheckStatus.MISSING_MODULE ->
+            ConsoleLine(text(R.string.studio_msg_missing_module, message.orEmpty()), LogLevel.ERROR)
     }
 
     // endregion

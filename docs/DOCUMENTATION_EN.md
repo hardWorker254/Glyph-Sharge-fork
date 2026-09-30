@@ -126,7 +126,7 @@ graph TD
     UI["UI Layer<br/>Compose Screens, Cards, Dialogs"]
     STUDIO["CustomAnimationsActivity<br/>Lua animation studio"]
     VM["ViewModel<br/>HomeViewModel"]
-    SVC["Services Layer<br/>9 ForegroundServices"]
+    SVC["Services Layer<br/>10 ForegroundServices"]
     CTRL["FeatureServiceController<br/>feature to service routing"]
     SPEC["FeatureSpec registry<br/>feature to service and preference"]
     REPO["SettingsRepository<br/>SharedPreferences"]
@@ -220,7 +220,22 @@ app/src/main/java/com/bleelblep/glyphsharge/
 │   │   ├── ScriptSession.kt    # Per-run state: deadline, budget, interruptible waits
 │   │   ├── ScriptTarget.kt     # glyph.target, and which picker offers what
 │   │   ├── GlyphLuaApi.kt      # The glyph table — the whole language for a script
-│   │   └── ScriptRunner.kt     # The only place the VM meets real hardware
+│   │   ├── LogLevel.kt         # INFO / WARN / ERROR, and the one line of console text
+│   │   ├── ScriptRunner.kt     # The only place the VM meets real hardware
+│   │   └── module/             # The six names require("…") can resolve, and nothing else
+│   │       ├── ModuleRegistry.kt   # The closed set, and the require that reads it
+│   │       ├── ModuleBuilder.kt    # value / live / func — assembling one module safely
+│   │       ├── ModuleSourceScan.kt # require("…") names Check must reject before a phone does
+│   │       ├── LuaArgs.kt          # Positional arguments for module functions
+│   │       └── GlyphTimeModule.kt, GlyphBatteryModule.kt, GlyphNetModule.kt,
+│   │           GlyphSensorModule.kt, GlyphLogModule.kt, GlyphUtilModule.kt
+│   ├── net/                    # What glyph.net reads
+│   │   ├── NetworkSnapshot.kt  # connected / wifi / metered / vpn, taken together
+│   │   └── NetworkSource.kt    # ConnectivityManager behind a 1 s cache
+│   ├── sensor/                 # What glyph.sensor reads
+│   │   ├── SensorSnapshot.kt   # x / y / z / magnitude / shaken, one sample
+│   │   ├── SensorControl.kt    # What opens and closes the listener for one run
+│   │   └── SensorSource.kt     # The listener itself, and the threshold that counts a shake
 │   └── battery/                # Charging and power-peek bar
 │       ├── BatteryState.kt
 │       └── BatteryGlyphAnimator.kt
@@ -467,7 +482,7 @@ user one (`ScriptAnimation.isCustomId(id)` → the `custom:` prefix) and, if so,
 | `fun runCapMs(runtimeId: String, featureDurationMs: Long): Long` | The wall-clock cap that actually applies: the feature's Duration for a built-in, `SAFETY_CAP_MS` for a `custom:` id |
 | `suspend fun playCustomAnimation(runtimeId: String): ScriptRunResult` | Runs a stored script by its `custom:` id. Checks the service toggle and `isNothingPhone()`, looks the source up in `CustomAnimationRepository` |
 | `suspend fun previewScript(source: String, durationMs: Long): ScriptRunResult` | Runs an unsaved source from the editor. **No** service-toggle check: the studio is an explicit user action |
-| `fun checkScript(source: String): String?` | Compiles without running, the Check button. `null` means the syntax is fine |
+| `fun checkScript(source: String): ScriptCheckResult` | Compiles without running, the Check button. A typed verdict, not a message: `ScriptCheckStatus.OK` / `SYNTAX_ERROR` / `MISSING_MODULE` |
 | `fun stopAnimations()` | Also calls `scriptRunner.stop()`, so a script is interrupted too |
 
 `ScriptPlayback` owns the private `playScript { }` all three suspend entry points go
@@ -681,8 +696,19 @@ so saving a script has to update the chips everywhere at once.
 > `ActivityResultContracts.CreateDocument`.
 
 `R.string.studio_starter_script` is the template a brand new animation starts from. It
-deliberately uses only `glyph.ch.all`/`glyph.ch.c` and never hard-codes a channel number, so
-it works on every supported phone.
+deliberately uses only `glyph.ch.c` and never hard-codes a channel number, so it works on
+every supported phone; and it `require`s `glyph.util`, because a template that taught the
+flat API would teach the one the modules were meant to replace. It divides its step by the
+length of the C strip — 4 segments on a Phone (1), 16 on a Phone (2), 24 on a Phone (2a),
+20 on a Phone (3a) — so one pass takes about the same time everywhere: 1200 ms on three
+models and 1184 ms on the fourth. The old template hardcoded 60 ms, which crawled on the
+Phone (1) and blurred on the Phone (2a).
+
+> [!IMPORTANT]
+> **Only the comments are localised; the Lua is byte-for-byte identical** in
+> `values/strings.xml` and `values-ru-rRU/strings.xml`. That is what lets a Russian author
+> read the same file as an English one, and `StarterScriptTest` fails the build if the two
+> halves ever drift apart.
 
 
 ---
@@ -782,8 +808,9 @@ class MyService : Service() {
 > 1. **`startForeground()` at the top of `onStartCommand`** — otherwise Android 12+ throws
 >    `ForegroundServiceDidNotStartInTimeException`.
 > 2. **All 10 services use `foregroundServiceType="specialUse"`** (the music visualiser adds
->    `mediaProjection`) and must declare their `android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE`
->    in the manifest — a Google Play requirement.
+>    `mediaProjection`). Nine of them also declare `android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE`
+>    in the manifest, which is a Google Play requirement; `GlyphForegroundService` declares
+>    no property, because it renders nothing and only keeps the process alive.
 > 3. **Guard every trigger through `spec.isRunnable(settingsRepository)`** — the feature's own
 >    flag and the master `getGlyphServiceEnabled()` answered together, so `onStartCommand`,
 >    `onTaskRemoved` and the event handler cannot pass one and fail another — plus quiet hours
@@ -1250,8 +1277,9 @@ other services:
 
 > [!IMPORTANT]
 > The `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` description must **accurately** match the service's
-> purpose. Google Play rejects submissions with inaccurate wording — in the current code
-> three services have copy-pasted "low battery alert" text.
+> purpose. Google Play rejects submissions with inaccurate wording, and this manifest did
+> carry it: `NfcGlyphService` and `ChargingAnimationService` both declared the
+> `LowBatteryAlertService` text verbatim. Both now describe the work they actually do.
 
 Remember any `<uses-permission>` the service needs, and its own
 `<uses-feature>` where a sensor is involved.
@@ -1262,7 +1290,7 @@ service-off toast the `FeatureSpec` names, the how-it-works pair, the Test and S
 and add **the same keys** in `res/values-ru-rRU/strings.xml` with translations.
 
 > [!TIP]
-> Localization coverage in this project is complete — 298 strings in `values/` and 298 in
+> Localization coverage in this project is complete — 301 strings in `values/` and 301 in
 > `values-ru-rRU/`. Keep parity, or the Russian UI falls back to English.
 
 **Home screen entry.** In
@@ -1524,17 +1552,32 @@ class AnimationStudioViewModel @Inject constructor(
 `StudioUiState` is a single immutable snapshot: `animations`, `isEditorOpen`, `editing`,
 `name`, `source`, `isDirty`, `console`, `isRunning`.
 
+`ConsoleLine` carries a `LogLevel` (`INFO` / `WARN` / `ERROR`) rather than an
+`isError: Boolean` flag. A script's own output now reaches this console, and that output
+has three severities; a flag with two states cannot tell a warning from a fatal note, which
+is exactly the pair a script debugging itself needs to separate. The studio's own outcome
+line uses the same three, so one rule colours the whole card.
+
+**Check** compiles the source and reports the first thing wrong with it, without touching
+the glyph. That is now two findings rather than one, because the two need different words:
+a file that does not parse, and a file that parses perfectly and then names a module this
+build does not ship.
+
 `isEditorOpen` is stored rather than derived from `editing` on purpose: a brand new script
 has a draft to edit, but a state where the editor opens on an empty buffer would then be
 unrepresentable — which is exactly the bug a derived flag invites.
 
-**Check** compiles the source and reports the first syntax error without touching the
-glyph. **Glyph** sends the same source through `GlyphAnimationManager.previewScript`, i.e.
+**Glyph** sends the same source through `GlyphAnimationManager.previewScript`, i.e.
 the code path the feature services use, which is the only true test. There is no on-screen
 preview: a schematic of the LED layout is not the same as the phone lighting up, and a
 second "run" mode invites mistaking one for the other. The pre-flight checks (a phone with
 no Glyph interface, a session that was never opened) live here rather than inside the
 manager, because they are about what the *studio* is looking at.
+
+The console for a finished run is the script's own output followed by the outcome, in that
+order, so a script that logs its way to a failure reads top to bottom. A run that logged
+nothing is just the outcome line — there is no empty section to render and no "the script
+said nothing" filler to explain an absence.
 
 The run is capped by `ScriptAnimation.SAFETY_CAP_MS`, not by a studio-specific limit: a
 script is a program, it runs until its code is done, and Stop is the user's way out.
@@ -1659,20 +1702,25 @@ loudness rather than pitch, and logs
 app/src/main/res/
 ├── font/        ntype_82_headline.otf, ntype_82_regular.otf, ndot55caps.otf, *.xml
 ├── drawable/    _44.xml, _78.xml, _23_24px.xml, su.png, theme icons
-├── values/      strings.xml (298), colors.xml (24), themes.xml
+├── values/      strings.xml (301), colors.xml (24), themes.xml
 ├── values-night/ colors.xml (5 dark-theme overrides)
-├── values-ru-rRU/ strings.xml (298) — full coverage
+├── values-ru-rRU/ strings.xml (301) — full coverage
 └── xml/         file_paths.xml, backup_rules.xml, data_extraction_rules.xml
 ```
 
 **Localization.** Two locales: English (`values/`, the default) and Russian (`values-ru-rRU/`),
-298 strings each. In-app language switching (en / ru / system) is stored under the `"language"`
+301 strings each. In-app language switching (en / ru / system) is stored under the `"language"`
 key and applied through `Context.applyLocale(code)` in `MainActivity.attachBaseContext`
 plus an Activity restart.
 
-The studio added 50 `studio_*` strings and 3 `settings_card_custom_animations*` ones in
+The studio added 53 `studio_*` strings and 3 `settings_card_custom_animations*` ones in
 **both** locales. The locale is applied in `CustomAnimationsActivity.attachBaseContext` too,
 because that is a separate Activity with its own context.
+
+> [!IMPORTANT]
+> `studio_starter_script` is the one string whose **Lua must not be translated** — only its
+> comments differ per locale, and `StarterScriptTest` fails the build if the two halves stop
+> being byte-for-byte identical.
 
 > [!WARNING]
 > Some UI text is **hardcoded in English** and bypasses `strings.xml`:
@@ -1690,7 +1738,12 @@ because that is a separate Activity with its own context.
 `FOREGROUND_SERVICE_MEDIA_PROJECTION`, `SYSTEM_ALERT_WINDOW`, `RECEIVE_BOOT_COMPLETED`,
 `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `DISABLE_KEYGUARD`, `TURN_SCREEN_ON`,
 `SCHEDULE_EXACT_ALARM`, `NFC`, `ACCESS_NETWORK_STATE` (VPN Connected — the state, not
-the network), `RECORD_AUDIO`, `READ_MEDIA_AUDIO`.
+the network, and also what `glyph.net` reads), `RECORD_AUDIO`, `READ_MEDIA_AUDIO`.
+
+> [!NOTE]
+> The six `require`d modules added **no permission**. `glyph.net` reads
+> `ACCESS_NETWORK_STATE`, which was already declared for the VPN feature and is not a
+> runtime permission either; `glyph.sensor` reads the accelerometer, which needs none.
 
 ---
 
@@ -1735,14 +1788,25 @@ project, although `testInstrumentationRunner` is declared.
 ./gradlew :app:testDebugUnitTest
 ```
 
-**118 unit tests, 9 suites, all pure JVM** — no emulator, no device, no Robolectric. Run in
+**198 unit tests, 20 suites, all pure JVM** — no emulator, no device, no Robolectric. Run in
 about 2 seconds.
 
 | Suite | Tests | What it pins |
 |-------|-------|--------------|
-| `glyph/script/LuaScriptEngineTest` | 21 | A script really runs: drawing, loops, channel groups, `glyph.hold`, `glyph.exit`, syntax and runtime errors, the watchdog against an infinite loop and against `pcall`, interrupting a long `glyph.hold`, the absence of dangerous globals, `validate()`, and `glyph.target` read back by the script and reported in the result |
+| `glyph/script/LuaScriptEngineTest` | 22 | A script really runs: drawing, loops, channel groups, `glyph.hold`, `glyph.exit`, syntax and runtime errors, the watchdog against an infinite loop and against `pcall`, interrupting a long `glyph.hold`, the absence of dangerous globals, `validate()`, and `glyph.target` read back by the script and reported in the result |
 | `glyph/script/ScriptTargetTest` | 15 | The target classifier: quote styles, spacing, **line and block comments**, unknown values falling back to `ANY`, and which picker offers what |
 | `glyph/script/ScriptFileFormatTest` | 7 | `encode`/`decode` round trip, a headerless import, a name with a newline, safe file names, the `custom:` namespace |
+| `glyph/script/ScriptValidateResultTest` | 5 | The typed Check verdict: a clean file is `OK` with no message, an unparseable one is `SYNTAX_ERROR`, a typo'd `require` is `MISSING_MODULE` and *not* a syntax error, and a parse failure outranks a module in the same file |
+| `glyph/script/ScriptRunResultLogTest` | 5 | The script's own output survives to the caller: `print` lands on the result, `glyph.log` keeps the level it was given, `glyph.log.error` stops the run and its line is still there, a silent run is an empty list rather than `null`, and the lines are read *before* the session is torn down |
+| `glyph/script/StarterScriptTest` | 6 | The template the first script anyone ever runs: present in both locales, the Lua halves **byte-for-byte identical**, it calls `require`, it runs on all four supported phones, one pass takes about the same time on each, and the brightness really ramps |
+| `glyph/script/module/ModuleRegistryTest` | 8 | A `require` in a **real sandbox** reaches the six modules and nothing else: identity within a run, an unknown name raising with the available list, a fresh table per run — and `io`, `os`, `dofile`, `load`, `loadstring`, `luajava`, `coroutine`, `collectgarbage` all still `nil` with `require` installed |
+| `glyph/script/module/ModuleSourceScanTest` | 9 | The scan behind Check: both quote styles, a misspelt name, **a commented-out `require` is not reported**, duplicates collapsed, and a syntax error outranking a module in the same file |
+| `glyph/script/module/GlyphTimeModuleTest` | 5 | `minuteOfDay`, the 22:00 and 06:00 edges of `isNight` (half-open, both ways), the three brightness levels, and the clock being re-read on every access |
+| `glyph/script/module/GlyphBatteryModuleTest` | 4 | `percent` and `charging` come from the device, `level()` translates a percentage into segments of *this* phone's C strip and never leaves it, and `bar(ms)` draws it |
+| `glyph/script/module/GlyphNetModuleTest` | 7 | Every field for a Wi-Fi connection, nothing for a disconnected one, VPN and metered reported correctly, the values are booleans, the state is re-read on every access, and `require` is still the same table twice |
+| `glyph/script/module/GlyphSensorModuleTest` | 15 | The five fields as numbers and a boolean, re-read every time — and the whole lifecycle: `require` starts nothing, the first read registers once, the run gives the sensor back on **every** exit path including the watchdog abort, and a run that never read it releases nothing |
+| `glyph/script/module/GlyphLogModuleTest` | 4 | `info` and `warn` let the run continue, `error` raises and stops it, the level is reported exactly once, and a failure is blamed on the module that raised it rather than with a doubled prefix |
+| `glyph/script/module/GlyphUtilModuleTest` | 11 | `clamp` (including a reversed range), `lerp` held at both ends, `mapRange` over a reversed and over a degenerate range, `shuffle` keeping every channel and leaving the original alone, and `shuffle` refusing a non-table |
 | `glyph/audio/FftTest` | 17 | Energy lands in the right bin, silence is exact zeros, magnitude is linear in amplitude, the size is a power of two, cached plans do not interfere |
 | `glyph/audio/AudioFrameTest` | 13 | `bandsInto` peaks rather than averages, no band is lost at any segment count, the caller's array is the one written, `isSilent` against the floor, locale-independent `toString()` |
 | `glyph/audio/BeatDetectorTest` | 12 | The rolling average, the cooldown, a constant level not beating forever, `reset()` between tracks |
@@ -1758,6 +1822,12 @@ code whose failure mode is a strip that looks plausible and is wrong:
 > locale-dependent number all produce output that renders fine and cannot be told apart
 > from correct by looking at it. That is what these tests are for, and it is why they
 > assert on known signals rather than on internals.
+
+`ModuleRegistryTest` deserves its own note: every script in it is run **through the real
+engine**, not by calling `ModuleRegistry` directly. The claim under test is not "the map
+has six entries" — it is that a `require` in a sandbox with the whole escape hatch shut
+reaches those six and nothing else, which a test that skipped the sandbox would pass
+with `io` and `luajava` wide open.
 
 `app/build.gradle.kts` carries a block that the suites depend on:
 
@@ -1876,8 +1946,42 @@ The places where the code behaves in a non-obvious way:
   lit for the whole requested time after the user pressed stop.
 - `print` is redirected into the studio console, but `os` and `io` are gone, so a script has
   neither stdout nor a file system.
-- `ScriptRunner.check(source)` returns `null` when the connected phone's profile is unknown:
-  there is nothing to compile against, and the Check button then says nothing.
+- `require` **is** in `BANNED_GLOBALS`, and is then deliberately overwritten by
+  `ModuleRegistry.requireFor(session)` immediately after the ban loop. Leaving it on the
+  list is deliberate: the list is an honest record of what *Lua's* `require` can reach
+  (the file system, via `package.path`), and taking it off would read as "scripts cannot
+  require", which stopped being true. The replacement resolves six in-memory names and
+  nothing else — no search path, no `package`.
+- `ModuleRegistry` holds `(ScriptSession) -> LuaTable` **factories**, never built tables.
+  Several foreground services run scripts at once — charging and the music visualiser
+  routinely are — and a shared table would let those two runs read and write each other's
+  state. A fresh table per run is the whole of the isolation; the `require` cache itself is
+  a local inside `requireFor`, not a field, for the same reason.
+- Every module field is resolved through an `__index` metamethod on **every read**, never
+  snapshotted at build time. The two mistakes `ModuleBuilder` exists to prevent are a
+  moving value stored as a plain field, and a function bound without a prefix so a failure
+  blames `glyph.clamp` when the author called `glyph.util.clamp`.
+- `glyph.sensor` starts its listener on the **first field read**, not in `build`. Registering
+  in `require` would make the *name* of the feature the expensive thing — a 50 Hz listener
+  held for the whole run on any animation that so much as mentions the module. The
+  matching release is `ScriptSession.close()`, called from the engine's `finally` on every
+  exit path including the watchdog abort.
+- `ScriptRunResult.logLines` is read from the session inside `run()`, on the way out. The
+  `finally` immediately after closes the session and clears the engine's active slot, so a
+  caller that asked for the lines after `run` returned would race that teardown and get an
+  empty list on exactly the runs that mattered — the ones that failed halfway through
+  logging.
+- `ScriptRunner.check(source)` returns `ScriptCheckResult.OK` when the connected phone's
+  profile is unknown: there is nothing to compile against, and the Check button then says
+  nothing. The typed result is the same honest "no complaint" it returned before.
+- `ModuleSourceScan` reuses `ScriptTarget.BLOCK_COMMENT` / `LINE_COMMENT` rather than
+  retyping them. A script the pickers classify correctly and Check then rejects would be a
+  far more confusing bug than a duplicated pair of regexes.
+- `ModuleRegistry.requireFor` is written out longhand rather than going through
+  `GlyphLuaApi.luaFunction`, because that wrapper catches `Exception` and `LuaError` *is* a
+  `RuntimeException` — the error raised inside would be caught by the very wrapper that
+  raised it, and the author would read the message twice. `GlyphLogModule.error` has the
+  same reason for throwing a plain exception rather than calling `LuaValue.error`.
 - `ScriptRunner.RendererHost` bridges the suspending renderer to the blocking host with
   `runBlocking`. The caller is always off the main thread — otherwise the UI blocks for a frame.
 - `previewScript` deliberately does **not** check the master glyph toggle (the studio is an
@@ -1927,7 +2031,8 @@ On top of the ten built-in animations, the user can write their own — in **Lua
 executed by the pure-JVM [LuaJ](https://github.com/luaj/luaj) 3.0.1 VM
 (`org.luaj:luaj-jse`). This is not a plugin and nothing is fetched from the internet: a
 script lives entirely in `filesDir/glyph_scripts`, runs in a sandbox, and can do nothing but
-light channels, wait, and read the battery.
+light channels, wait, read the device's own state through six `require`d modules, and write
+lines to the studio console.
 
 ### Opening the studio
 
@@ -1946,19 +2051,28 @@ that works on every supported phone.
 
 | Button | What it does | What it does not prove |
 |--------|--------------|------------------------|
-| **Check** | Compiles the source, drawing nothing, and prints the first syntax error | Semantics: `glyph.group('nope')` is not caught |
+| **Check** | Compiles the source, drawing nothing, and reports the first thing wrong with it: a syntax error, **or** a `require` naming a module this build does not ship | Semantics: `glyph.group('nope')` is not caught |
 | **Glyph** | Sends the same source through `GlyphAnimationManager.previewScript` — the very path the feature services use | — |
 
 There is deliberately no on-screen run mode: a schematic of the LED layout is not the same
 as the phone lighting up, and a second "run" button invites mistaking one for the other.
-Check the syntax, then play it on the glyph — a phone with no Glyph interface, or a session
+Check the file, then play it on the glyph — a phone with no Glyph interface, or a session
 that was never opened, says so in the console rather than looking like a script that
 silently did nothing.
+
+> [!NOTE]
+> Check's two findings are reported in a fixed order, and the order is the point: a file
+> that does not compile is reported **first and alone**. A file that is not valid Lua has
+> no meaningful `require` in it — the names inside it are noise — and telling the author
+> about a module before telling them the file cannot be read sends them looking in the
+> wrong place. The two also get different words in the console, because reporting a typo as
+> a syntax error sends the author hunting for a bracket that was never missing.
 
 While a run is in flight the second button turns into **Stop**. The only ceiling on a run is
 `ScriptAnimation.SAFETY_CAP_MS = 30_000L`, which catches a script that never returns; normal
 scripts end when their own code ends. Under the buttons sits the console (last 4 lines),
-and under the code field a collapsible `glyph API reference` cheat sheet.
+and under the code field a collapsible `glyph API reference` cheat sheet with a second
+card under it: `require` and the six modules.
 
 > [!NOTE]
 > A script file **is its whole body**. The engine wraps the source in
@@ -1992,7 +2106,7 @@ brackets is optional; "channels" means `{ 1, 2, 3 }`, a single number `3`, or a 
 | `glyph.wave(channels, [stepMs], [brightness], [trail])` | A travelling wave: `trail` segments stay lit behind the head, fading out. Step 80 ms, trail 0 |
 | `glyph.spiral([cycles], [stepMs], [brightness])` | A pass along the `glyph.ch.spiral` order, out and back. Defaults 1 / 60 ms |
 | `glyph.heartbeat([beats], [beatMs], [gapMs], [brightness])` | "Lub-dub". Defaults 3 / 150 / 120 ms |
-| `glyph.batteryBar([percent], [ms])` | Fills the C strip like charging does. Percent defaults to `glyph.battery()`, duration to 2000 ms |
+| `glyph.batteryBar([percent], [ms])` | Fills the C strip like charging does. Percent defaults to `glyph.battery`, duration to 2000 ms |
 
 #### Channels and device
 
@@ -2012,24 +2126,32 @@ brackets is optional; "channels" means `{ 1, 2, 3 }`, a single number `3`, or a 
 
 #### Run state
 
-| Call | Meaning |
-|------|---------|
-| `glyph.time()` | Milliseconds since the run started |
-| `glyph.frame()` | How many frames have been drawn |
-| `glyph.battery()` | Charge level, 0..100 |
-| `glyph.charging()` | Whether the phone is charging |
-| `glyph.running()` | `false` once the animation has been stopped. The basis of a `while glyph.running() do` loop |
+| Read | Kind | Meaning |
+|------|------|---------|
+| `glyph.elapsed()` | function | Milliseconds since the run started |
+| `glyph.frame()` | function | How many frames have been drawn |
+| `glyph.battery` | **value** | Charge level, `0..100` |
+| `glyph.charging` | **value** | Whether the phone is charging |
+| `glyph.running` | **value** | `false` once the animation has been stopped. The basis of a `while glyph.running do` loop |
 
 > [!WARNING]
-> All five are **functions**, the parentheses are required: `while glyph.running do`
-> without them is always true (the value is a function, and a function is truthy in Lua),
-> so the loop is killed by the watchdog's wall-clock limit rather than by the stop request.
-> `glyph.MAX` and `glyph.device` are the only plain values (a number and a string) and take
-> no parentheses.
+> `glyph.battery`, `glyph.charging` and `glyph.running` are **values** and take no
+> parentheses. The opposite mistake is the expensive one: `while glyph.running() do` reads
+> a *function* every iteration, and a function is truthy in Lua, so the loop can never end
+> on the stop request and the run is killed by the watchdog's wall-clock limit instead. The
+> correct form is `while glyph.running do`.
 >
-> Keep this in mind when reading the sources: the comment in `GlyphLuaApi.kt` and the
-> `API_REFERENCE` cheat sheet in the editor both write `glyph.running` and `glyph.battery`
-> without parentheses. The code is authoritative — with parentheses.
+> `glyph.elapsed()`, `glyph.frame()` and `glyph.batteryBar()` really are functions — they
+> take no argument, but they are bound as functions, and the editor's cheat sheet writes
+> them with parentheses. `glyph.MAX` and `glyph.device` are plain values too.
+
+> [!NOTE]
+> **`glyph.time()` is now `glyph.elapsed()`.** It still returns the milliseconds since the
+> run started — that is unchanged — but it is no longer called *time*, because the
+> `glyph.time` module now owns the wall clock and two different things called "time" on one
+> table is a name an author cannot hold in their head. `glyph.time()` still works as an
+> alias, because these scripts are saved to the user's storage and nothing is going to
+> re-save them; the first call in a run writes one WARN line to the console and no more.
 
 #### Randomness and maths
 
@@ -2048,6 +2170,19 @@ brackets is optional; "channels" means `{ 1, 2, 3 }`, a single number `3`, or a 
 | `glyph.log(values…)` | A line in the studio console |
 | `print(values…)` | The same; `print` is redirected into the console, not to stdout |
 | `glyph.target = "music"` | **A declaration, not a setting** — see below |
+
+> [!NOTE]
+> What a script writes really does reach the console: the run carries its own lines back
+> with the outcome, script first, so a `print(...)` trail reads in the order it was written.
+> `glyph.log.info` / `.warn` / `.error` say the same three things with the severity attached,
+> and `error` stops the run as well as writing the line.
+
+> [!WARNING]
+> The console colours WARN with the `tertiary` role, because the app's palette has no amber —
+> and `tertiary` is **green** in the AMOLED and classic schemes. That is a known rough edge,
+> not a design decision, and a green warning is a weak signal on its own: read the text, not
+> just the colour. INFO is `onSurfaceVariant` and ERROR is `error`, both of which do read as
+> themselves.
 
 #### Which service a script is for
 
@@ -2109,35 +2244,199 @@ while glyph.running do
 end
 ```
 
+#### Modules — `require` and the six names
+
+`require` is the one door the sandbox shut, and it is opened again — just, and only onto a
+fixed list of six names. **There is no file system and no `package.path` behind it.** A name
+either names a module this build ships, or the script gets an error that says which ones
+it could have used.
+
+```lua
+local time = require("glyph.time")   -- bind it to a local; that is the whole idiom
+```
+
+| `require` name | What it gives |
+|----------------|---------------|
+| `glyph.time` | The wall clock: `hour`, `minute`, `minuteOfDay`, `isNight`, and the constants `DAY` / `DUSK` / `NIGHT` |
+| `glyph.battery` | Charge: `percent`, `charging`, and `level()` / `bar(ms)` |
+| `glyph.net` | Network: `connected`, `wifi`, `metered`, `vpn` |
+| `glyph.sensor` | Movement: `x`, `y`, `z`, `magnitude`, `shaken` |
+| `glyph.log` | The console, with severities: `info`, `warn`, `error` |
+| `glyph.util` | Pure arithmetic: `clamp`, `lerp`, `mapRange`, `shuffle` |
+
+Each in full:
+
+| Module | Read | Kind | Meaning |
+|--------|------|------|---------|
+| `glyph.time` | `hour` | value | Hour of the day, `0..23`, in the device's own time zone |
+| | `minute` | value | Minute of the hour, `0..59` |
+| | `minuteOfDay` | value | Minutes since midnight, `0..1439` |
+| | `isNight` | value | `true` from **22:00 up to 06:00** |
+| | `DAY` / `DUSK` / `NIGHT` | constants | `4000` / `2200` / `0` — 100 %, 55 %, off |
+| `glyph.battery` | `percent` | value | Charge, `0..100` |
+| | `charging` | value | Whether the phone is on power |
+| | `level()` | function | The percentage translated into **this phone's** segment count on the C strip, floored |
+| | `bar(ms)` | function | Draws that bar. Same as `glyph.batteryBar`, default 2000 ms |
+| `glyph.net` | `connected` | value | Some network is carrying traffic |
+| | `wifi` | value | That network is Wi-Fi |
+| | `metered` | value | The user is billed for the bytes, however they arrive |
+| | `vpn` | value | The active network is a VPN |
+| `glyph.sensor` | `x`, `y`, `z` | values | Acceleration along the short, long and screen-normal axes, **m/s², gravity included** |
+| | `magnitude` | value | How hard, in m/s², whatever the direction — the number a tilt test actually wants |
+| | `shaken` | value | `true` on the sample that passed the shake threshold |
+| `glyph.log` | `info(…)` | function | An ordinary line |
+| | `warn(…)` | function | A line the author should look at; the run continues |
+| | `error(…)` | function | A line, **and then the run stops** |
+| `glyph.util` | `clamp(v, lo, hi)` | function | `v` held inside the bounds; a reversed pair is swapped, not rejected |
+| | `lerp(a, b, t)` | function | How far along `a` → `b` the position `t` is; `t` is held to `0..1` |
+| | `mapRange(v, inLo, inHi, outLo, outHi)` | function | `v` from one range onto another; handles a reversed or a degenerate input range |
+| | `shuffle(table)` | function | A **shuffled copy** of a Lua array, from the session's own generator |
+
+A few rules cover almost everything a script author will trip over.
+
+**Every field is live.** `hour`, `percent`, `vpn`, `magnitude` — all of them are resolved
+on *every read* through an `__index` metamethod, not frozen when the module was built. A
+snapshot would be worse than useless, because the whole reason to ask is a reaction: a loop
+that dims at dusk, a bar that calms down when Wi-Fi returns. A value frozen at build time
+would look like it worked right up until the thing changed.
+
+> [!NOTE]
+> The exception is where a module takes an argument: `level()`, `bar(ms)`,
+> `mapRange(…)` and the other three `glyph.util` functions are functions precisely because
+> something goes in. That is the same rule as `glyph.audio.bands(n)`, and it is worth
+> checking which side of the line a name falls on before writing `while` around it.
+
+**Two runs never share a module.** The registry holds *factory functions*
+`(ScriptSession) -> LuaTable`, never built tables, and every run gets a fresh table. Several
+foreground services run scripts at the same time — the charging animation and the music
+visualiser routinely are — and a table built once and shared would let those two runs read
+and write each other's state. `require("glyph.util") == require("glyph.util")` inside one
+run, because a script is entitled to the caching identity Lua gives it; across two runs, a
+different table entirely.
+
+**The clock, the network and the accelerometer are one snapshot each.** Two *different*
+fields are still two samples, but a single value is internally consistent: `magnitude` is
+computed from the same `SensorEvent` as `x`, `y` and `z`, and the four `glyph.net` booleans
+come from one read. A phone leaving a metered hotspot for home Wi-Fi passes through a moment
+where the transport is already Wi-Fi but the metered flag has not cleared, and four
+independent queries can hand a script a combination that never existed for any measurable
+period.
+
+**Nothing here adds a trigger, a service or a permission.** A module is read *inside* a run
+that an existing feature has already woken — Pulse Lock, NFC, the charging animation, VPN
+connected, screen off, low battery, the music visualiser. There is no ninth service
+waiting on "the script said it was night", and no new permission:
+
+| Module | Permission story |
+|--------|------------------|
+| `glyph.sensor` | **None.** The accelerometer needs no runtime permission on Android |
+| `glyph.net` | **None.** Reading network *state* needs no runtime permission; `ACCESS_NETWORK_STATE` is already declared for the VPN feature. The module opens no socket, so it cannot become a way for a script to reach the network |
+| the other four | Nothing to declare — the data is already in the process |
+
+**A script that answers the time of day** — the shape most people reach a script for, and
+the one the editor's second cheat-sheet card shows:
+
+```lua
+local time = require("glyph.time")
+
+-- 22:00–06:00 the strip stays dark, 12:00–22:00 it dims,
+-- 06:00–12:00 it runs at full brightness.
+local level = time.DAY
+if time.hour >= 12 then level = time.DUSK end
+if time.isNight then level = time.NIGHT end
+
+if level == 0 then
+  glyph.off()
+  return
+end
+
+glyph.setAll(level)
+```
+
+#### What `require` is not
+
+> [!IMPORTANT]
+> `require("os")`, `require("io")` and `require("anything-else")` all **raise**. There is
+> no fallback to the file system, no search path, and no `package` to configure one with:
+> `package`, `dofile`, `loadfile`, `load`, `loadstring`, `luajava`, `coroutine`,
+> `collectgarbage`, `newproxy` and `debug` are all still `nil`. The `require` that exists
+> opens one known room — six tables in memory — and none of the others.
+
+The error names what *is* available, because the overwhelmingly likely cause is a typo and
+the fix is to read the right name off the message rather than to work out which half of
+`require` is broken:
+
+```
+require: no module 'glyph.nett' (available: glyph.battery, glyph.log, glyph.net,
+glyph.sensor, glyph.time, glyph.util)
+```
+
+> [!TIP]
+> **Check catches that before you do.** Compiling proves nothing about `require` —
+> `require("glyph.nett")` is a perfectly valid expression, so the typo survives a clean
+> parse and then blows up on the real glyph, mid-animation, with a phone in someone's hand.
+> `ModuleSourceScan` strips the Lua comments (reusing the same regexes
+> `ScriptTarget.detectIn` uses) and reports the first name the registry does not have, so
+> the Check button says *Module problem* rather than *Syntax error*. A commented-out
+> `require` is deliberately not reported: a checker that cries wolf about a line the author
+> already switched off gets switched off and never used again.
+
+> [!WARNING]
+> There is **no** `glyph.ui` module. It was discussed and deliberately left out. There is
+> also no store of shareable animations, no `format:` version checking, no
+> device-compatibility metadata in a script header and no `--#if` preprocessor — none of
+> those exist, and a script that looks for them will not find them.
+
 ### Examples
 
-**A simple wave along the strip** — this is also the starter template:
+**A simple wave along the strip** — this is the starter template, verbatim. The comments are
+localised; the Lua below is byte-for-byte identical in every locale:
 
 ```lua
 -- A wave along the long C strip.
--- The whole file is the animation: this is plain Lua.
--- Try changing 60 to 120, or glyph.MAX to 2000.
+-- The whole file is the animation: write plain Lua here.
+-- It plays once, and stops when the code runs out.
+-- Try changing the 600, or the two numbers inside util.lerp.
+
+local util = require("glyph.util")
 
 local strip = glyph.ch.c
-local step = 60
+local n = #strip
 
-for i = 1, #strip do
-  glyph.set({ strip[i] }, glyph.MAX)
-  glyph.hold(step)
+-- The C strip is 4 segments on a Phone (1) and 24 on a Phone (2a), so the
+-- step is worked out from its length: one pass takes about the same time on
+-- every phone. A fixed 60 ms would crawl on the small one and blur on the big
+-- one.
+local step = math.max(25, math.floor(600 / n))
+
+-- util.lerp gives every segment its own brightness, so the wave has a head
+-- and a tail instead of every segment being equally bright.
+for i = 1, n do
+  glyph.set({ strip[i] }, util.lerp(1000, glyph.MAX, i / n), step)
 end
 
 -- Fade the whole strip out, one segment at a time.
-for i = #strip, 1, -1 do
-  glyph.set({ strip[i] }, 1500)
-  glyph.hold(step)
+for i = n, 1, -1 do
+  glyph.set({ strip[i] }, util.lerp(1000, glyph.MAX, i / n), step)
 end
 ```
 
+> [!NOTE]
+> The step is *derived*, not written down, and that is the whole portability argument: a
+> fixed 60 ms would crawl on a 4-segment Phone (1) and blur on a 24-segment Phone (2a).
+> Dividing by `#strip` puts one pass at 1200 ms on three models and 1184 ms on the fourth.
+> `math.max(25, …)` is the floor, because a 24-segment strip would otherwise ask for a
+> 25 ms step and a longer one for a 4-segment strip would be unusably fast without it.
+
 **Advanced: a battery bar that reacts to the real charge level, with easing and random
-flickers:**
+flickers.** This is the same job done with `require("glyph.battery")` — `level()` is the
+translation from a percentage to *this phone's* segment count, which is the one thing the
+flat API could not do:
 
 ```lua
 -- A battery bar that looks at the real charge level.
+local battery = require("glyph.battery")
+
 glyph.seed(42)                       -- the pattern repeats from run to run
 
 local strip = glyph.ch.c
@@ -2145,7 +2444,7 @@ local n = #strip
 local step = 70
 
 local function bar()
-  local lit = math.min(n, math.floor(glyph.battery() / 100 * n) + 1)
+  local lit = math.min(n, battery.level())
   for i = 1, n do
     if i <= lit then
       -- The head of the bar is brighter: an inout curve, not a linear ramp.
@@ -2158,14 +2457,14 @@ local function bar()
   end
 end
 
-while glyph.running() do
-  if glyph.battery() >= 100 then
+while glyph.running do
+  if battery.percent >= 100 then
     glyph.spiral(1, 40, glyph.MAX)   -- full charge: a spiral
   else
     bar()
   end
 
-  if glyph.charging() and glyph.rnd(1, 100) > 60 then
+  if battery.charging and glyph.rnd(1, 100) > 60 then
     -- Now and then, a flicker on a random segment.
     glyph.pulse({ strip[glyph.rnd(1, n)] }, 40, 60, glyph.MAX)
   else
@@ -2256,12 +2555,27 @@ standard LuaJ globals (`JsePlatform.standardGlobals()`):
 |---------|-----|
 | `io`, `os` | File system and process control |
 | `luajava` | The **real** escape hatch: LuaJ's reflection bridge into Java. Removed first |
-| `load`, `loadstring`, `dofile`, `loadfile`, `require`, `module` | Compiling or loading code at runtime |
-| `package` | Module loading |
+| `load`, `loadstring`, `dofile`, `loadfile`, `module` | Compiling or loading code at runtime |
+| `package` | Module loading — and the only thing that could give `require` a search path |
+| `require` | Lua's own, which searches the file system. **Blanked like the rest, then deliberately replaced** — see below |
 | `coroutine` | The hook state lives on the thread, so a fresh coroutine would run unchecked |
 | `collectgarbage` | A script could stall the VM |
 | `newproxy` | The same class of escape through userdata |
 | `debug` | `debug.sethook()` would remove the watchdog |
+
+> [!IMPORTANT]
+> **`require` is on that list and is not a contradiction.** It is blanked in the same loop
+> as everything else and then immediately overwritten with
+> `ModuleRegistry.requireFor(session)`, which resolves the six names in
+> [the modules section](#modules--require-and-the-six-names) and **nothing else** — no
+> search path, no `package`, no file system. Leaving it on the ban list is deliberate: the
+> list stays an honest record of what *Lua's* `require` can reach. Take it off and the
+> table would read "scripts cannot require", which stopped being true.
+>
+> `package`, `dofile`, `loadfile`, `load`, `loadstring`, `luajava`, `coroutine`,
+> `collectgarbage`, `newproxy` and `debug` all stay `nil` — permanently, and with
+> `require` installed. `ModuleRegistryTest` runs scripts through the real engine to prove
+> exactly that.
 
 `print` is redirected to the studio console. `DebugLib` itself **is** loaded: until
 `Globals.debuglib` is set the VM never consults a hook at all. The library is installed,
@@ -2293,16 +2607,28 @@ outcome, including an error, the glyphs are never left half-lit.
 |------|------|
 | `glyph/script/ScriptAnimation.kt` | The model: name, source, `custom:<12 hex>` id, `newId()`, `runtimeIdOf()`, `isCustomId()`, `stripPrefix()` |
 | `glyph/script/ScriptFileFormat.kt` | The `.glyphlua` container: `encode()`, `decode()`, `suggestedFileName()`, `InvalidScriptException` |
-| `glyph/script/LuaScriptEngine.kt` | Sandbox assembly, the watchdog, `run()`, `validate()`, `ScriptStatus` |
-| `glyph/script/ScriptSession.kt` | Per-run state: deadline, instruction budget, frame counter, randomness, interruptible waits |
+| `glyph/script/LuaScriptEngine.kt` | Sandbox assembly, the watchdog, `run()`, `validate()`, `ScriptStatus`, `ScriptCheckStatus`, `ScriptCheckResult` |
+| `glyph/script/ScriptSession.kt` | Per-run state: deadline, instruction budget, frame counter, randomness, interruptible waits, the collected log lines, the sensor latch |
 | `glyph/script/GlyphLuaApi.kt` | The `glyph` table — the whole user-facing language |
 | `glyph/script/ScriptTarget.kt` | `ScriptTarget` (the declaration) and `ScriptScope` (which picker offers what) |
+| `glyph/script/LogLevel.kt` | `LogLevel` (`INFO` / `WARN` / `ERROR`) and `ScriptLogLine` — the severity a line was written at |
 | `glyph/script/ScriptRunner.kt` | `runScript()` / `stop()` / `check()` plus the private `RendererHost` bridging the suspending renderer to a blocking host |
+| `glyph/script/module/ModuleRegistry.kt` | The six names, the factories behind them, and the `require` that reads them |
+| `glyph/script/module/ModuleBuilder.kt` | `value` / `live` / `func` — how one module table is assembled without freezing a moving value or losing the error prefix |
+| `glyph/script/module/ModuleSourceScan.kt` | The `require("…")` names Check must reject before a phone does |
+| `glyph/script/module/LuaArgs.kt` | Positional arguments for module functions: a missing slot is `nil`, and `nil` means "use the default" |
+| `glyph/script/module/Glyph*Module.kt` | One file per module: `GlyphTimeModule`, `GlyphBatteryModule`, `GlyphNetModule`, `GlyphSensorModule`, `GlyphLogModule`, `GlyphUtilModule` |
+| `glyph/net/NetworkSnapshot.kt` | `connected` / `wifi` / `metered` / `vpn`, guaranteed to describe the same instant |
+| `glyph/net/NetworkSource.kt` | `ConnectivityManager` behind a 1,000 ms cache |
+| `glyph/sensor/SensorSnapshot.kt` | `x` / `y` / `z` / `magnitude` / `shaken`, one sample, gravity included |
+| `glyph/sensor/SensorControl.kt` | What opens and closes the listener for one run — separate from reading a value, so a test of the first need not provide the second |
+| `glyph/sensor/SensorSource.kt` | The listener itself, and the threshold that counts as a shake |
 | `data/CustomAnimationRepository.kt` | Files, index, import, both exports, the starter script |
 | `CustomAnimationsActivity.kt` | The studio Activity, the file pickers, the `BackHandler` |
-| `ui/screens/animations/*.kt` | List and editor |
-| `ui/viewmodel/AnimationStudioViewModel.kt` | Studio state, Check / Glyph |
-| `app/src/test/.../glyph/script/*Test.kt` | 21 + 7 + 15 unit tests; run with `./gradlew :app:testDebugUnitTest` |
+| `ui/screens/animations/*.kt` | List and editor, plus the two cheat-sheet cards (`API_REFERENCE`, `MODULE_REFERENCE`) |
+| `ui/viewmodel/AnimationStudioViewModel.kt` | Studio state, Check / Glyph, the console |
+| `app/src/test/.../glyph/script/*Test.kt` | 22 + 15 + 7 + 5 + 5 + 6 unit tests; run with `./gradlew :app:testDebugUnitTest` |
+| `app/src/test/.../glyph/script/module/*Test.kt` | 8 + 9 + 5 + 4 + 7 + 15 + 4 + 11 unit tests over the registry, the source scan and the six modules |
 | `app/src/test/.../glyph/audio/*Test.kt` | 17 + 13 + 12 + 6 + 11 unit tests over the transform, the frame, the beat detector and the calibration |
 | `app/src/test/.../glyph/device/DeviceProfileFactoryTest.kt` | 16 unit tests over the per-model channel tables |
 
@@ -2310,5 +2636,7 @@ outcome, including an error, the glyphs are never left half-lit.
 
 *This documentation reflects the code at version 1.0.31. When the service layer changes,
 update [section 7](#7-adding-a-new-service-quickstart); when you add a call to the `glyph`
-table, update [section 14](#14-custom-animations-lua).*
+table **or a module under `glyph/script/module/`**, update [section 14](#14-custom-animations-lua) —
+the `API_REFERENCE` and `MODULE_REFERENCE` cards in
+`ui/screens/animations/AnimationEditorScreen.kt` are the same list a third time.*
 
