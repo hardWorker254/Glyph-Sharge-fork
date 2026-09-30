@@ -4,7 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.nfc.NfcAdapter
-import android.util.Log
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bleelblep.glyphsharge.R
@@ -15,6 +15,8 @@ import com.bleelblep.glyphsharge.glyph.GlyphManager
 import com.bleelblep.glyphsharge.glyph.audio.PlaybackAudioSource
 import com.bleelblep.glyphsharge.services.FeatureServiceController
 import com.bleelblep.glyphsharge.services.FeatureSpecs
+import com.bleelblep.glyphsharge.services.GlyphServiceSwitch
+import com.bleelblep.glyphsharge.tiles.TileStateBus
 import com.bleelblep.glyphsharge.ui.state.FeatureUiState
 import com.bleelblep.glyphsharge.ui.state.HomeUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,7 +42,7 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val settingsRepository: SettingsRepository,
-    private val glyphManager: GlyphManager,
+    glyphManager: GlyphManager,
     /**
      * The manager the feature dialogs' "Test" buttons drive.
      *
@@ -51,6 +53,8 @@ class HomeViewModel @Inject constructor(
      */
     val glyphAnimationManager: GlyphAnimationManager,
     private val serviceController: FeatureServiceController,
+    private val glyphServiceSwitch: GlyphServiceSwitch,
+    private val tileStateBus: TileStateBus,
     private val playbackAudioSource: PlaybackAudioSource,
 ) : ViewModel() {
 
@@ -70,6 +74,38 @@ class HomeViewModel @Inject constructor(
 
     private val _messages = Channel<String>(Channel.BUFFERED)
     val messages: Flow<String> = _messages.receiveAsFlow()
+
+    /**
+     * "Switch the visualiser on, and do whatever it takes."
+     *
+     * A request rather than an action, because the two things it needs can
+     * only come from an Activity — the microphone permission and the capture
+     * confirmation — and a ViewModel cannot ask for either. The card's switch
+     * and the Quick Settings tile both raise the same request and let
+     * `MainActivity` answer it, which is why there is one chain rather than
+     * two that could answer differently.
+     *
+     * Buffered on purpose: the visualiser card is the last one in the home
+     * list, so a request raised while the app is still starting would find
+     * nobody collecting it yet.
+     */
+    private val _musicCaptureRequests = Channel<Unit>(Channel.BUFFERED)
+    val musicCaptureRequests: Flow<Unit> = _musicCaptureRequests.receiveAsFlow()
+
+    fun requestMusicCapture() {
+        _musicCaptureRequests.trySend(Unit)
+    }
+
+    /**
+     * The visualiser card's switch, and what the tile means by "turn it on".
+     *
+     * Off goes straight through, as it always did: nothing about stopping it
+     * needs an Activity.
+     */
+    fun toggleMusicVisualizer(enabled: Boolean) {
+        if (enabled) requestMusicCapture()
+        else setFeatureEnabled(GlyphFeature.MUSIC_VISUALIZER, false)
+    }
 
     /**
      * The Activity registers this because `enableForegroundDispatch` needs a
@@ -113,46 +149,25 @@ class HomeViewModel @Inject constructor(
     }
 
     fun toggleGlyphService(enabled: Boolean) {
-        try {
-            if (glyphManager.isSessionActive == enabled) {
-                _uiState.update { it.copy(glyphServiceEnabled = enabled) }
-                settingsRepository.saveGlyphServiceEnabled(enabled)
-                // Reconcile the services even when the session was already in the
-                // requested state: a feature switched on while the Glyph service
-                // was off has a dead service, so its switch can read "on" while
-                // nothing works.
-                if (enabled) serviceController.startAllEnabled() else serviceController.stopAll()
-                emit("Glyph service is already ${if (enabled) "enabled" else "disabled"}")
-                return
-            }
-
-            glyphManager.toggleGlyphService()
-
-            val newState = glyphManager.isSessionActive
-            if (newState == enabled) {
-                _uiState.update { it.copy(glyphServiceEnabled = newState) }
-                settingsRepository.saveGlyphServiceEnabled(newState)
-                emit(
+        // Off the main thread and through the one switch that knows the order:
+        // the SDK needs a bound service before a session opens, and the tile
+        // in the shade needs the same thing the card does.
+        viewModelScope.launch {
+            val outcome = glyphServiceSwitch.apply(enabled)
+            // The SDK is the truth, so the card follows the session rather
+            // than the request — including when the request was refused.
+            _uiState.update { it.copy(glyphServiceEnabled = outcome.isActive) }
+            when {
+                outcome.error != null -> emit(
                     context.getString(
-                        if (newState) R.string.glyph_service_start
-                        else R.string.glyph_service_stop
+                        if (enabled) R.string.glyph_service_fstart else R.string.glyph_service_fstop
                     )
                 )
-                if (newState) serviceController.startAllEnabled() else serviceController.stopAll()
-            } else {
-                _uiState.update { it.copy(glyphServiceEnabled = glyphManager.isSessionActive) }
-                emit(
-                    context.getString(
-                        if (enabled) R.string.glyph_service_fstart
-                        else R.string.glyph_service_fstop
-                    )
-                )
-                if (!enabled) settingsRepository.saveGlyphServiceEnabled(true) // roll back
+                !outcome.changed ->
+                    emit("Glyph service is already ${if (enabled) "enabled" else "disabled"}")
+                outcome.isActive -> emit(context.getString(R.string.glyph_service_start))
+                else -> emit(context.getString(R.string.glyph_service_stop))
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error toggling glyph service", e)
-            _uiState.update { it.copy(glyphServiceEnabled = glyphManager.isSessionActive) }
-            emit("Error: ${e.message}")
         }
     }
 
@@ -176,6 +191,9 @@ class HomeViewModel @Inject constructor(
         }
 
         serviceController.apply(feature, enabled)
+        // The shade mirrors these switches, and nothing else would tell a tile
+        // sitting in it that the one it draws has moved.
+        tileStateBus.notifyChanged()
         _uiState.update { state ->
             state.copy(
                 features = state.features + (feature to
@@ -240,17 +258,23 @@ class HomeViewModel @Inject constructor(
      * The flag is set before the service is asked, so the card matches what is
      * happening; if the capture then fails, the service says why in its
      * notification rather than leaving a silent lie on screen.
+     *
+     * @return `true` when the visualiser is now on, which is what lets the
+     *   Activity that only opened to ask close itself again.
      */
-    fun onMusicCaptureResult(resultCode: Int, data: Intent?) {
+    fun onMusicCaptureResult(resultCode: Int, data: Intent?): Boolean {
         if (resultCode != Activity.RESULT_OK) {
             settingsRepository.saveMusicVizEnabled(false)
+            tileStateBus.notifyChanged()
             emit(context.getString(R.string.music_viz_consent_denied))
-            return
+            return false
         }
 
         settingsRepository.saveMusicVizEnabled(true)
         serviceController.start(GlyphFeature.MUSIC_VISUALIZER, consent = resultCode to data)
+        tileStateBus.notifyChanged()
         emit(context.getString(R.string.music_viz_toast))
+        return true
     }
 
     fun emit(message: String) {
@@ -258,8 +282,6 @@ class HomeViewModel @Inject constructor(
     }
 
     private companion object {
-        const val TAG = "HomeViewModel"
-
         val TOAST_BY_FEATURE = mapOf(
             GlyphFeature.POWER_PEEK to "Testing Power Peek",
             GlyphFeature.CHARGING_ANIMATION to "Testing Charging Animation",

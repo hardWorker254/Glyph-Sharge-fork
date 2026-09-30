@@ -40,6 +40,7 @@ It gives full control over the LEDs: charge indication, notifications, security,
 | 📡 Integration | NFC glyphs on payment events, a glyph animation when a VPN connects |
 | 🎨 Personalization | 6 theme styles, Nothing fonts (NType Headline, NDot 55 Caps), scalable text sizes, your own glyph animations written in Lua |
 | ⚙️ System | Quiet hours, boot persistence, logging |
+| ⚡ Quick Access | Two tiles in the shade: the master Glyph service and the music visualiser |
 
 ### Supported Devices
 
@@ -260,7 +261,12 @@ app/src/main/java/com/bleelblep/glyphsharge/
 │   ├── LowBatteryAlertService.kt
 │   ├── QuietHoursService.kt
 │   ├── VpnConnectedService.kt
-│   └── MusicVisualizerService.kt
+│   ├── MusicVisualizerService.kt
+│   └── GlyphServiceSwitch.kt    # The master switch, one place for the app and the tile
+├── tiles/                    # Quick Settings tiles (the shade)
+│   ├── GlyphServiceTileService.kt      # Master Glyph service
+│   ├── MusicVisualizerTileService.kt   # Music visualiser
+│   └── TileStateBus.kt                 # "A switch you mirror has moved"
 ├── receiver/
 │   └── BootCompletedReceiver.kt
 ├── ui/
@@ -741,6 +747,59 @@ Phone (1) and blurred on the Phone (2a).
 > `onUnavailable` clear the latch so the next `onAvailable` is read as the connect event it is.
 > A VPN that is already up when the service starts therefore leaves the strip dark — the
 > animation belongs to the connect event, not to the service being started.
+
+### Quick Settings Tiles
+
+Two tiles in the shade, both `TileService`s in `tiles/`:
+
+| Tile | What a tap does |
+|------|-----------------|
+| `GlyphServiceTileService` | Flips the master Glyph switch: opens or closes the Ketchum session, writes the flag, brings `GlyphForegroundService` up and starts or stops every feature behind it |
+| `MusicVisualizerTileService` | Turns the visualiser on or off, and switches the master Glyph service on by itself if it was off |
+
+On an unsupported device both report `STATE_UNAVAILABLE`: a switch that cannot be turned back
+on should not be offered.
+
+**One switch, two places.** The master switch lives in
+[`GlyphServiceSwitch`](../app/src/main/java/com/bleelblep/glyphsharge/services/GlyphServiceSwitch.kt),
+and both the home card and the tile call it. `apply()` is `suspend`, because opening a session
+waits for the system service to bind (`forceEnsureSession`, up to two seconds) and a blocking
+call from `TileService.onClick()` would freeze the shade. The flag is written **before** the
+services are started: `FeatureSpec.isRunnable` reads it in `onStartCommand`, and
+`GlyphForegroundService` restarts itself from `onDestroy` for as long as the flag is on.
+
+**The tile shows what is happening.** The feature switch and the master switch are two separate
+preferences. Turning the master off leaves the feature switched on in the settings but not
+running, which is why `MusicVisualizerTileService.isRunning()` requires both — otherwise a lit
+tile sits over a strip that has gone dark. A tap acts on what the tile displays, not on one flag.
+
+**The visualiser's permissions.** A `MediaProjection` token comes back only as an Activity
+result: a tile can neither show the system dialog nor request `RECORD_AUDIO`. So the tap collapses
+the shade through `startActivityAndCollapse()` and opens `MainActivity` with
+`ACTION_ENABLE_MUSIC`, which runs the same two-request chain as the card's switch and then closes
+through `finishAndRemoveTask()` — `finish()` alone leaves the task in the recents, which on
+Nothing reads as "the app minimised" rather than "the question was asked and closed". The chain
+lives in the Activity and not in the card because the visualiser card is the last one in the list
+and may not be composed yet when the app opens from a tile.
+
+> [!WARNING]
+> **The token lives until the system takes it back:** a screen lock, another projection, or a
+> stop from the shade revokes it. So the first tap on a phone with no live token opens the app,
+> and so does the first tap after every lock screen. There is no way around it — the platform
+> hands out no token without an Activity.
+
+**State updates.** `tiles/TileStateBus.kt` announces "a switch you mirror has moved" on two
+channels: an in-app broadcast (`RECEIVER_NOT_EXPORTED`) for a tile that is listening right now,
+and `TileService.requestListeningState()` for one that is not, because the shade is closed. Only
+the second call makes the system deliver `onStartListening()`. The subscription therefore lives
+for the lifetime of the service, not for the `onStartListening()`/`onStopListening()` window.
+
+> [!NOTE]
+> Android allows a tile to start a foreground service: tapping a UI element belonging to the app
+> is one of the background-start exemptions. Starting an *Activity* from a tile is not allowed
+> (a `TileService` has no such privilege from Android 14 on), hence `startActivityAndCollapse()`.
+> Verified in the manifest: `android:exported="true"` is required, and
+> `android.permission.BIND_QUICK_SETTINGS_TILE` restricts the service to the system.
 
 ### Service Lifecycle Contract
 
@@ -1788,7 +1847,7 @@ project, although `testInstrumentationRunner` is declared.
 ./gradlew :app:testDebugUnitTest
 ```
 
-**198 unit tests, 20 suites, all pure JVM** — no emulator, no device, no Robolectric. Run in
+**213 unit tests, 22 suites, all pure JVM** — no emulator, no device, no Robolectric. Run in
 about 2 seconds.
 
 | Suite | Tests | What it pins |
@@ -1799,12 +1858,14 @@ about 2 seconds.
 | `glyph/script/ScriptValidateResultTest` | 5 | The typed Check verdict: a clean file is `OK` with no message, an unparseable one is `SYNTAX_ERROR`, a typo'd `require` is `MISSING_MODULE` and *not* a syntax error, and a parse failure outranks a module in the same file |
 | `glyph/script/ScriptRunResultLogTest` | 5 | The script's own output survives to the caller: `print` lands on the result, `glyph.log` keeps the level it was given, `glyph.log.error` stops the run and its line is still there, a silent run is an empty list rather than `null`, and the lines are read *before* the session is torn down |
 | `glyph/script/StarterScriptTest` | 6 | The template the first script anyone ever runs: present in both locales, the Lua halves **byte-for-byte identical**, it calls `require`, it runs on all four supported phones, one pass takes about the same time on each, and the brightness really ramps |
-| `glyph/script/module/ModuleRegistryTest` | 8 | A `require` in a **real sandbox** reaches the six modules and nothing else: identity within a run, an unknown name raising with the available list, a fresh table per run — and `io`, `os`, `dofile`, `load`, `loadstring`, `luajava`, `coroutine`, `collectgarbage` all still `nil` with `require` installed |
+| `glyph/script/ScriptSandboxSecurityTest` | 11 | The sandbox, attacked: no dangerous global is reachable even with `require` installed, `require` refuses a name that is not a string, the `glyph` metatable does not leak the host, neither `pcall` nor `xpcall` swallows the watchdog, spin and `repeat` loops are stopped by the budget, and deep recursion and a metamethod error do not escape the engine |
+| `glyph/script/ScriptSandboxResourceTest` | 9 | What the instruction watchdog does not cover: a doubling string and a large `rep` stay bounded, a single log line is unbounded while the line count is capped, one run cannot poison the next one's module table, the strip is blanked whatever the script did, the observable surface is exactly the documented one, and the sensor listener is taken lazily and given back exactly once |
+| `glyph/script/module/ModuleRegistryTest` | 7 | A `require` in a **real sandbox** reaches the six modules and nothing else: identity within a run, an unknown name raising with the available list, a fresh table per run — and `io`, `os`, `dofile`, `load`, `loadstring`, `luajava`, `coroutine`, `collectgarbage` all still `nil` with `require` installed |
 | `glyph/script/module/ModuleSourceScanTest` | 9 | The scan behind Check: both quote styles, a misspelt name, **a commented-out `require` is not reported**, duplicates collapsed, and a syntax error outranking a module in the same file |
 | `glyph/script/module/GlyphTimeModuleTest` | 5 | `minuteOfDay`, the 22:00 and 06:00 edges of `isNight` (half-open, both ways), the three brightness levels, and the clock being re-read on every access |
 | `glyph/script/module/GlyphBatteryModuleTest` | 4 | `percent` and `charging` come from the device, `level()` translates a percentage into segments of *this* phone's C strip and never leaves it, and `bar(ms)` draws it |
-| `glyph/script/module/GlyphNetModuleTest` | 7 | Every field for a Wi-Fi connection, nothing for a disconnected one, VPN and metered reported correctly, the values are booleans, the state is re-read on every access, and `require` is still the same table twice |
-| `glyph/script/module/GlyphSensorModuleTest` | 15 | The five fields as numbers and a boolean, re-read every time — and the whole lifecycle: `require` starts nothing, the first read registers once, the run gives the sensor back on **every** exit path including the watchdog abort, and a run that never read it releases nothing |
+| `glyph/script/module/GlyphNetModuleTest` | 6 | Every field for a Wi-Fi connection, nothing for a disconnected one, VPN and metered reported correctly, the values are booleans, the state is re-read on every access, and `require` is still the same table twice |
+| `glyph/script/module/GlyphSensorModuleTest` | 13 | The five fields as numbers and a boolean, re-read every time — and the whole lifecycle: `require` starts nothing, the first read registers once, the run gives the sensor back on **every** exit path including the watchdog abort, and a run that never read it releases nothing |
 | `glyph/script/module/GlyphLogModuleTest` | 4 | `info` and `warn` let the run continue, `error` raises and stops it, the level is reported exactly once, and a failure is blamed on the module that raised it rather than with a doubled prefix |
 | `glyph/script/module/GlyphUtilModuleTest` | 11 | `clamp` (including a reversed range), `lerp` held at both ends, `mapRange` over a reversed and over a degenerate range, `shuffle` keeping every channel and leaving the original alone, and `shuffle` refusing a non-table |
 | `glyph/audio/FftTest` | 17 | Energy lands in the right bin, silence is exact zeros, magnitude is linear in amplitude, the size is a power of two, cached plans do not interfere |
@@ -1812,7 +1873,7 @@ about 2 seconds.
 | `glyph/audio/BeatDetectorTest` | 12 | The rolling average, the cooldown, a constant level not beating forever, `reset()` between tracks |
 | `glyph/audio/AudioAnalysisTest` | 6 | The calibration every mode's brightness rests on: a note lands in its band, silence produces nothing, a quiet room still reads as silence |
 | `glyph/audio/MusicVisualizationModeTest` | 11 | Stored ids resolve, a `custom:<uuid>` script id is **not** a mode, and every mode is classified as idle-friendly or not |
-| `glyph/device/DeviceProfileFactoryTest` | 16 | The per-model channel tables: every group names wired channels, nothing is wired twice, the budgets progress with the hardware, and Phone (2)'s second C run stays out of the battery bar |
+| `glyph/device/DeviceProfileFactoryTest` | 15 | The per-model channel tables: every group names wired channels, nothing is wired twice, the budgets progress with the hardware, and Phone (2)'s second C run stays out of the battery bar |
 
 The suites are grouped by **what breaks silently**, not by package. Every one of them covers
 code whose failure mode is a strip that looks plausible and is wrong:
@@ -2014,6 +2075,12 @@ The places where the code behaves in a non-obvious way:
   `true` is conventional for system broadcasts.
 - The Nothing API key is committed in the manifest rather than moved to `BuildConfig`
   or a gradle property.
+- The two tiles are declared `android:exported="true"` with
+  `android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"`. Neither is a typo:
+  without `exported="true"` the tile never appears in the add-tile list, and
+  `BIND_QUICK_SETTINGS_TILE` keeps the service reachable only by the system.
+  `GlyphServiceTileService` carries no `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` because it draws
+  nothing and holds no service of its own.
 
 ### Resources
 
@@ -2071,8 +2138,8 @@ silently did nothing.
 While a run is in flight the second button turns into **Stop**. The only ceiling on a run is
 `ScriptAnimation.SAFETY_CAP_MS = 30_000L`, which catches a script that never returns; normal
 scripts end when their own code ends. Under the buttons sits the console (last 4 lines),
-and under the code field a collapsible `glyph API reference` cheat sheet with a second
-card under it: `require` and the six modules.
+and under the code field one collapsible `glyph API reference` cheat sheet: the `glyph`
+calls first, then — under their own heading — `require` and the six modules.
 
 > [!NOTE]
 > A script file **is its whole body**. The engine wraps the source in
@@ -2174,7 +2241,9 @@ brackets is optional; "channels" means `{ 1, 2, 3 }`, a single number `3`, or a 
 > [!NOTE]
 > What a script writes really does reach the console: the run carries its own lines back
 > with the outcome, script first, so a `print(...)` trail reads in the order it was written.
-> `glyph.log.info` / `.warn` / `.error` say the same three things with the severity attached,
+> The severity lives in the **`glyph.log` module**, not in a field of the `glyph` table:
+> `glyph.log` is a function, so `glyph.log.info` would fail with *attempt to index a
+> function value*. The working path is `require("glyph.log").info` / `.warn` / `.error`,
 > and `error` stops the run as well as writing the line.
 
 > [!WARNING]
@@ -2200,6 +2269,7 @@ everywhere else every value is zero.
 |------|-----|
 | It must come **before the first `glyph.set()`** | After that the script is already running in whichever service started it; a quiet re-filing would claim a guarantee that was never true |
 | An unknown name is an **error**, not a silent fallback | A misspelling would otherwise make the script vanish from every picker with nothing to explain why |
+| `glyph.target = "any"` means the same to the pickers as declaring nothing | The explicit name reads better in the source, and `ScriptRunResult.target` then reports `ANY` where no declaration reports `null` |
 | The editor shows the current target under the name field | Derived from the buffer, so it tracks every keystroke |
 
 How the pickers know before anything has run: `ScriptTarget.detectIn(source)`
@@ -2220,7 +2290,7 @@ In the studio, and in every other feature, everything reads `0` / `false`.
 | `glyph.audio.mid` | Energy of the middle third |
 | `glyph.audio.treble` | Energy of the top third |
 | `glyph.audio.beat` | `true` on the single frame a beat was detected |
-| `glyph.audio.bands(n)` | A table of `n` values in `0..1`, resampled from the 32 analysed bands |
+| `glyph.audio.bands(n)` | A table of `n` values in `0..1`, resampled from the 32 analysed bands. `n` defaults to 8 and is clamped to `1..256` |
 
 > [!NOTE]
 > These are **values, not functions** — `glyph.audio.bass`, not
@@ -2577,6 +2647,14 @@ standard LuaJ globals (`JsePlatform.standardGlobals()`):
 > `require` installed. `ModuleRegistryTest` runs scripts through the real engine to prove
 > exactly that.
 
+Two more suites put the sandbox under a load, and both go through the real
+`LuaScriptEngine`: `ScriptSandboxSecurityTest` (11) attacks it — no dangerous global is
+reachable even with `require` installed, the `glyph` metatable does not leak the host, and
+neither `pcall` nor `xpcall` swallows the watchdog; `ScriptSandboxResourceTest` (9) goes
+after what an instruction watchdog cannot see — a string doubling on every line, a large
+`rep`, the number of log lines, a strip left half-lit, and a sensor listener that has to be
+taken lazily and handed back exactly once.
+
 `print` is redirected to the studio console. `DebugLib` itself **is** loaded: until
 `Globals.debuglib` is set the VM never consults a hook at all. The library is installed,
 the watchdog is attached, and only then is `debug` blanked — a script can neither see it
@@ -2625,18 +2703,18 @@ outcome, including an error, the glyphs are never left half-lit.
 | `glyph/sensor/SensorSource.kt` | The listener itself, and the threshold that counts as a shake |
 | `data/CustomAnimationRepository.kt` | Files, index, import, both exports, the starter script |
 | `CustomAnimationsActivity.kt` | The studio Activity, the file pickers, the `BackHandler` |
-| `ui/screens/animations/*.kt` | List and editor, plus the two cheat-sheet cards (`API_REFERENCE`, `MODULE_REFERENCE`) |
+| `ui/screens/animations/*.kt` | List and editor, plus the editor cheat sheet — `API_REFERENCE` and, under its own heading in the same card, `MODULE_REFERENCE` |
 | `ui/viewmodel/AnimationStudioViewModel.kt` | Studio state, Check / Glyph, the console |
-| `app/src/test/.../glyph/script/*Test.kt` | 22 + 15 + 7 + 5 + 5 + 6 unit tests; run with `./gradlew :app:testDebugUnitTest` |
-| `app/src/test/.../glyph/script/module/*Test.kt` | 8 + 9 + 5 + 4 + 7 + 15 + 4 + 11 unit tests over the registry, the source scan and the six modules |
+| `app/src/test/.../glyph/script/*Test.kt` | 22 + 15 + 7 + 5 + 5 + 6 + 9 + 11 unit tests; run with `./gradlew :app:testDebugUnitTest` |
+| `app/src/test/.../glyph/script/module/*Test.kt` | 7 + 9 + 5 + 4 + 6 + 13 + 4 + 11 unit tests over the registry, the source scan and the six modules |
 | `app/src/test/.../glyph/audio/*Test.kt` | 17 + 13 + 12 + 6 + 11 unit tests over the transform, the frame, the beat detector and the calibration |
-| `app/src/test/.../glyph/device/DeviceProfileFactoryTest.kt` | 16 unit tests over the per-model channel tables |
+| `app/src/test/.../glyph/device/DeviceProfileFactoryTest.kt` | 15 unit tests over the per-model channel tables |
 
 ---
 
 *This documentation reflects the code at version 1.0.31. When the service layer changes,
 update [section 7](#7-adding-a-new-service-quickstart); when you add a call to the `glyph`
 table **or a module under `glyph/script/module/`**, update [section 14](#14-custom-animations-lua) —
-the `API_REFERENCE` and `MODULE_REFERENCE` cards in
+the `API_REFERENCE` and `MODULE_REFERENCE` lists in
 `ui/screens/animations/AnimationEditorScreen.kt` are the same list a third time.*
 

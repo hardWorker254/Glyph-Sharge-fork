@@ -148,6 +148,16 @@
     <string name="glyph_service_fstop">Failed to disable</string>
     <string name="glyph_seconds">s</string>
 
+    <!-- Quick Settings tiles. Labels are held to 18 characters: the shade
+         ellipsises anything longer, and a tile whose name is cut in half is
+         worse than a short one. -->
+    <string name="tile_glyph_service_label">Glyph Service</string>
+    <string name="tile_music_label">Music Vis.</string>
+    <string name="tile_state_on">On</string>
+    <string name="tile_state_off">Off</string>
+    <string name="tile_unsupported_device">No Glyph here</string>
+<string name="tile_music_blocked">Glyph Service off</string>
+
     <!-- Settings Screen -->
     <string name="settings_title">Settings</string>
     <string name="settings_back_content_description">Back</string>

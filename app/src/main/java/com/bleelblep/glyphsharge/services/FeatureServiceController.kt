@@ -101,6 +101,20 @@ class FeatureServiceController @Inject constructor(
         }
     }
 
+    /**
+     * Starts the service that keeps the app in Quick Settings "Active apps".
+     *
+     * Not a feature, so not in [startAllEnabled]: it is the master switch's
+     * own foreground service, and it is one of the two things [stopAll]
+     * stops. Starting it is part of turning the Glyph service on — a master
+     * switch that saved a flag and opened a session but left this down would
+     * be killed by the system without anything having drawn.
+     */
+    fun startPersistentGlyphService() {
+        runCatching { context.startForegroundService(Intent(context, GlyphForegroundService::class.java)) }
+            .onFailure { Log.w(TAG, "GlyphForegroundService did not start: ${it.message}") }
+    }
+
     /** Stops every feature service. Used when the master glyph service goes off. */
     fun stopAll() {
         GlyphFeature.entries.forEach { stop(it) }

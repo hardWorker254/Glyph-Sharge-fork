@@ -69,6 +69,18 @@ Whether you're checking charge levels or activating security features, Glyph Sha
 - Material You dynamic theming
 - **Custom animations written in Lua** — a built-in animation studio (Settings → Custom Animations) with a sandboxed editor, an on-glyph run, a Check button that catches a misspelt `require` before a phone does, and `.glyphlua` import/export
 
+### ⚡ Quick Settings
+- **Two tiles in the shade** — pull the notification panel down and both are one tap away
+- **Glyph Service tile** — the master switch, straight from the shade: opens or closes the
+  Glyph session and starts or stops every feature behind it
+- **Music Visualizer tile** — starts or stops the visualiser. It switches the Glyph Service on
+  by itself if it was off, because a tile that only shows a "please enable it first" toast is
+  not a switch
+- The visualiser needs a `MediaProjection` token, which only an Activity can obtain, so that one
+  tile tap collapses the shade and asks in the app — then closes the app again, since the glyphs
+  now do the talking
+- Both tiles live-update: a switch moved in the app reaches the shade without opening it first
+
 ### ⚙️ Advanced Controls
 - Quiet Hours mode for scheduled silence
 - Custom glyph patterns and animations
@@ -171,7 +183,13 @@ app/
 │   │   │   ├── QuietHoursService.kt
 │   │   │   ├── ScreenOffGlyphService.kt
 │   │   │   ├── VpnConnectedService.kt
-│   │   │   └── MusicVisualizerService.kt
+│   │   │   ├── MusicVisualizerService.kt
+│   │   │   └── GlyphServiceSwitch.kt    # The master Glyph switch, in one place
+│   │   │
+│   │   ├── tiles/                       # Quick Settings tiles (notification shade)
+│   │   │   ├── GlyphServiceTileService.kt   # Master Glyph switch
+│   │   │   ├── MusicVisualizerTileService.kt
+│   │   │   └── TileStateBus.kt          # "A switch you mirror has moved"
 │   │   │
 │   │   ├── ui/                          # UI Components
 │   │   │   ├── components/              # Reusable Composables
@@ -220,7 +238,7 @@ app/
 │   └── AndroidManifest.xml
 │
 ├── src/test/java/com/bleelblep/glyphsharge/
-│   └── glyph/                           # 198 unit tests: audio, device, script
+│   └── glyph/                           # 213 unit tests: audio, device, script
 │
 ├── build.gradle.kts                     # Build Configuration
 └── proguard-rules.pro
@@ -321,6 +339,14 @@ Official Nothing fonts with dynamic scaling:
 | `QuietHoursService` | Scheduled silent mode |
 | `MusicVisualizerService` | Spectrum visualisation of whatever is playing |
 | `VpnConnectedService` | Plays the chosen animation when a VPN connects |
+| `GlyphServiceTileService` | Quick Settings tile: the master Glyph switch |
+| `MusicVisualizerTileService` | Quick Settings tile: the music visualiser |
+
+> **How the tiles reach the same state as the app.** Both go through
+> `services/GlyphServiceSwitch.kt` and `services/FeatureServiceController.kt`, so a switch
+> flipped in the shade and one flipped on the home screen cannot drift apart. The visualiser's
+> capture consent is the one thing a tile cannot ask for — it comes back from an Activity — so
+> `MainActivity` owns that chain and closes itself again once it has run.
 
 ---
 
@@ -353,8 +379,8 @@ Comprehensive documentation is available in the [`docs/`](docs/) folder:
 - **UI Components** — Theme system, card components, custom animations, the animation studio screens, and a styling guide
 
 > 💡 **Writing a custom animation?** Start with the Lua section:
-> [RU](docs/DOCUMENTATION_RU.md#13-пользовательские-анимации-lua) ·
-> [EN](docs/DOCUMENTATION_EN.md#13-custom-animations-lua)
+> [RU](docs/DOCUMENTATION_RU.md#14-пользовательские-анимации-lua) ·
+> [EN](docs/DOCUMENTATION_EN.md#14-custom-animations-lua)
 
 > 💡 **Adding a new feature?** Start with the Quickstart section:
 > [RU](docs/DOCUMENTATION_RU.md#7-добавление-нового-сервиса-quickstart) ·

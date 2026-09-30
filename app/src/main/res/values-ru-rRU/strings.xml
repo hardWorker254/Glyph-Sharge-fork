@@ -149,6 +149,14 @@
     <string name="glyph_service_fstop">Не удалось выключить</string>
     <string name="glyph_seconds">с</string>
 
+    <!-- Плитки быстрых настроек -->
+    <string name="tile_glyph_service_label">Сервис глифов</string>
+    <string name="tile_music_label">Музыка</string>
+    <string name="tile_state_on">Вкл</string>
+    <string name="tile_state_off">Выкл</string>
+    <string name="tile_unsupported_device">Глифов нет</string>
+<string name="tile_music_blocked">Сервис глифов выключен</string>
+
     <!-- Settings Screen -->
     <string name="settings_title">Настройки</string>
     <string name="settings_back_content_description">Назад</string>

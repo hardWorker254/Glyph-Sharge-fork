@@ -474,15 +474,24 @@ private val API_REFERENCE = listOf(
     "glyph.batteryBar(percent, ms)" to "Fill the C strip like charging",
     "glyph.ch.c / .a / .b / .d / .e" to "Channel groups for this phone",
     "glyph.ch.all / .nonC / .spiral" to "Whole strip, non-C, spiral order",
+    "glyph.ch.pulse" to "The pulse segments",
     "glyph.group(\"c\")" to "The same list, by name",
     "glyph.MAX" to "4000 — the brightest a channel goes",
-    "glyph.battery / .charging" to "Snapshot while the script runs",
-    "glyph.elapsed() / glyph.frame()" to "Milliseconds elapsed, frames drawn",
+    "glyph.device" to "This phone, e.g. PHONE3A",
+    "glyph.battery / .charging" to "Live values, re-read on every access",
     "glyph.running" to "False once the animation is stopped",
-    "glyph.rnd(a, b) / .seed(n)" to "Reproducible randomness",
+    "glyph.elapsed() / glyph.frame()" to "Milliseconds elapsed, frames drawn",
+    "glyph.time()" to "Old name for elapsed(); one WARN, then silent",
+    "glyph.rnd(a, b) / .rndFloat()" to "Randomness — fix it with seed(n)",
+    "glyph.seed(n)" to "Same pattern every run",
     "glyph.ease(t, kind)" to "linear, in, out, inout, bounce, wave, pulse",
     "glyph.exit()" to "Finish early",
-    "glyph.log(text) / print(text)" to "Write to this console"
+    "glyph.log(text) / print(text)" to "Write to this console",
+    "glyph.target = \"music\"" to "Offer this script to the visualiser only",
+    "glyph.audio.active / .level" to "Capture state, and loudness 0..1",
+    "glyph.audio.bass / .mid / .treble" to "Energy of each third of the spectrum",
+    "glyph.audio.beat" to "True on the one frame a beat was found",
+    "glyph.audio.bands(n)" to "n values in 0..1, out of 32 bands"
 )
 
 /**
@@ -516,7 +525,8 @@ private val MODULE_REFERENCE = listOf(
 private const val MODULE_REFERENCE_NOTE =
     "require resolves these six names and nothing else. There is no " +
         "require(\"os\"), and no way to read a file: that is the sandbox, and " +
-        "it is deliberate."
+        "it is deliberate. The three severities live in the module — " +
+        "glyph.log on its own is a plain function."
 
     /**
      * One worked example, because six names and a warning do not tell a reader

@@ -213,6 +213,51 @@
                 android:value="This service analyses the audio the device is currently playing and renders a spectrum visualisation on the glyph interface." />
         </service>
 
+        <!-- Quick Settings tiles: the master Glyph switch and the music
+             visualiser, two of them, which is the documented ceiling per app.
+
+             BIND_QUICK_SETTINGS_TILE is what keeps the service reachable only
+             by the system; exported="true" is still required for the tile to
+             appear in the shade at all. ACTIVE_TILE leaves the service bound
+             so a switch moved elsewhere reaches the tile without waiting for
+             the shade to be opened, and TOGGLEABLE_TILE tells the system this
+             is a two-state switch rather than an action. -->
+        <service
+            android:name=".tiles.GlyphServiceTileService"
+            android:exported="true"
+            android:icon="@drawable/_44"
+            android:label="@string/tile_glyph_service_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.service.quicksettings.ACTIVE_TILE"
+                android:value="true" />
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
+        </service>
+
+        <service
+            android:name=".tiles.MusicVisualizerTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_music"
+            android:label="@string/tile_music_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.service.quicksettings.ACTIVE_TILE"
+                android:value="true" />
+            <meta-data
+                android:name="android.service.quicksettings.TOGGLEABLE_TILE"
+                android:value="true" />
+        </service>
+
     </application>
 
 </manifest>
