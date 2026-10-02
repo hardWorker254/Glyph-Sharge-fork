@@ -24,14 +24,15 @@ class AudioAnalysisTest {
 
     private val channels = 2
 
-    /** Interleaved stereo [frames] of a sine at [hz] and [amplitude] full scale. */
-    private fun sine(hz: Float, amplitude: Float): ShortArray {
+    /** Interleaved stereo [frames] of a 1 kHz sine at [amplitude] full scale. */
+    private fun sine(amplitude: Float): ShortArray {
+        val hz = 1_000f
         val pcm = ShortArray(frames * channels)
         for (i in 0 until frames) {
-            val value = amplitude * sin(2.0 * PI * hz * i / sampleRate)
+            val value = amplitude * sin((2.0 * PI * hz * i) / sampleRate)
             val sample = (value * AudioAnalysis.PCM_FULL_SCALE).toInt().toShort()
             pcm[i * channels] = sample
-            pcm[i * channels + 1] = sample
+            pcm[(i * channels) + 1] = sample
         }
         return pcm
     }
@@ -45,14 +46,14 @@ class AudioAnalysisTest {
 
     @Test
     fun `a note at half scale fills the top of the scale`() {
-        val bands = bandsOf(sine(1_000f, 0.5f))
+        val bands = bandsOf(sine(0.5f))
         val peak = bands.max()
         assertTrue("half-scale 1 kHz read as $peak", peak > 0.6f)
     }
 
     @Test
     fun `a quiet note is dim, not invisible`() {
-        val quiet = bandsOf(sine(1_000f, 0.05f)).max()
+        val quiet = bandsOf(sine(0.05f)).max()
         assertTrue("a quiet note read as $quiet", quiet > 0.2f)
     }
 
@@ -66,9 +67,9 @@ class AudioAnalysisTest {
         // 1 kHz is bin 23 of 512, and the edges are logarithmic, so it belongs
         // to band 17. A linear sweep put it in band 1 and gave the other 30
         // bands the strip to themselves.
-        val bands = bandsOf(sine(1_000f, 0.5f))
+        val bands = bandsOf(sine(0.5f))
         val peak = bands.indices.maxByOrNull { bands[it] } ?: -1
-        assertTrue("1 kHz peaked in band $peak", peak in 15..21)
+        assertTrue("1 kHz peaked in band $peak", peak in (15..21))
     }
 
     @Test
@@ -88,9 +89,9 @@ class AudioAnalysisTest {
         // the floor — permanently "playing", with the idle animation never
         // reached.
         assertEquals(0f, AudioAnalysis.rmsFromPcm(ShortArray(frames * channels), 0), 0.0001f)
-        val room = AudioAnalysis.rmsFromPcm(sine(1_000f, 0.005f), frames * channels)
+        val room = AudioAnalysis.rmsFromPcm(sine(0.005f), frames * channels)
         assertTrue("a quiet room read as $room", room < AudioFrame.SILENCE_FLOOR)
-        val music = AudioAnalysis.rmsFromPcm(sine(1_000f, 0.5f), frames * channels)
+        val music = AudioAnalysis.rmsFromPcm(sine(0.5f), frames * channels)
         assertTrue("half-scale music read as $music", music > AudioFrame.SILENCE_FLOOR)
     }
 }

@@ -1,7 +1,5 @@
 package com.bleelblep.glyphsharge.glyph.audio
 
-import androidx.annotation.StringRes
-import com.bleelblep.glyphsharge.R
 import java.util.Locale
 
 /**
@@ -15,25 +13,31 @@ import java.util.Locale
  */
 enum class MusicVisualizationMode(
     val id: String,
-    @param:StringRes val displayNameRes: Int,
+    /**
+     * Always English, on purpose: a mode is a technical name, and every
+     * other animation picker in the app names its built-ins in English
+     * whatever the locale. Translated chips here were the only
+     * localized animation names in the app.
+     */
+    val displayName: String,
 ) {
     /** A classic equaliser: one bar per band, height = energy. */
-    BARS("BARS", R.string.music_viz_mode_bars),
+    BARS("BARS", "Bars"),
 
     /** An oscilloscope: the waveform itself, head bright, tail fading. */
-    WAVE("WAVE", R.string.music_viz_mode_wave),
+    WAVE("WAVE", "Wave"),
 
     /** Bars mirrored outwards from the centre of the strip. */
-    MIRROR("MIRROR", R.string.music_viz_mode_mirror),
+    MIRROR("MIRROR", "Mirror"),
 
     /** Everything flashes on a detected kick, scaled by the low end. */
-    BEAT("BEAT", R.string.music_viz_mode_beat),
+    BEAT("BEAT", "Beat"),
 
     /** Matrix rain whose drops are driven by the bands. */
-    MATRIX("MATRIX", R.string.music_viz_mode_matrix),
+    MATRIX("MATRIX", "Matrix"),
 
     /** Two counter-rotating rings, the bass turning them. */
-    VORTEX("VORTEX", R.string.music_viz_mode_vortex);
+    VORTEX("VORTEX", "Vortex");
 
     /** Shown when the visualiser runs without music. */
     val isIdleFriendly: Boolean

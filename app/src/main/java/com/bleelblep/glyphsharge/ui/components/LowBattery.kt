@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -16,19 +17,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.ui.components.dialogs.FeatureConfirmationFlow
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import kotlinx.coroutines.launch
+import java.io.Serializable
 
 data class LowBatteryAlertConfig(
     val isEnabled: Boolean = false,
     val threshold: Int = 20,
     val animationId: String = "PULSE",
-    val durationMs: Long = 10000L
-)
+    val durationMs: Long = 10000L,
+) : Serializable
 
 @Composable
 fun LowBatteryAlertConfirmationDialog(
@@ -36,11 +37,20 @@ fun LowBatteryAlertConfirmationDialog(
     onTestAlert: () -> Unit,
     onEnableAlert: (LowBatteryAlertConfig) -> Unit,
     onDisableAlert: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     // The configuration is threaded through the flow rather than dropped, so
     // the card receives the threshold, animation and duration the user picked.
-    var pendingConfig by remember { mutableStateOf<LowBatteryAlertConfig?>(null) }
+    //
+    // Saveable and never null, both for the same reason. As a plain `remember`
+    // holding a nullable value, a configuration change cleared it; the flow
+    // then closed on Enable as usual and `pendingConfig?.let(onEnableAlert)`
+    // did nothing — the dialog closed, the feature stayed off, and there was
+    // no error anywhere. A non-null default makes that outcome unrepresentable,
+    // and Serializable is what lets `rememberSaveable` carry it through a
+    // Bundle. `Serializable` rather than `@Parcelize` because all four fields
+    // are primitives, so there is nothing a Parcel would do that this does not.
+    var pendingConfig by rememberSaveable { mutableStateOf(LowBatteryAlertConfig()) }
 
     FeatureConfirmationFlow(
         title = stringResource(R.string.low_battery_alert_title),
@@ -49,7 +59,7 @@ fun LowBatteryAlertConfirmationDialog(
         howItWorksDescription = stringResource(R.string.low_battery_alert_how_it_works_description),
         testLabel = stringResource(R.string.low_battery_alert_button_test),
         onTest = onTestAlert,
-        onEnable = { pendingConfig?.let(onEnableAlert) },
+        onEnable = { onEnableAlert(pendingConfig) },
         onDisable = onDisableAlert,
         onDismiss = onDismiss,
         modifier = modifier,
@@ -60,9 +70,9 @@ fun LowBatteryAlertConfirmationDialog(
                     onConfirm()
                 },
                 onDisable = onDisable,
-                onDismiss = onDismissSettings
+                onDismiss = onDismissSettings,
             )
-        }
+        },
     )
 }
 
@@ -83,9 +93,23 @@ fun LowBatteryAlertEnableDialog(
     val context = LocalContext.current
 
     val currentlyEnabled = remember { settingsRepository.isLowBatteryEnabled() }
-    var isSaving by remember { mutableStateOf(false) }
 
-    var threshold by remember { mutableFloatStateOf(settingsRepository.getLowBatteryThreshold().toFloat()) }
+    // No `isSaving`: the save is a couple of synchronous SharedPreferences
+    // writes, so there is nothing for a spinner to describe, and leaving it
+    // set on a dialog whose `onConfirm` did not close it replaced the button
+    // with a spinner that never went away.
+
+    // Clamped on the way in, not only on the way out. `Slider` requires its
+    // `value` to sit inside `valueRange` and throws `IllegalStateException`
+    // otherwise, so a stored threshold from an older build, a corrupted
+    // preference or a hand-edited one took the whole dialog down. The write
+    // path clamps; this is what makes a value that never went through it safe
+    // to display.
+    var threshold by remember {
+        mutableFloatStateOf(
+            settingsRepository.getLowBatteryThreshold().toFloat().coerceIn(5f, 50f),
+        )
+    }
     // Built-ins plus whatever the studio currently holds.
     val animationOptions = rememberAnimationOptions()
 
@@ -93,8 +117,8 @@ fun LowBatteryAlertEnableDialog(
         mutableStateOf(
             GlyphAnimations.getById(
                 settingsRepository.getLowBatteryAnimationId(),
-                animationOptions
-            )
+                animationOptions,
+            ),
         )
     }
     var durationSeconds by remember {
@@ -113,56 +137,59 @@ fun LowBatteryAlertEnableDialog(
                     text = stringResource(id = R.string.low_battery_alert_configure_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
                 Text(
                     text = stringResource(id = R.string.low_battery_alert_configure_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
             }
         },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(16.dp),
                 ) {
                     Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
                             text = stringResource(id = R.string.low_battery_alert_threshold_title),
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
                                 text = stringResource(id = R.string.low_battery_alert_threshold_label),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             ThemedValueBadge("${threshold.toInt()}%")
                         }
 
                         Slider(
                             value = threshold,
-                            onValueChange = {
+                            // No haptic per pixel: a drag reports a value for every pixel of travel,
+                            // so firing on each one buzzes continuously under the thumb and buries the
+                            // one that should land at the end. One buzz, at the end.
+                            onValueChange = { threshold = it.coerceIn(5f, 50f) },
+                            onValueChangeFinished = {
                                 HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
-                                threshold = it.coerceIn(5f, 50f)
                             },
                             valueRange = 5f..50f,
                             steps = 44,
                             modifier = Modifier.fillMaxWidth(),
-                            colors = SliderDefaults.colors(thumbColor = accent)
+                            colors = SliderDefaults.colors(thumbColor = accent),
                         )
 
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -175,7 +202,7 @@ fun LowBatteryAlertEnableDialog(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(16.dp),
                 ) {
                     val glyphAnimationManager = rememberGlyphAnimationManager()
                     val scope = rememberCoroutineScope()
@@ -184,13 +211,13 @@ fun LowBatteryAlertEnableDialog(
                         Text(
                             text = stringResource(id = R.string.low_battery_alert_animation_title),
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
 
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
                             animationOptions.forEach { anim ->
                                 FilterChip(
@@ -202,8 +229,8 @@ fun LowBatteryAlertEnableDialog(
                                     label = { Text(anim.displayName) },
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    ),
                                 )
                             }
                         }
@@ -216,7 +243,7 @@ fun LowBatteryAlertEnableDialog(
                                         when {
                                         selectedAnimation.isCustom ->
                                             glyphAnimationManager.playCustomAnimation(
-                                                selectedAnimation.id
+                                                selectedAnimation.id,
                                             )
 
                                         else -> when (selectedAnimation.id) {
@@ -235,12 +262,12 @@ fun LowBatteryAlertEnableDialog(
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = secBtnColors,
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
                         ) {
                             Text(
                                 text = stringResource(id = R.string.low_battery_alert_animation_test) + selectedAnimation.displayName,
                                 style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
                             )
                         }
                     }
@@ -253,13 +280,13 @@ fun LowBatteryAlertEnableDialog(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = cardColor),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(16.dp),
                     ) {
                         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
                                     text = stringResource(id = R.string.low_battery_alert_duration_title),
@@ -267,21 +294,24 @@ fun LowBatteryAlertEnableDialog(
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.weight(1f),
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow = TextOverflow.Ellipsis,
                                 )
-                                ThemedValueBadge("${durationSeconds.toInt()}" + stringResource(id = R.string.glyph_seconds))
+                                ThemedValueBadge(durationSeconds.toInt().toString() + stringResource(id = R.string.glyph_seconds))
                             }
 
                             Slider(
                                 value = durationSeconds,
-                                onValueChange = {
+                                // No haptic per pixel: a drag reports a value for every pixel of travel,
+                                // so firing on each one buzzes continuously under the thumb and buries the
+                                // one that should land at the end. One buzz, at the end.
+                                onValueChange = { durationSeconds = it },
+                                onValueChangeFinished = {
                                     HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
-                                    durationSeconds = it
                                 },
                                 valueRange = 1f..10f,
                                 steps = 8,
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = SliderDefaults.colors(thumbColor = accent)
+                                colors = SliderDefaults.colors(thumbColor = accent),
                             )
 
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -295,27 +325,25 @@ fun LowBatteryAlertEnableDialog(
         },
         confirmButton = {
             FeatureSaveButtons(
-                isSaving = isSaving,
                 isCurrentlyEnabled = currentlyEnabled,
                 enableLabel = stringResource(id = R.string.low_battery_alert_button_enable),
                 onSave = {
-                    isSaving = true
                     onConfirm(
                         LowBatteryAlertConfig(
                             isEnabled = true,
                             threshold = threshold.toInt(),
                             animationId = selectedAnimation.id,
-                            durationMs = (durationSeconds * 1000).toLong()
-                        )
+                            durationMs = (durationSeconds * 1000).toLong(),
+                        ),
                     )
                 },
                 onDisable = onDisable,
-                onCancel = onDismiss
+                onCancel = onDismiss,
             )
         },
         dismissButton = {},
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(24.dp),
-        modifier = modifier
+        modifier = modifier,
     )
 }

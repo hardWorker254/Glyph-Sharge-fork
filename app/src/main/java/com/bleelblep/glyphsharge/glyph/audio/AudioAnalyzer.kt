@@ -12,7 +12,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -96,16 +95,6 @@ class AudioAnalyzer @Inject constructor(
 
     val isCapturing: Boolean get() = _status.value == CaptureStatus.RUNNING
 
-    /**
-     * `false` once the FFT stream has been shown to be unusable and the
-     * waveform is being banded instead. The spectrum then tracks loudness
-     * rather than pitch, which still reacts to music.
-     */
-    val isFftUsable: Boolean get() = usingFft
-
-    /** `true` while a projection token is held. Always `false` for this path. */
-    val hasToken: Boolean get() = false
-
     @Volatile
     private var gain: Float = DEFAULT_GAIN
 
@@ -131,8 +120,6 @@ class AudioAnalyzer @Inject constructor(
     fun setGain(value: Float) {
         gain = value.coerceIn(MIN_GAIN, MAX_GAIN)
     }
-
-    fun gain(): Float = gain
 
     /**
      * Opens the capture. Idempotent, and never throws: a visualiser that takes
@@ -228,13 +215,13 @@ class AudioAnalyzer @Inject constructor(
      */
     private fun applyCaptureSize(visualizer: Visualizer): Int? {
         val range = runCatching { Visualizer.getCaptureSizeRange() }.getOrNull()
-        if (range == null || range.size < 2) {
+        if ((range == null) || (range.size < 2)) {
             report("Capture size range unavailable")
             return null
         }
 
         val (minSize, maxSize) = range[0] to range[1]
-        if (maxSize <= 0 || minSize > maxSize) {
+        if ((maxSize <= 0) || (minSize > maxSize)) {
             report("Nonsensical capture size range: $minSize..$maxSize")
             return null
         }
@@ -289,7 +276,7 @@ class AudioAnalyzer @Inject constructor(
                 // The only place the FFT is judged: a loud waveform beside an
                 // empty spectrum is a stream that cannot be read, whereas an
                 // empty spectrum on its own is only silence.
-                if (level > LOUD_ENOUGH && ++flatFftFrames >= FLAT_FRAMES_BEFORE_FALLBACK) {
+                if ((level > LOUD_ENOUGH) && (++flatFftFrames >= FLAT_FRAMES_BEFORE_FALLBACK)) {
                     Log.w(TAG, "FFT is empty while the waveform is loud; banding the waveform instead")
                     usingFft = false
                     beatDetector.reset()
@@ -333,7 +320,6 @@ class AudioAnalyzer @Inject constructor(
             treble = AudioAnalysis.trebleOf(envelope),
             rms = levelOverride ?: AudioAnalysis.rmsFromFft(buffer),
             beat = beatDetector.update(bass, now),
-            timestampMs = now
         )
     }
 }

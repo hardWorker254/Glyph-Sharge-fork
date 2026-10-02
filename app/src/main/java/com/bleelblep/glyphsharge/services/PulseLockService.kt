@@ -1,40 +1,35 @@
 package com.bleelblep.glyphsharge.services
 
 import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.media.AudioAttributes
-import android.media.MediaPlayer
-import android.os.IBinder
+
 import android.util.Log
+import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.glyph.GlyphAnimationManager
 import androidx.core.content.ContextCompat
 import com.bleelblep.glyphsharge.glyph.GlyphFeature
+import com.bleelblep.glyphsharge.glyph.GlyphFeatureCoordinator
 import com.bleelblep.glyphsharge.glyph.RunTrace
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.concurrent.atomic.AtomicReference
+import kotlin.time.Duration.Companion.milliseconds
 import javax.inject.Inject
-import androidx.core.net.toUri
+
 
 /**
  * Foreground service that listens for the device being unlocked and plays the
  * user-chosen Glow Gate glyph animation (and optional sound).
  */
 @AndroidEntryPoint
-class PulseLockService : Service() {
+class PulseLockService : FeatureService() {
 
     companion object {
         private const val TAG = "PulseLockService"
@@ -70,13 +65,31 @@ class PulseLockService : Service() {
 
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var glyphAnimationManager: GlyphAnimationManager
-    @Inject lateinit var featureCoordinator: com.bleelblep.glyphsharge.glyph.GlyphFeatureCoordinator
+    @Inject lateinit var featureCoordinator: GlyphFeatureCoordinator
     @Inject lateinit var runTrace: RunTrace
+
+    /**
+     * One property for the pair of questions `onStartCommand`, the OS-driven
+     * restart and the unlock handler all have to answer the same way. They
+     * used to answer it separately, and `onTaskRemoved` could disagree with
+     * the other two without anything showing it.
+     */
+    override val isRunnable: Boolean
+        get() = spec.isRunnable(settingsRepository)
+
+    override val startAction: String get() = ACTION_START
+    override val stopAction: String get() = ACTION_STOP
+    override val channelId: String get() = NOTIF_CHANNEL_ID
+    override val notificationId: Int get() = NOTIF_ID
+
+    @get:StringRes
+    override val channelNameRes: Int get() = R.string.pulse_lock_notification_channel
+
+    override val wakeLockTag: String get() = "GlyphSharge:PulseLockAnimation"
+    override val tag: String get() = TAG
 
     // AtomicReference ensures thread-safe MediaPlayer swap without heavy synchronization
 
-    private val serviceJob = Job()
-    private val scope = CoroutineScope(Dispatchers.Main + serviceJob)
     private var screenOnFallback: Job? = null
 
     /**
@@ -110,19 +123,19 @@ class PulseLockService : Service() {
                     screenOnFallback?.cancel()
                     val expectUnlock = settingsRepository.isUserPresentExpected()
 
-                    screenOnFallback = scope.launch {
+                    screenOnFallback = serviceScope.launch {
                         // A phone that has never sent USER_PRESENT is not going
                         // to start now, and waiting out the grace period only
                         // adds latency to the moment the user is watching for.
                         // The first unlock waits, because that is the only way
                         // to find out; from the second one it is immediate.
-                        delay(if (expectUnlock) SCREEN_ON_GRACE_MS else SCREEN_ON_SETTLE_MS)
+                        delay((if (expectUnlock) SCREEN_ON_GRACE_MS else SCREEN_ON_SETTLE_MS).milliseconds)
                         if (expectUnlock) settingsRepository.markUserPresentMissing()
                         runTrace.record(
                             FEATURE,
                             "unlock",
                             if (expectUnlock) "screen-on, no USER_PRESENT within the grace"
-                            else "screen-on, this device sends no USER_PRESENT"
+                            else "screen-on, this device sends no USER_PRESENT",
                         )
                         playPulseLockSequence()
                     }
@@ -133,10 +146,8 @@ class PulseLockService : Service() {
 
     // Lifecycle
 
-    override fun onCreate() {
-        super.onCreate()
-        // Create the notification channel once here, not on every buildNotification() call
-        createNotificationChannel()
+    override fun onFeatureCreated() {
+        super.onFeatureCreated()
 
         val filters = IntentFilter().apply {
             addAction(Intent.ACTION_USER_PRESENT)
@@ -146,51 +157,26 @@ class PulseLockService : Service() {
             this,
             unlockReceiver,
             filters,
-            ContextCompat.RECEIVER_NOT_EXPORTED
+            ContextCompat.RECEIVER_NOT_EXPORTED,
         )
         runTrace.record(FEATURE, "service", "created, listening for unlock and screen-on")
         Log.d(TAG, "PulseLockService created")
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIF_ID, buildNotification())
-
-        if (intent?.action == ACTION_STOP) {
-            shutDown()
-            return START_NOT_STICKY
-        }
-
-        if (!spec.isRunnable(settingsRepository)) {
-            shutDown()
-            return START_NOT_STICKY
-        }
-
-        return START_STICKY
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        unregisterReceiver(unlockReceiver)
-        stopForegroundCompat()
-        serviceJob.cancel()
+    override fun onFeatureDestroying() {
+        // Guarded: `onCreate` can fail before the registration completes — the
+        // Hilt graph, the notification channel — and an unguarded
+        // `unregisterReceiver` then throws out of `onDestroy`, which is an
+        // uncaught crash rather than a cleanup failure.
+        runCatching { unregisterReceiver(unlockReceiver) }
+        screenOnFallback?.cancel()
         Log.d(TAG, "PulseLockService destroyed")
-    }
-
-    override fun onBind(intent: Intent?): IBinder? = null
-
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        super.onTaskRemoved(rootIntent)
-        // Only restart if the feature is still supposed to be running
-        if (!spec.isRunnable(settingsRepository)) return
-
-        val restart = Intent(this, PulseLockService::class.java).apply { action = ACTION_START }
-        startForegroundService(restart)
     }
 
     // Core sequence
 
     private fun playPulseLockSequence() {
-        scope.launch {
+        animationScope.launch {
             // Guard: re-check settings before doing any work
             if (!spec.isRunnable(settingsRepository)) {
                 Log.d(TAG, "Feature disabled – skipping sequence")
@@ -209,28 +195,30 @@ class PulseLockService : Service() {
                 // whatever is still playing — usually the screen-off animation,
                 // seconds old. Hence `preempt = true`.
                 //
-                // `onRelease` runs `stopForegroundCompat()` after the strip is
-                // handed back, and on the throwing path as well as the normal
-                // one. A failed acquisition is the one case that never reaches
-                // it, so an interrupt that did not land leaves the service
-                // foregrounded from `onStartCommand`.
+                // The service stays foregrounded for as long as the feature is
+                // on, so there is nothing to promote or demote around the strip.
+                // This used to pass `onRelease = { stopForegroundCompat() }`,
+                // and that was not the "keep it alive between events" it looked
+                // like: a service whose foreground notification has been removed
+                // is an ordinary background service, and every one of these
+                // events arrives with the app in the background, so Android
+                // reclaimed the service shortly after the first unlock. That is
+                // a graceful `stopService`, not a process kill, so `START_STICKY`
+                // never brought it back and the card kept saying "on" while
+                // nothing happened. Teardown is `FeatureServiceController`'s
+                // job and does not depend on the demotion.
                 val played = featureCoordinator.withStrip(
                     owner = GlyphFeature.PULSE_LOCK,
                     preempt = true,
-                    // Demote from foreground but keep service alive for future unlocks
-                    onRelease = { stopForegroundCompat() }
                 ) {
                     val animationId = settingsRepository.getPulseLockAnimationId()
                     val duration = glyphAnimationManager.runCapMs(
                         animationId,
-                        settingsRepository.getPulseLockDuration()
+                        settingsRepository.getPulseLockDuration(),
                     )
 
                     Log.d(TAG, "Sequence start – anim=$animationId duration=${duration}ms")
                     runTrace.record(FEATURE, "start", "anim=$animationId cap=${duration}ms")
-
-                    // Promote to foreground for the duration of the sequence
-                    startForeground(NOTIF_ID, buildNotification())
 
                     // `runCapped` joins the animation before returning, which is what
                     // keeps the lock from being released — and the strip
@@ -242,7 +230,7 @@ class PulseLockService : Service() {
                         capMs = duration,
                         onTimeout = {
                             Log.d(TAG, "Duration limit reached – stopping animation & audio")
-                        }
+                        },
                     ) {
                         glyphAnimationManager.playPulseLockAnimation()
                     }
@@ -252,7 +240,7 @@ class PulseLockService : Service() {
                     runTrace.record(
                         FEATURE,
                         "skip",
-                        "strip busy, owner=${featureCoordinator.currentOwner.value}"
+                        "strip busy, owner=${featureCoordinator.currentOwner.value}",
                     )
                 }
             } catch (e: Exception) {
@@ -262,19 +250,9 @@ class PulseLockService : Service() {
         }
     }
 
+    // Notification
 
-    // Notification helpers
-
-    private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            NOTIF_CHANNEL_ID,
-            getString(R.string.pulse_lock_notification_channel),
-            NotificationManager.IMPORTANCE_LOW
-        )
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-    }
-
-    private fun buildNotification(): Notification =
+    override fun buildNotification(): Notification =
         NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
             .setContentTitle(getString(R.string.pulse_lock_notification_title))
             .setContentText(getString(R.string.pulse_lock_notification_text))
@@ -282,15 +260,11 @@ class PulseLockService : Service() {
             .setOngoing(true)
             .build()
 
-    // Compat helpers
-
-    private fun shutDown() {
-        stopForegroundCompat()
-        stopSelf()
-    }
-
-    @Suppress("DEPRECATION")
-    private fun stopForegroundCompat() {
-        stopForeground(STOP_FOREGROUND_REMOVE)
-    }
+    override fun buildNotification(text: String): Notification =
+        NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
+            .setContentTitle(getString(R.string.pulse_lock_notification_title))
+            .setContentText(text)
+            .setSmallIcon(R.drawable._44)
+            .setOngoing(true)
+            .build()
 }

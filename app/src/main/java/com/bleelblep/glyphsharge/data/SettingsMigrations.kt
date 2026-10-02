@@ -38,7 +38,7 @@ import javax.inject.Singleton
 @Singleton
 class SettingsMigrations @Inject constructor(
     @param:GlyphPrefs private val prefs: SharedPreferences,
-    private val glyphService: GlyphServiceSettings
+    private val glyphService: GlyphServiceSettings,
 ) {
 
     private var applied = false
@@ -70,11 +70,11 @@ class SettingsMigrations @Inject constructor(
             putBoolean(FeatureSettings.KEY_MUSIC_VIZ_ENABLED, false)
             putString(
                 FeatureSettings.KEY_MUSIC_VIZ_ANIMATION_ID,
-                MusicVisualizationMode.DEFAULT.id
+                MusicVisualizationMode.DEFAULT.id,
             )
             putFloat(
                 FeatureSettings.KEY_MUSIC_VIZ_SENSITIVITY,
-                FeatureSettings.DEFAULT_MUSIC_VIZ_SENSITIVITY
+                FeatureSettings.DEFAULT_MUSIC_VIZ_SENSITIVITY,
             )
             putBoolean(FeatureSettings.KEY_MUSIC_VIZ_SCREEN_OFF_ONLY, false)
             putString(FontSettings.KEY_FONT_VARIANT, FontVariant.HEADLINE.name)
@@ -153,13 +153,13 @@ class SettingsMigrations @Inject constructor(
                 if (!prefs.contains(FeatureSettings.KEY_MUSIC_VIZ_ANIMATION_ID)) {
                     putString(
                         FeatureSettings.KEY_MUSIC_VIZ_ANIMATION_ID,
-                        MusicVisualizationMode.DEFAULT.id
+                        MusicVisualizationMode.DEFAULT.id,
                     )
                 }
                 if (!prefs.contains(FeatureSettings.KEY_MUSIC_VIZ_SENSITIVITY)) {
                     putFloat(
                         FeatureSettings.KEY_MUSIC_VIZ_SENSITIVITY,
-                        FeatureSettings.DEFAULT_MUSIC_VIZ_SENSITIVITY
+                        FeatureSettings.DEFAULT_MUSIC_VIZ_SENSITIVITY,
                     )
                 }
                 if (!prefs.contains(FeatureSettings.KEY_MUSIC_VIZ_SCREEN_OFF_ONLY)) {
@@ -190,7 +190,7 @@ class SettingsMigrations @Inject constructor(
     private fun normalizeLegacyVibrationIntensity() {
         val stored = prefs.getFloat(
             GlyphServiceSettings.KEY_VIBRATION_INTENSITY,
-            GlyphServiceSettings.DEFAULT_VIBRATION_INTENSITY
+            GlyphServiceSettings.DEFAULT_VIBRATION_INTENSITY,
         )
         if (stored <= 1.0f) return
         glyphService.saveVibrationIntensity(((stored - 1f) / 254f).coerceIn(0.1f, 1.0f))

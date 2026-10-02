@@ -8,8 +8,8 @@ import javax.inject.Singleton
  *
  * Each one is a one-liner: hand the sequence to [AnimationRunner.anim] and let
  * it own the guards and the renderer lifecycle. What actually draws is in this
- * package already — [SequenceAnimations], [ParticleAnimations],
- * [AudioAnimations] — and none of these methods adds timing of its own.
+ * package already — `SequenceAnimations`, `ParticleAnimations`,
+ * `AudioAnimations` — and none of these methods adds timing of its own.
  *
  * They stay separate from the animation manager because they are the one
  * concern that has nothing to say to settings, scripts or audio: given a

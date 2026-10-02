@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
+import android.util.Log
 import android.widget.Toast
 import com.bleelblep.glyphsharge.MainActivity
 import com.bleelblep.glyphsharge.R
@@ -14,6 +15,8 @@ import com.bleelblep.glyphsharge.glyph.GlyphFeature
 import com.bleelblep.glyphsharge.glyph.GlyphManager
 import com.bleelblep.glyphsharge.glyph.audio.PlaybackAudioSource
 import com.bleelblep.glyphsharge.services.FeatureServiceController
+import com.bleelblep.glyphsharge.services.FeatureSpec
+import com.bleelblep.glyphsharge.services.FeatureSpecs
 import com.bleelblep.glyphsharge.services.GlyphServiceSwitch
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -54,6 +57,12 @@ class MusicVisualizerTileService : TileService() {
     private val supported: Boolean by lazy { glyphManager.isNothingPhone() }
 
     /**
+     * The same registry entry the service reads its run gate from, so the tile
+     * and the service cannot answer "is this running?" differently.
+     */
+    private val spec: FeatureSpec = FeatureSpecs.of(GlyphFeature.MUSIC_VISUALIZER)
+
+    /**
      * Owned here rather than borrowed from `lifecycleScope`: a `TileService` is
      * a plain [android.app.Service] and not a `LifecycleOwner`, and the toggle
      * is worth more than the convenience.
@@ -82,10 +91,6 @@ class MusicVisualizerTileService : TileService() {
         refresh()
     }
 
-    override fun onStopListening() {
-        super.onStopListening()
-    }
-
     override fun onDestroy() {
         // Unsubscribing here rather than in onStopListening: the system can
         // destroy a tile that was never listening, and a receiver left behind
@@ -106,22 +111,34 @@ class MusicVisualizerTileService : TileService() {
         val enabling = !isRunning()
         // Off the main thread: turning the master service on waits for the
         // SDK to bind, and a tile that blocks the shade is a frozen phone.
+        //
+        // The try/catch is the point. `applyToggle` reaches
+        // `startForegroundService`, which throws `ForegroundServiceStartNotAllowedException`
+        // when the app is in the background without an exemption — and a
+        // Quick Settings tap is exactly that. An uncaught exception out of a
+        // `launch` on `Main` goes to the thread's default handler and takes
+        // the process with it, which also left `switching` stuck `true` and the
+        // tile dead for the rest of the process's life.
         switching = true
         scope.launch {
-            if (enabling && !ensureGlyphService()) {
-                switching = false
-                return@launch
-            }
-            when {
-                !enabling -> applyToggle(enabled = false)
-                // Nothing the tile can do about this one: it needs an Activity.
-                !audioSource.hasToken -> {
-                    switching = false
-                    openAppForConsent()
+            try {
+                if (enabling && !ensureGlyphService()) return@launch
+                when {
+                    !enabling -> applyToggle(enabled = false)
+                    // Nothing the tile can do about this one: it needs an Activity.
+                    !audioSource.hasToken -> openAppForConsent()
+                    else -> applyToggle(enabled = true)
                 }
-                else -> applyToggle(enabled = true)
+            } catch (e: Exception) {
+                Log.e(TAG, "Music visualiser tile toggle failed", e)
+                Toast.makeText(
+                    this@MusicVisualizerTileService,
+                    R.string.music_viz_notif_failed,
+                    Toast.LENGTH_SHORT,
+                ).show()
+            } finally {
+                switching = false
             }
-            switching = false
         }
     }
 
@@ -138,7 +155,7 @@ class MusicVisualizerTileService : TileService() {
      */
     private suspend fun ensureGlyphService(): Boolean {
         if (settingsRepository.getGlyphServiceEnabled()) return true
-        val outcome = glyphServiceSwitch.apply(true)
+        val outcome = glyphServiceSwitch.apply(enabled = true)
         outcome.error?.let {
             Toast.makeText(this, it, Toast.LENGTH_LONG).show()
         }
@@ -154,9 +171,14 @@ class MusicVisualizerTileService : TileService() {
      * off therefore leaves a feature switched on and its service stopped — a
      * setting the app keeps for next time, not something working. Reading only
      * the feature flag is what put a lit tile over a strip that had gone dark.
+     *
+     * Asked of [FeatureSpec] rather than spelled out again. It used to be
+     * `isMusicVizEnabled() && getGlyphServiceEnabled()` written longhand here,
+     * which is the same pair `MusicVisualizerService` asks the registry about —
+     * so a third condition added to the gate would have reached the service and
+     * not the tile, and the tile would claim a capture the service had stopped.
      */
-    private fun isRunning(): Boolean =
-        settingsRepository.isMusicVizEnabled() && settingsRepository.getGlyphServiceEnabled()
+    private fun isRunning(): Boolean = spec.isRunnable(settingsRepository)
 
     /**
      * Persists the switch and brings the service in line with it, then tells
@@ -188,7 +210,7 @@ class MusicVisualizerTileService : TileService() {
                 REQUEST_CODE,
                 intent,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-            )
+            ),
         )
     }
 
@@ -214,12 +236,14 @@ class MusicVisualizerTileService : TileService() {
                 // as one that stays lit over nothing.
                 !settingsRepository.getGlyphServiceEnabled() -> R.string.tile_music_blocked
                 else -> R.string.tile_state_on
-            }
+            },
         )
         tile.updateTile()
     }
 
     companion object {
+        private const val TAG = "MusicVizTile"
+
         /**
          * Asks [MainActivity] for the visualiser's capture consent.
          *

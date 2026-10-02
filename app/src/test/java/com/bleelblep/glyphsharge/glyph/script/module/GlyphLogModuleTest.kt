@@ -19,7 +19,7 @@ class GlyphLogModuleTest {
         """
         local log = require("glyph.log")
         ${source.trimIndent()}
-        """.trimIndent()
+        """.trimIndent(),
     )
 
     @Test
@@ -29,7 +29,7 @@ class GlyphLogModuleTest {
             log.info("starting")
             log.warn("the battery is low")
             glyph.set({ 1 }, 1000)
-            """
+            """,
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
@@ -42,7 +42,7 @@ class GlyphLogModuleTest {
             """
             log.error("nothing to animate")
             glyph.set({ 1 }, 1000)
-            """
+            """,
         )
 
         assertEquals(ScriptStatus.RUNTIME_ERROR, result.status)
@@ -63,9 +63,9 @@ class GlyphLogModuleTest {
         assertEquals(ScriptStatus.RUNTIME_ERROR, result.status)
         assertTrue(
             "the prefix must appear exactly once: ${result.message}",
-            result.message!!.contains("glyph.log.error: stop here")
+            result.message!!.contains("glyph.log.error: stop here"),
         )
-        assertEquals(1, result.message!!.split("glyph.log.error").size - 1)
+        assertEquals(1, result.message.split("glyph.log.error").size - 1)
     }
 
     @Test
@@ -75,7 +75,7 @@ class GlyphLogModuleTest {
         assertEquals(ScriptStatus.RUNTIME_ERROR, result.status)
         assertTrue(
             "expected the module to name itself: ${result.message}",
-            result.message!!.contains("glyph.util.shuffle: ")
+            result.message!!.contains("glyph.util.shuffle: "),
         )
     }
 }

@@ -13,7 +13,7 @@ import com.bleelblep.glyphsharge.glyph.GlyphFeature
 data class FeatureUiState(
     val feature: GlyphFeature,
     val isEnabled: Boolean = false,
-    val isServiceActive: Boolean = true
+    val isServiceActive: Boolean = true,
 )
 
 /**
@@ -22,7 +22,7 @@ data class FeatureUiState(
 @Immutable
 data class HomeUiState(
     val glyphServiceEnabled: Boolean = false,
-    val features: Map<GlyphFeature, FeatureUiState> = emptyMap()
+    val features: Map<GlyphFeature, FeatureUiState> = emptyMap(),
 ) {
     fun stateOf(feature: GlyphFeature): FeatureUiState =
         features[feature] ?: FeatureUiState(feature)

@@ -38,7 +38,7 @@ class LuaScriptEngineTest {
         c1SeqHold = 1000L,
         matrixConfig = MatrixConfig(1, 1, 1, 1, 1, 1),
         fireworksConfig = FireworksConfig(1, 1, 1, 1, 1, 1),
-        dnaConfig = DnaConfig(1, 1, 1)
+        dnaConfig = DnaConfig(1, 1, 1),
     )
 
     /** Records frames instead of lighting LEDs. */
@@ -69,7 +69,7 @@ class LuaScriptEngineTest {
             glyph.set({ 1, 2, 3 }, 2000)
             glyph.set({ 4 }, 500)
             """.trimIndent(),
-            host
+            host,
         )
 
         assertEquals(ScriptStatus.COMPLETED, result.status)
@@ -91,7 +91,7 @@ class LuaScriptEngineTest {
             assert(math.floor(2.7) == 2, "math must be available")
             assert(#("abc"):upper() == 3, "string methods must be available")
             """.trimIndent(),
-            host
+            host,
         )
 
         assertEquals(ScriptStatus.COMPLETED, result.status)
@@ -123,7 +123,7 @@ class LuaScriptEngineTest {
             glyph.exit()
             glyph.set({ 2 }, 1000)
             """.trimIndent(),
-            host
+            host,
         )
 
         assertEquals(ScriptStatus.COMPLETED, result.status)
@@ -140,7 +140,7 @@ class LuaScriptEngineTest {
             """
             assert(type(glyph.elapsed()) == "number", "glyph.elapsed must report a number")
             assert(type(glyph.time()) == "number", "the old name must still work")
-            """
+            """,
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
@@ -162,7 +162,7 @@ class LuaScriptEngineTest {
             end
             """.trimIndent(),
             host,
-            durationMs = 5_000L
+            durationMs = 5_000L,
         )
 
         assertEquals(ScriptStatus.COMPLETED, result.status)
@@ -180,7 +180,7 @@ class LuaScriptEngineTest {
             end
             """.trimIndent(),
             host,
-            durationMs = 300L
+            durationMs = 300L,
         )
 
         assertEquals(ScriptStatus.TIMED_OUT, result.status)
@@ -197,7 +197,7 @@ class LuaScriptEngineTest {
             assert(type(glyph.battery) == 'number', 'battery must be a number')
             assert(type(glyph.charging) == 'boolean', 'charging must be a boolean')
             assert(glyph.running == true, 'a fresh run is running')
-            """.trimIndent()
+            """.trimIndent(),
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
@@ -214,7 +214,7 @@ class LuaScriptEngineTest {
             // end this loop.
             engine.run(
                 "local n = 0 while glyph.running do n = n + 1 end\nreturn n",
-                maxDurationMs = 30_000L
+                maxDurationMs = 30_000L,
             )
             finished.set(true)
         }
@@ -240,7 +240,7 @@ class LuaScriptEngineTest {
             """
             glyph.target = "music"
             assert(glyph.target == "music", "the declared target must read back")
-            """.trimIndent()
+            """.trimIndent(),
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
@@ -257,7 +257,7 @@ class LuaScriptEngineTest {
             """
             glyph.target = "music"
             glyph.set({ 1, 2 }, 1500)
-            """.trimIndent()
+            """.trimIndent(),
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
@@ -309,7 +309,7 @@ class LuaScriptEngineTest {
     fun `a runaway computation is killed even when it never draws`() {
         val result = run(
             "local n = 0 while true do n = n + 1 end",
-            durationMs = 300L
+            durationMs = 300L,
         )
 
         assertEquals(ScriptStatus.TIMED_OUT, result.status)
@@ -360,7 +360,7 @@ class LuaScriptEngineTest {
               assert(_G[banned[i]] == nil, banned[i] .. ' must not be reachable')
             end
             """.trimIndent(),
-            host
+            host,
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)

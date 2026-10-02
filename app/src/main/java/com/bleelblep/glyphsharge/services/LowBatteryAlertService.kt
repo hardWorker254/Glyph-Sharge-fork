@@ -1,18 +1,14 @@
 package com.bleelblep.glyphsharge.services
 
 import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.media.MediaPlayer
 import android.os.BatteryManager
-import android.os.IBinder
-import android.os.PowerManager
 import android.util.Log
+import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
@@ -20,11 +16,11 @@ import com.bleelblep.glyphsharge.glyph.GlyphAnimationManager
 import com.bleelblep.glyphsharge.glyph.GlyphFeature
 import com.bleelblep.glyphsharge.glyph.GlyphFeatureCoordinator
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.*
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class LowBatteryAlertService : Service() {
+class LowBatteryAlertService : FeatureService() {
 
     companion object {
         private const val TAG         = "LowBatteryAlertService"
@@ -39,11 +35,39 @@ class LowBatteryAlertService : Service() {
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var featureCoordinator: GlyphFeatureCoordinator
 
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    /**
+     * This service's own registry entry, which owns the run gate — my switch
+     * and the master Glyph switch.
+     *
+     * It used to be absent here while every sibling had one, and that absence
+     * was the whole bug: the service started with the feature off, drew no
+     * notification of its own state, and ignored the `ACTION_STOP` that
+     * `FeatureServiceController.stop()` sends, so only the `stopService` that
+     * follows saved it. A `START_STICKY` restart brought it back anyway, with
+     * the card reading "off".
+     */
+    private val spec = FeatureSpecs.of(GlyphFeature.LOW_BATTERY)
 
     @Volatile private var lowBatteryTriggered = false
     private var mediaPlayer: MediaPlayer? = null
-    private var wakeLock: PowerManager.WakeLock? = null
+
+    // Identity
+
+    override val isRunnable: Boolean
+        get() = spec.isRunnable(settingsRepository)
+
+    override val startAction: String get() = ACTION_START
+    override val stopAction: String get() = ACTION_STOP
+    override val channelId: String get() = CHANNEL_ID
+    override val notificationId: Int get() = NOTIF_ID
+
+    @get:StringRes
+    override val channelNameRes: Int get() = R.string.low_battery_channel
+
+    /** Unchanged from the tag this service used before the base class owned it. */
+    override val wakeLockTag: String get() = "LowBatteryAlert::WakeLock"
+
+    override val tag: String get() = TAG
 
     // Battery receiver
     private val batteryReceiver = object : BroadcastReceiver() {
@@ -53,19 +77,19 @@ class LowBatteryAlertService : Service() {
             val level  = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
             val scale  = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
             val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-            val pct    = if (level >= 0 && scale > 0) level * 100 / scale else 0
-            val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                    status == BatteryManager.BATTERY_STATUS_FULL
+            val pct    = if ((level >= 0) && (scale > 0)) ((level * 100) / scale) else 0
+            val charging = (status == BatteryManager.BATTERY_STATUS_CHARGING) ||
+                    (status == BatteryManager.BATTERY_STATUS_FULL)
 
             if (settingsRepository.isLowBatteryEnabled() && !charging) {
                 val threshold = settingsRepository.getLowBatteryThreshold()
-                if (!lowBatteryTriggered && pct <= threshold) {
+                if ((!lowBatteryTriggered) && (pct <= threshold)) {
                     lowBatteryTriggered = true
-                    Log.d(TAG, "Low battery ${pct}% – triggering alert")
-                    scope.launch { playLowBatterySequence() }
+                    Log.d(TAG, "Low battery $pct% – triggering alert")
+                    animationScope.launch { playLowBatterySequence() }
                 }
                 // Reset once battery recovers or charging resumes
-                if (pct >= threshold + 5) lowBatteryTriggered = false
+                if (pct >= (threshold + 5)) lowBatteryTriggered = false
             } else {
                 lowBatteryTriggered = false
             }
@@ -73,42 +97,46 @@ class LowBatteryAlertService : Service() {
     }
 
     // Lifecycle
-    override fun onCreate() {
-        super.onCreate()
-        createNotificationChannel()
-        startForeground(NOTIF_ID, buildNotification())
 
-        wakeLock = (getSystemService(POWER_SERVICE) as PowerManager)
-            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "LowBatteryAlert::WakeLock")
-
+    override fun onFeatureCreated() {
+        super.onFeatureCreated()
+        // `startForeground` is the base's business, in `onStartCommand`: this
+        // used to call it here, which meant a service that was created but never
+        // started sat in the foreground with nothing to show for it.
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         Log.d(TAG, "Service created")
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    /**
+     * "Test" means "show me what this sounds like", not "turn it on", so it is
+     * answered ahead of the run gate. Answered behind it instead — which is
+     * where this used to be — and the button would refuse, asking the user to
+     * switch the feature on first to hear what it does.
+     *
+     * Scoped to this one action on purpose: a wider bypass would let the
+     * service draw with its switch off, which is the thing the gate is for.
+     */
+    override fun bypassesRunGate(intent: Intent?): Boolean =
+        intent?.action == ACTION_TEST_ALERT
+
+    override fun onStartCommandAfterGate(intent: Intent?): Int {
         if (intent?.action == ACTION_TEST_ALERT) {
-            scope.launch { playLowBatterySequence() }
+            animationScope.launch { playLowBatterySequence() }
             return START_STICKY
         }
-        runCatching { wakeLock?.takeIf { !it.isHeld }?.acquire(10 * 60 * 1_000L) }
+
+        // Held for the service's own life rather than per event. The battery
+        // broadcast arrives with the phone idle and Dozing often enough that a
+        // per-trigger lock would be a race it loses; this is bounded by the
+        // base's `onDestroy`, which releases it unconditionally.
+        runCatching { wakeLock.takeIf { !it.isHeld }?.acquire(10 * 60 * 1_000L) }
         return START_STICKY
     }
 
-    override fun onDestroy() {
+    override fun onFeatureDestroying() {
         runCatching { unregisterReceiver(batteryReceiver) }
-        runCatching { wakeLock?.takeIf { it.isHeld }?.release() }
         stopAudio()
-        scope.cancel()
-        super.onDestroy()
         Log.d(TAG, "Service destroyed")
-    }
-
-    override fun onBind(intent: Intent?): IBinder? = null
-
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        super.onTaskRemoved(rootIntent)
-        val i = Intent(this, LowBatteryAlertService::class.java)
-        startForegroundService(i)
     }
 
     // Alert sequence
@@ -128,7 +156,7 @@ class LowBatteryAlertService : Service() {
                     capMs = duration,
                     // The manager knows nothing about the alert's own audio,
                     // so the sound is stopped here, after the strip.
-                    onTimeout = { stopAudio() }
+                    onTimeout = { stopAudio() },
                 ) {
                     glyphAnimationManager.playLowBatteryAnimation()
                 }
@@ -141,25 +169,20 @@ class LowBatteryAlertService : Service() {
         }
     }
 
-
     private fun stopAudio() {
         mediaPlayer?.runCatching { stop(); release() }
         mediaPlayer = null
     }
 
     // Notification
-    private fun createNotificationChannel() {
-        val nm = getSystemService(NotificationManager::class.java)
-        if (nm.getNotificationChannel(CHANNEL_ID) != null) return
-        nm.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Low Battery Alert Service", NotificationManager.IMPORTANCE_LOW)
-        )
-    }
 
-    private fun buildNotification(): Notification =
+    override fun buildNotification(): Notification =
+        buildNotification(getString(R.string.low_battery_notif_text))
+
+    override fun buildNotification(text: String): Notification =
         NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("🔋 Low Battery Alert Active")
-            .setContentText("Monitoring battery level for alerts.")
+            .setContentTitle(getString(R.string.low_battery_notif_title))
+            .setContentText(text)
             .setSmallIcon(R.drawable._44)
             .setOngoing(true)
             .build()

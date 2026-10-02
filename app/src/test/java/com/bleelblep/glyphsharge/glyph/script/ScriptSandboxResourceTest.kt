@@ -40,7 +40,7 @@ class ScriptSandboxResourceTest {
         source: String,
         durationMs: Long = 5_000L,
         host: FakeHost = FakeHost(),
-        control: SensorControl? = null
+        control: SensorControl? = null,
     ): Pair<ScriptRunResult, FakeHost> =
         LuaScriptEngine(profile, host, sensorControl = control ?: SensorControl.NONE)
             .run(source, durationMs) to host
@@ -62,7 +62,7 @@ class ScriptSandboxResourceTest {
             for i = 1, 26 do s = s .. s end
             glyph.log(#s)
             """.trimIndent(),
-            30_000L
+            30_000L,
         )
 
         // Either it was stopped, or it finished having allocated 64 MiB. What
@@ -105,7 +105,7 @@ class ScriptSandboxResourceTest {
         val (result, _) = run("glyph.log(string.rep('x', 2 * 1024 * 1024))", 10_000L)
 
         val carried = result.logLines.sumOf { it.text.length }
-        System.out.println("PROBE: a 2 MiB log line was carried on the result: $carried chars")
+        println("PROBE: a 2 MiB log line was carried on the result: $carried chars")
         assertTrue("the result carried no log line at all", carried > 0)
     }
 
@@ -120,12 +120,12 @@ class ScriptSandboxResourceTest {
             """
             for i = 1, 1000 do glyph.log('line ' .. i) end
             """.trimIndent(),
-            30_000L
+            30_000L,
         )
 
         assertTrue(
             "the log grew past its cap: ${result.logLines.size} lines",
-            result.logLines.size <= 200
+            result.logLines.size <= 200,
         )
     }
 
@@ -146,7 +146,7 @@ class ScriptSandboxResourceTest {
             local util = require('glyph.util')
             util.clamp = function() return -666 end
             util.injected = true
-            """.trimIndent()
+            """.trimIndent(),
         ).first
 
         assertTrue("the poisoning script did not run", first.isSuccess)
@@ -156,7 +156,7 @@ class ScriptSandboxResourceTest {
             local util = require('glyph.util')
             assert(util.injected == nil, 'state leaked across runs')
             assert(util.clamp(5, 0, 10) == 5, 'clamp was replaced by the previous run')
-            """.trimIndent()
+            """.trimIndent(),
         ).first
 
         assertEquals(second.message, ScriptStatus.COMPLETED, second.status)
@@ -177,7 +177,7 @@ class ScriptSandboxResourceTest {
             "glyph.setAll(glyph.MAX) while true do end",
             "error('giving up')",
             "glyph.set({ 1 }, glyph.MAX) error('after a draw')",
-            "require('glyph.nope')"
+            "require('glyph.nope')",
         ).forEach { source ->
             val (_, host) = run(source, 3_000L)
             assertTrue("the strip was never blanked after: $source", host.blanks > 0)
@@ -220,7 +220,7 @@ class ScriptSandboxResourceTest {
                                  glyph.device, glyph.MAX, glyph.frame }) do
               assert(v ~= nil, 'a documented field came back nil')
             end
-            """.trimIndent()
+            """.trimIndent(),
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
@@ -252,7 +252,7 @@ class ScriptSandboxResourceTest {
             local m = s.magnitude
             """.trimIndent(),
             3_000L,
-            control = control
+            control = control,
         ).first
         assertTrue("reading the sensor failed: ${read.status} ${read.message}", read.isSuccess)
         assertEquals("one read must start exactly one listener", 1, control.starts)

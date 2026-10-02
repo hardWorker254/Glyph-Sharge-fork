@@ -13,7 +13,7 @@ import com.nothing.ketchum.Glyph
 enum class DeviceType(
     /** The id handed to `GlyphManager.register(...)` for this model. */
     val sdkId: String,
-    private val matches: () -> Boolean
+    private val matches: () -> Boolean,
 ) {
     PHONE1(Glyph.DEVICE_20111, { Common.is20111() }),
     PHONE2(Glyph.DEVICE_22111, { Common.is22111() }),
@@ -25,7 +25,7 @@ enum class DeviceType(
      * resolved per variant instead of being fixed at construction.
      */
     val registrationId: String
-        get() = if (this == PHONE2A && Common.is23113()) Glyph.DEVICE_23113 else sdkId
+        get() = if ((this == PHONE2A) && Common.is23113()) Glyph.DEVICE_23113 else sdkId
 
     companion object {
         /** The connected model, or `null` on hardware without a Glyph strip. */

@@ -22,7 +22,7 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class CustomAnimationsViewModel @Inject constructor(
-    private val repository: CustomAnimationRepository
+    repository: CustomAnimationRepository,
 ) : ViewModel() {
 
     /**

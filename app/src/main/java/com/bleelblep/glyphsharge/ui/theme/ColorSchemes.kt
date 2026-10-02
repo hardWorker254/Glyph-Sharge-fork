@@ -32,7 +32,7 @@ internal val ClassicDarkColorScheme = darkColorScheme(
     onError = Color.White,
     errorContainer = Color(0xFF8B0000), // Darker red for containers
     onErrorContainer = Color(0xFFFFDAD6),
-    surfaceTint = Color(0xFF1E1E1E)
+    surfaceTint = Color(0xFF1E1E1E),
 )
 
 internal val ClassicLightColorScheme = lightColorScheme(
@@ -57,7 +57,7 @@ internal val ClassicLightColorScheme = lightColorScheme(
     onError = Color.White,
     errorContainer = Color(0xFFFFDAD6),
     onErrorContainer = Color(0xFF410002),
-    surfaceTint = Color.White
+    surfaceTint = Color.White,
 )
 
 // Y2K theme — chrome, cyber, futuristic
@@ -94,7 +94,7 @@ internal val Y2KDarkColorScheme = darkColorScheme(
     errorContainer = Color(0xFFCC0052),
     onErrorContainer = Color(0xFFFFB3D1),
 
-    surfaceTint = Color(0xFF00D4FF)
+    surfaceTint = Color(0xFF00D4FF),
 )
 
 internal val Y2KLightColorScheme = lightColorScheme(
@@ -129,7 +129,7 @@ internal val Y2KLightColorScheme = lightColorScheme(
     errorContainer = Color(0xFFFFE6F2),
     onErrorContainer = Color(0xFF1A0014),
 
-    surfaceTint = Color(0xFF0099CC)
+    surfaceTint = Color(0xFF0099CC),
 )
 
 // Neon theme — high contrast electric
@@ -166,7 +166,7 @@ internal val NeonDarkColorScheme = darkColorScheme(
     errorContainer = Color(0xFFB30030),
     onErrorContainer = Color(0xFFFF8099),
 
-    surfaceTint = Color(0xFF00FF00)
+    surfaceTint = Color(0xFF00FF00),
 )
 
 internal val NeonLightColorScheme = lightColorScheme(
@@ -201,7 +201,7 @@ internal val NeonLightColorScheme = lightColorScheme(
     errorContainer = Color(0xFFFFE6E6),
     onErrorContainer = Color(0xFF330008),
 
-    surfaceTint = Color(0xFF00CC00)
+    surfaceTint = Color(0xFF00CC00),
 )
 
 // AMOLED theme — true black minimal
@@ -238,7 +238,7 @@ internal val AmoledDarkColorScheme = darkColorScheme(
     errorContainer = Color(0xFFCC2222),
     onErrorContainer = Color(0xFFFFAAAA),
 
-    surfaceTint = Color(0xFFFF5555)
+    surfaceTint = Color(0xFFFF5555),
 )
 
 internal val AmoledLightColorScheme = lightColorScheme(
@@ -273,7 +273,7 @@ internal val AmoledLightColorScheme = lightColorScheme(
     errorContainer = Color(0xFFFFE6E6),
     onErrorContainer = Color(0xFF440000),
 
-    surfaceTint = Color(0xFFDD2222)
+    surfaceTint = Color(0xFFDD2222),
 )
 
 // Pastel theme — soft dreamy colors
@@ -310,7 +310,7 @@ internal val PastelDarkColorScheme = darkColorScheme(
     errorContainer = Color(0xFFBD5F75),
     onErrorContainer = Color(0xFFFFD5E0),
 
-    surfaceTint = Color(0xFFD4A5FF)
+    surfaceTint = Color(0xFFD4A5FF),
 )
 
 internal val PastelLightColorScheme = lightColorScheme(
@@ -345,7 +345,7 @@ internal val PastelLightColorScheme = lightColorScheme(
     errorContainer = Color(0xFFFFE6ED),
     onErrorContainer = Color(0xFF3D0F1A),
 
-    surfaceTint = Color(0xFF8B5FBD)
+    surfaceTint = Color(0xFF8B5FBD),
 )
 
 // Expressive theme — bold Material 3 Expressive
@@ -388,7 +388,7 @@ internal val ExpressiveDarkColorScheme = darkColorScheme(
     errorContainer = Color(0xFFBD2217),
     onErrorContainer = Color(0xFFFF9980),
 
-    surfaceTint = Color(0xFFFFD60A)
+    surfaceTint = Color(0xFFFFD60A),
 )
 
 internal val ExpressiveLightColorScheme = lightColorScheme(
@@ -429,7 +429,7 @@ internal val ExpressiveLightColorScheme = lightColorScheme(
     errorContainer = Color(0xFFFFE6E6),
     onErrorContainer = Color(0xFF3D0F0A),
 
-    surfaceTint = Color(0xFFB8A000)
+    surfaceTint = Color(0xFFB8A000),
 )
 
 /**

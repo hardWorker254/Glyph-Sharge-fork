@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.platform.LocalContext
@@ -38,7 +39,13 @@ fun PowerPeekCard(
     iconSize: Int = 32,
 ) {
     val context = LocalContext.current
-    var showDialog by remember { mutableStateOf(false) }
+    // Saveable: whether this card's dialog is open has to survive a
+    // configuration change, and it did not. Rotating with a confirmation
+    // dialog open dismissed it and left the card looking untouched, which for
+    // a dialog whose second step is a settings form meant the form went with
+    // it. `remember` is right for state that *should* reset — scroll position,
+    // a search field the user has left — and wrong for "is this open".
+    var showDialog by rememberSaveable { mutableStateOf(value = false) }
     val toastText = stringResource(id = R.string.power_peek_toast)
 
     WideFeatureCardWithToggle(
@@ -53,7 +60,7 @@ fun PowerPeekCard(
             else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
         },
         modifier = modifier,
-        iconSize = iconSize
+        iconSize = iconSize,
     )
 
     if (showDialog && isServiceActive) {
@@ -61,8 +68,7 @@ fun PowerPeekCard(
             onTestPowerPeek = { onTestPowerPeek(); showDialog = false },
             onEnablePowerPeek = { onEnabledChange(true); showDialog = false },
             onDisablePowerPeek = { onEnabledChange(false); showDialog = false },
-            onDismiss = { showDialog = false }
-        )
+        ) { showDialog = false }
     }
 }
 
@@ -79,7 +85,13 @@ fun PulseLockCard(
     iconSize: Int = 32,
 ) {
     val context = LocalContext.current
-    var showDialog by remember { mutableStateOf(false) }
+    // Saveable: whether this card's dialog is open has to survive a
+    // configuration change, and it did not. Rotating with a confirmation
+    // dialog open dismissed it and left the card looking untouched, which for
+    // a dialog whose second step is a settings form meant the form went with
+    // it. `remember` is right for state that *should* reset — scroll position,
+    // a search field the user has left — and wrong for "is this open".
+    var showDialog by rememberSaveable { mutableStateOf(value = false) }
     val toastText = stringResource(id = R.string.pulse_lock_toast)
 
     WideFeatureCardWithToggle(
@@ -94,7 +106,7 @@ fun PulseLockCard(
             else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
         },
         modifier = modifier,
-        iconSize = iconSize
+        iconSize = iconSize,
     )
 
     if (showDialog && isServiceActive) {
@@ -102,7 +114,7 @@ fun PulseLockCard(
             onTestPulseLock = { onTestPulseLock(); showDialog = false },
             onEnablePulseLock = { onEnabledChange(true); showDialog = false },
             onDisablePulseLock = { onEnabledChange(false); showDialog = false },
-            onDismiss = { showDialog = false }
+            onDismiss = { showDialog = false },
         )
     }
 }
@@ -121,7 +133,13 @@ fun LowBatteryAlertCard(
 ) {
     val context = LocalContext.current
     val settingsRepository = LocalSettingsRepository.current
-    var showDialog by remember { mutableStateOf(false) }
+    // Saveable: whether this card's dialog is open has to survive a
+    // configuration change, and it did not. Rotating with a confirmation
+    // dialog open dismissed it and left the card looking untouched, which for
+    // a dialog whose second step is a settings form meant the form went with
+    // it. `remember` is right for state that *should* reset — scroll position,
+    // a search field the user has left — and wrong for "is this open".
+    var showDialog by rememberSaveable { mutableStateOf(value = false) }
     val toastText = stringResource(id = R.string.low_battery_alert_toast)
 
     WideFeatureCardWithToggle(
@@ -136,7 +154,7 @@ fun LowBatteryAlertCard(
             else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
         },
         modifier = modifier,
-        iconSize = iconSize
+        iconSize = iconSize,
     )
 
     if (showDialog && isServiceActive) {
@@ -157,8 +175,7 @@ fun LowBatteryAlertCard(
                 onEnabledChange(false)
                 showDialog = false
             },
-            onDismiss = { showDialog = false }
-        )
+        ) { showDialog = false }
     }
 }
 
@@ -175,7 +192,7 @@ fun ScreenOffCard(
     iconSize: Int = 32,
 ) {
     val context = LocalContext.current
-    var showConfirmDialog by remember { mutableStateOf(false) }
+    var showConfirmDialog by remember { mutableStateOf(value = false) }
     val toastText = stringResource(id = R.string.screen_off_toast)
 
     WideFeatureCardWithToggle(
@@ -190,7 +207,7 @@ fun ScreenOffCard(
             else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
         },
         modifier = modifier,
-        iconSize = iconSize
+        iconSize = iconSize,
     )
 
     if (showConfirmDialog && isServiceActive) {
@@ -204,7 +221,7 @@ fun ScreenOffCard(
             onDisable = {
                 onEnabledChange(false)
                 showConfirmDialog = false
-            }
+            },
         )
     }
 }
@@ -222,8 +239,7 @@ fun NfcGlyphCard(
     iconSize: Int = 32,
 ) {
     val context = LocalContext.current
-    val settingsRepository = LocalSettingsRepository.current
-    var showConfirmDialog by remember { mutableStateOf(false) }
+    var showConfirmDialog by remember { mutableStateOf(value = false) }
     val toastText = stringResource(id = R.string.nfc_glyph_toast)
 
     WideFeatureCardWithToggle(
@@ -238,7 +254,7 @@ fun NfcGlyphCard(
             else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
         },
         modifier = modifier,
-        iconSize = iconSize
+        iconSize = iconSize,
     )
 
     if (showConfirmDialog && isServiceActive) {
@@ -252,7 +268,7 @@ fun NfcGlyphCard(
                 onEnabledChange(false)
                 showConfirmDialog = false
             },
-            onDismiss = { showConfirmDialog = false }
+            onDismiss = { showConfirmDialog = false },
         )
     }
 }
@@ -270,8 +286,13 @@ fun ChargingAnimationCard(
     iconSize: Int = 32,
 ) {
     val context = LocalContext.current
-    val settingsRepository = LocalSettingsRepository.current
-    var showDialog by remember { mutableStateOf(false) }
+    // Saveable: whether this card's dialog is open has to survive a
+    // configuration change, and it did not. Rotating with a confirmation
+    // dialog open dismissed it and left the card looking untouched, which for
+    // a dialog whose second step is a settings form meant the form went with
+    // it. `remember` is right for state that *should* reset — scroll position,
+    // a search field the user has left — and wrong for "is this open".
+    var showDialog by rememberSaveable { mutableStateOf(value = false) }
     val toastText = stringResource(id = R.string.charging_animation_toast)
 
     WideFeatureCardWithToggle(
@@ -286,7 +307,7 @@ fun ChargingAnimationCard(
             else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
         },
         modifier = modifier,
-        iconSize = iconSize
+        iconSize = iconSize,
     )
 
     if (showDialog && isServiceActive) {
@@ -294,7 +315,7 @@ fun ChargingAnimationCard(
             onTestAnimation = { onTestAnimation(); showDialog = false },
             onEnableAnimation = { onEnabledChange(true); showDialog = false },
             onDisableAnimation = { onEnabledChange(false); showDialog = false },
-            onDismiss = { showDialog = false }
+            onDismiss = { showDialog = false },
         )
     }
 }
@@ -303,7 +324,7 @@ fun ChargingAnimationCard(
  * The music visualiser card.
  *
  * Shaped like every other card, with one difference that is not cosmetic: the
- * permission is asked for by [HomeFeatures] before [onEnabledChange] is ever
+ * permission is asked for by `HomeFeatures` before [onEnabledChange] is ever
  * called, because a visualiser that cannot read the audio is a card the user
  * switched on and nothing else.
  */
@@ -320,8 +341,13 @@ fun MusicVisualizerCard(
     iconSize: Int = 32,
 ) {
     val context = LocalContext.current
-    val settingsRepository = LocalSettingsRepository.current
-    var showDialog by remember { mutableStateOf(false) }
+    // Saveable: whether this card's dialog is open has to survive a
+    // configuration change, and it did not. Rotating with a confirmation
+    // dialog open dismissed it and left the card looking untouched, which for
+    // a dialog whose second step is a settings form meant the form went with
+    // it. `remember` is right for state that *should* reset — scroll position,
+    // a search field the user has left — and wrong for "is this open".
+    var showDialog by rememberSaveable { mutableStateOf(value = false) }
     val toastText = stringResource(id = R.string.music_viz_toast)
 
     WideFeatureCardWithToggle(
@@ -336,7 +362,7 @@ fun MusicVisualizerCard(
             else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
         },
         modifier = modifier,
-        iconSize = iconSize
+        iconSize = iconSize,
     )
 
     if (showDialog && isServiceActive) {
@@ -344,7 +370,7 @@ fun MusicVisualizerCard(
             onTestAnimation = { onTestAnimation(); showDialog = false },
             onEnableAnimation = { onEnabledChange(true); showDialog = false },
             onDisableAnimation = { onEnabledChange(false); showDialog = false },
-            onDismiss = { showDialog = false }
+            onDismiss = { showDialog = false },
         )
     }
 }

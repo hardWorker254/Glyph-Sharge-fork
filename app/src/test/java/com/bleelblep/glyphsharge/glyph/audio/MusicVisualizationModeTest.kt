@@ -1,7 +1,6 @@
 package com.bleelblep.glyphsharge.glyph.audio
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -69,13 +68,13 @@ class MusicVisualizationModeTest {
     @Test
     fun `every mode has a name to show`() {
         MusicVisualizationMode.entries.forEach { mode ->
-            assertNotEquals("${mode.id} has no string", 0, mode.displayNameRes)
+            assertTrue("${mode.id} has no name", mode.displayName.isNotBlank())
         }
     }
 
     @Test
     fun `the mode names are all different strings`() {
-        val names = MusicVisualizationMode.entries.map { it.displayNameRes }
+        val names = MusicVisualizationMode.entries.map { it.displayName }
 
         assertEquals(names.size, names.toSet().size)
     }
@@ -91,7 +90,7 @@ class MusicVisualizationModeTest {
         // one, so they get the idle animation instead.
         assertEquals(
             listOf(MusicVisualizationMode.BARS, MusicVisualizationMode.MIRROR),
-            MusicVisualizationMode.entries.filterNot { it.isIdleFriendly }
+            MusicVisualizationMode.entries.filterNot { it.isIdleFriendly },
         )
     }
 
@@ -102,9 +101,9 @@ class MusicVisualizationModeTest {
                 MusicVisualizationMode.WAVE,
                 MusicVisualizationMode.BEAT,
                 MusicVisualizationMode.MATRIX,
-                MusicVisualizationMode.VORTEX
+                MusicVisualizationMode.VORTEX,
             ),
-            MusicVisualizationMode.entries.filter { it.isIdleFriendly }
+            MusicVisualizationMode.entries.filter { it.isIdleFriendly },
         )
     }
 

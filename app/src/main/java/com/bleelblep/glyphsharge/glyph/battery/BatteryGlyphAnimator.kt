@@ -51,10 +51,10 @@ internal suspend fun GlyphRenderer.animateBattery(
     onProgressUpdate: (Float) -> Unit,
 ) {
     val bar = profile.c
-    if (durationMs <= 0 || bar.isEmpty()) return
+    if ((durationMs <= 0) || bar.isEmpty()) return
 
     val total = bar.size
-    val target = (batteryPercentage / 100f * total).toInt().coerceIn(0, total)
+    val target = ((batteryPercentage / 100f) * total).toInt().coerceIn(0, total)
     val base = baseBrightness(batteryPercentage, isCharging)
 
     var current = 0
@@ -120,7 +120,7 @@ private fun baseBrightness(batteryPercentage: Int, isCharging: Boolean): Int = w
 private fun chargingWave(profile: DeviceProfile, index: Int, base: Int, step: Int): Int {
     val spacing = if (profile.type == DeviceType.PHONE1) 0.5f else 0.2f
     val offset = index * spacing
-    return (base * (0.75f + 0.25f * sin(step * 0.15f - offset))).toInt()
+    return (base * (0.75f + (0.25f * sin((step * 0.15f) - offset)))).toInt()
 }
 
 // region Charging accents
@@ -143,7 +143,7 @@ private fun addBatteryEndBlink(
         // Breathes between a fifth and two thirds rather than from almost dark to
         // full: the tip should be legible as a tip, not read as another segment
         // of charge.
-        val brightness = (base * (0.2f + 0.45f * abs(sin(step * 0.12f)))).toInt()
+        val brightness = (base * (0.2f + (0.45f * abs(sin(step * 0.12f))))).toInt()
         builder.buildChannel(bar[j], brightness.coerceIn(0, GLYPH_MAX_BRIGHTNESS))
     }
 }
@@ -153,7 +153,7 @@ private fun addChargeDot(
     builder: GlyphFrame.Builder,
     profile: DeviceProfile,
     base: Int,
-    step: Int
+    step: Int,
 ) {
     val floor = if (profile.type == DeviceType.PHONE2A) 0.6f else 0.5f
     val phase = if (profile.type == DeviceType.PHONE2A) 0.25f else 0.2f
@@ -163,7 +163,7 @@ private fun addChargeDot(
         else -> emptyList()
     }
 
-    val brightness = (base * (floor + (1f - floor) * sin(step * phase)))
+    val brightness = (base * (floor + ((1f - floor) * sin(step * phase))))
         .toInt()
         .coerceIn(0, GLYPH_MAX_BRIGHTNESS)
 
@@ -178,23 +178,23 @@ private fun addChargeDot(
  * What the bar does once it is full while *not* charging: a soft glow when the
  * battery is healthy, a pulsing alert when it is low.
  */
-private fun GlyphRenderer.addIdleAccents(
+private fun addIdleAccents(
     builder: GlyphFrame.Builder,
     profile: DeviceProfile,
     batteryPercentage: Int,
     current: Int,
     bar: List<Int>,
     base: Int,
-    step: Int
+    step: Int,
 ) {
     val isLow = batteryPercentage < LOW_BATTERY_THRESHOLD_PERCENT
 
     when (profile.type) {
         DeviceType.PHONE1 -> {
             if (!isLow) {
-                val filled = batteryPercentage / 100f * bar.size
+                val filled = (batteryPercentage / 100f) * bar.size
                 addGlow(builder, bar, filled, base, step) { index, s ->
-                    0.75f + 0.25f * sin((s + index) * 0.25f)
+                    0.75f + (0.25f * sin((s + index) * 0.25f))
                 }
                 addTwinkle(builder, bar, filled, step)
             } else if (current > 0) {
@@ -206,7 +206,7 @@ private fun GlyphRenderer.addIdleAccents(
             if (!isLow) {
                 addAccentGlow(builder, profile, step)
                 addGlow(builder, bar, current.toFloat(), base, step) { index, s ->
-                    0.05f + 1.15f * (0.5f + 0.5f * sin(s * 0.5f - index * 0.6f))
+                    0.05f + (1.15f * (0.5f + (0.5f * sin(((s * 0.5f) - (index * 0.6f))))))
                 }
             } else {
                 profile.a.forEach { addAlert(builder, it, step) }
@@ -217,7 +217,7 @@ private fun GlyphRenderer.addIdleAccents(
             if (isLow) profile.a.firstOrNull()?.let { addAlert(builder, it, step) }
 
         DeviceType.PHONE3A ->
-            if (isLow && current > 0) addAlert(builder, bar[current - 1], step)
+            if ((isLow) && (current > 0)) addAlert(builder, bar[current - 1], step)
     }
 }
 
@@ -245,19 +245,19 @@ private fun addGlow(
 
 /** Full brightness below the fill level, fading out over the next segment. */
 private fun fillBrightness(index: Int, filledLevel: Float, baseBrightness: Int): Int = when {
-    index + 1 <= filledLevel -> baseBrightness
+    (index + 1) <= filledLevel -> baseBrightness
     index < filledLevel -> (baseBrightness * (filledLevel - index)).toInt()
     else -> 0
 }
 
 /** Every [TWINKLE_PERIOD] steps, wakes one random unfilled segment. */
-private fun GlyphRenderer.addTwinkle(
+private fun addTwinkle(
     builder: GlyphFrame.Builder,
     segments: List<Int>,
     filledLevel: Float,
-    step: Int
+    step: Int,
 ) {
-    if (step % TWINKLE_PERIOD != 0) return
+    if ((step % TWINKLE_PERIOD) != 0) return
 
     val unused = segments.indices.filter { it >= filledLevel.toInt() }
     if (unused.isEmpty()) return
@@ -267,21 +267,21 @@ private fun GlyphRenderer.addTwinkle(
 }
 
 /** Phase-shifted breathing glow across the B and E accent segments. */
-private fun GlyphRenderer.addAccentGlow(
+private fun addAccentGlow(
     builder: GlyphFrame.Builder,
     profile: DeviceProfile,
-    step: Int
+    step: Int,
 ) {
-    val glow = (GLYPH_MAX_BRIGHTNESS * (0.15f + 0.15f * sin(step * 0.18f))).toInt()
-    val glowShifted = (GLYPH_MAX_BRIGHTNESS * (0.15f + 0.15f * sin(step * 0.18f + 1.5f))).toInt()
+    val glow = (GLYPH_MAX_BRIGHTNESS * (0.15f + (0.15f * sin(step * 0.18f)))).toInt()
+    val glowShifted = (GLYPH_MAX_BRIGHTNESS * (0.15f + (0.15f * sin((step * 0.18f) + 1.5f)))).toInt()
 
     profile.b.forEach { builder.buildChannel(it, glow) }
     profile.e.forEach { builder.buildChannel(it, glowShifted) }
 }
 
 /** The low-battery pulse on a single channel. */
-private fun GlyphRenderer.addAlert(builder: GlyphFrame.Builder, channel: Int, step: Int) {
-    val brightness = (GLYPH_MAX_BRIGHTNESS * (0.2f + 0.8f * abs(sin(step * 0.3f)))).toInt()
+private fun addAlert(builder: GlyphFrame.Builder, channel: Int, step: Int) {
+    val brightness = (GLYPH_MAX_BRIGHTNESS * (0.2f + (0.8f * abs(sin(step * 0.3f))))).toInt()
     builder.buildChannel(channel, brightness.coerceIn(0, GLYPH_MAX_BRIGHTNESS))
 }
 

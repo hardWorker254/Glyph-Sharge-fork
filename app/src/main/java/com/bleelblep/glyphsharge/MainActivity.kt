@@ -39,14 +39,18 @@ import com.bleelblep.glyphsharge.ui.navigation.GlyphNavHost
 import com.bleelblep.glyphsharge.ui.screens.applyLocale
 import com.bleelblep.glyphsharge.ui.theme.FontState
 import com.bleelblep.glyphsharge.ui.theme.GlyphZenTheme
+import com.bleelblep.glyphsharge.ui.theme.LocalHomeViewModel
 import com.bleelblep.glyphsharge.ui.theme.LocalSettingsRepository
 import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import com.bleelblep.glyphsharge.ui.theme.ThemeState
 import com.bleelblep.glyphsharge.ui.viewmodel.HomeViewModel
+import com.bleelblep.glyphsharge.utils.LoggingManager
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -111,7 +115,7 @@ class MainActivity : ComponentActivity() {
         homeViewModel.setNfcDispatchHook(::onNfcFeatureToggled)
 
         createLogFileLauncher = registerForActivityResult(
-            ActivityResultContracts.CreateDocument("text/plain")
+            ActivityResultContracts.CreateDocument("text/plain"),
         ) { uri -> uri?.let { writeLogToUri(it) } }
 
         registerMusicCaptureLaunchers()
@@ -213,8 +217,8 @@ class MainActivity : ComponentActivity() {
         if (settingsRepository.getGlyphServiceEnabled() && glyphManager.isNothingPhone()) {
             lifecycleScope.launch {
                 delay(STARTUP_DELAY_MS.milliseconds)
-                if (!glyphManager.isSessionActive) homeViewModel.toggleGlyphService(true)
-                else homeViewModel.onSessionStateChanged(true)
+                if (!glyphManager.isSessionActive) homeViewModel.toggleGlyphService(enabled = true)
+                else homeViewModel.onSessionStateChanged(isActive = true)
             }
         } else {
             homeViewModel.onSessionStateChanged(glyphManager.isSessionActive)
@@ -248,7 +252,7 @@ class MainActivity : ComponentActivity() {
      */
     private fun registerMusicCaptureLaunchers() {
         recordAudioLauncher = registerForActivityResult(
-            ActivityResultContracts.RequestPermission()
+            ActivityResultContracts.RequestPermission(),
         ) { granted ->
             // Straight on to the second grant: agreeing to record and agreeing
             // to the capture are two questions, and the second deserves its
@@ -262,7 +266,7 @@ class MainActivity : ComponentActivity() {
         // already running, so the consent travels in the start intent and is
         // claimed by MusicVisualizerService after `startForeground`.
         musicCaptureLauncher = registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult()
+            ActivityResultContracts.StartActivityForResult(),
         ) { result ->
             homeViewModel.onMusicCaptureResult(result.resultCode, result.data)
             // The question has been answered either way, so the tile that sent
@@ -322,7 +326,7 @@ class MainActivity : ComponentActivity() {
      * service cannot capture anything.
      */
     private fun rejectMusicCapture(@StringRes message: Int) {
-        homeViewModel.setFeatureEnabled(GlyphFeature.MUSIC_VISUALIZER, false)
+        homeViewModel.setFeatureEnabled(GlyphFeature.MUSIC_VISUALIZER, enabled = false)
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
         // Declined is still an answer: an Activity the tile opened has done
         // its job and should not stay in front of what the user was doing.
@@ -336,8 +340,19 @@ class MainActivity : ComponentActivity() {
      * the shade.
      */
     private fun handleTileIntent(intent: Intent?) {
-        if (intent?.action != MusicVisualizerTileService.ACTION_ENABLE_MUSIC) return
-        launchedFromTile = true
+        // Derived, never latched.
+        //
+        // The Activity is `singleTop`, so a second tile tap and any ordinary
+        // launch both arrive at `onNewIntent`. Setting this to `true` only in
+        // the tile branch left it stuck on for the life of the Activity: the
+        // user opened the tile once, then enabled the visualiser from the app
+        // itself, and the capture result closed the task they were standing
+        // in. Re-deriving it from the intent is the only version of the flag
+        // that means what its name says.
+        val fromTile = intent?.action == MusicVisualizerTileService.ACTION_ENABLE_MUSIC
+        launchedFromTile = fromTile
+        if (!fromTile) return
+
         homeViewModel.requestMusicCapture()
     }
 
@@ -352,7 +367,7 @@ class MainActivity : ComponentActivity() {
         nfcPendingIntent = PendingIntent.getActivity(
             this, 0,
             Intent(this, javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
-            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
     }
 
@@ -384,28 +399,121 @@ class MainActivity : ComponentActivity() {
         setContent {
             GlyphZenTheme(themeState = themeState, fontState = fontState) {
                 val bgColor = MaterialTheme.colorScheme.background
-                // The one place the tree is handed the settings store and the
-                // haptic strength: two values that never change for the life of
-                // the Activity, so anything below reads them rather than
-                // carrying them as parameters.
+                // The one place the tree is handed the settings store, the home
+                // screen's state holder and the haptic strength: three values
+                // that never change for the life of the Activity, so anything
+                // below reads them rather than carrying them as parameters.
+                //
+                // `homeViewModel` is here because this class is what drives it.
+                // The screen used to ask for its own, which meant the cards
+                // read a second copy that nothing this Activity does could
+                // reach; providing ours is what makes them the same object.
                 CompositionLocalProvider(
                     LocalSettingsRepository provides settingsRepository,
+                    LocalHomeViewModel provides homeViewModel,
                     LocalVibrationIntensity provides settingsRepository.getVibrationIntensity(),
                 ) {
                     Surface(modifier = Modifier.fillMaxSize(), color = bgColor) {
-                        GlyphNavHost()
+                        GlyphNavHost(homeViewModel = homeViewModel)
                     }
                 }
             }
         }
     }
 
-    // Diagnostics
-    private fun writeLogToUri(uri: Uri) { /* ... */ }
+    /**
+     * Writes the collected logs to a location the user picked.
+     *
+     * Was an empty body, behind a comment that called this "the log export
+     * launcher" — so the user chose a destination, got a zero-byte file, and
+     * nothing said so.
+     *
+     * `LoggingManager` already knows how to assemble the file; this only moves
+     * the bytes. Every failure is reported to the user, because the alternative
+     * is a silent empty file, which is the outcome this replaces.
+     */
+    private fun writeLogToUri(uri: Uri) {
+        val content = LoggingManager.exportLogs()
+        if (content.isBlank()) {
+            Toast.makeText(this, R.string.log_export_empty, Toast.LENGTH_LONG).show()
+            return
+        }
 
-    // Session management
-    private fun maybeRestoreSession() { /* ... */ }
-    private fun startPersistentGlyphService() { /* ... */ }
+        val written = runCatching {
+            contentResolver.openOutputStream(uri)?.use { stream ->
+                stream.write(content.toByteArray())
+                stream.flush()
+            } ?: error("The chosen location could not be opened for writing")
+        }
+
+        written
+            .onSuccess {
+                Toast.makeText(this, R.string.log_export_done, Toast.LENGTH_SHORT).show()
+            }
+            .onFailure {
+                Log.e(TAG, "Could not write the logs to $uri", it)
+                Toast.makeText(this, R.string.log_export_failed, Toast.LENGTH_LONG).show()
+            }
+    }
+
+    /**
+     * Reopens the Glyph session if the master switch says there should be one.
+     *
+     * Was also an empty body, called from [onResume] and from the session
+     * callback, which reads as though something happened when nothing did.
+     *
+     * Two things it deliberately does not do. It does not open a session while
+     * the master switch is off — [onStop] closing the session in that case is
+     * the intended end state, not something to undo. And it does not start the
+     * feature services: [startEnabledFeatureServices] already runs on every
+     * [onStart], and [com.bleelblep.glyphsharge.services.GlyphServiceSwitch] is
+     * the only thing that should reconcile the whole set behind a toggle.
+     *
+     * Off the main thread because opening a session may have to wait for the
+     * SDK to bind.
+     */
+    private fun maybeRestoreSession() {
+        if (glyphManager.isSessionActive) return
+        if (!settingsRepository.getGlyphServiceEnabled()) return
+
+        lifecycleScope.launch {
+            val opened = withContext(Dispatchers.IO) {
+                runCatching { glyphManager.openSession() }.isSuccess
+            }
+            if (opened) {
+                Log.d(TAG, "Glyph session restored")
+            } else {
+                // Nothing to do but say so: a tile and the home card both read
+                // the session state, so they will show what actually happened.
+                Log.w(TAG, "Could not restore the Glyph session; the SDK is not bound")
+            }
+        }
+    }
+
+    /**
+     * Starts the service that keeps the app listed in Quick Settings "Active apps".
+     *
+     * This was an empty body behind a comment that called it the persistent
+     * service launcher — so nothing was ever started here. Filling it in as a
+     * straight delegation turned it into a launch crash, and the reason is
+     * worth recording because it is not obvious from the code:
+     *
+     * `startForegroundService` obliges the service to call `startForeground`
+     * within about five seconds, and the exception for not doing so is raised
+     * in *this* process. `GlyphForegroundService` used to bail out before
+     * promoting itself when the master switch was off — so starting it with the
+     * switch off meant starting something that would then throw. Calling
+     * `startForegroundService` to start a service that immediately shuts down
+     * is not "harmless but pointless"; it is fatal, and on the next launch.
+     *
+     * So the gate belongs here, where the decision to start at all is made. The
+     * service still applies it defensively — it can also be reached by a stale
+     * intent — but it is no longer the first line of defence.
+     */
+    private fun startPersistentGlyphService() {
+        if (!settingsRepository.getGlyphServiceEnabled()) return
+        featureServiceController.startPersistentGlyphService()
+    }
 
     @SuppressLint("BatteryLife")
     private fun cancelRunningAnimations() {

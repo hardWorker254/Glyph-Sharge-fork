@@ -80,7 +80,7 @@ object AudioAnalysis {
         samplingRate: Int,
         bandCount: Int = BAND_COUNT,
     ): IntArray {
-        if ((binCount <= 0 || samplingRate <= 0 || bandCount <= 0)) {
+        if ((binCount <= 0) || (samplingRate <= 0) || (bandCount <= 0)) {
             return IntArray(bandCount + 1)
         }
 
@@ -119,8 +119,8 @@ object AudioAnalysis {
         val magnitudes = FloatArray(components)
         for (bin in 0 until components) {
             val re = component(fft[bin * 2])
-            val im = component(fft[bin * 2 + 1])
-            magnitudes[bin] = sqrt(re * re + im * im)
+            val im = component(fft[(bin * 2) + 1])
+            magnitudes[bin] = sqrt((re * re) + (im * im))
         }
         bandsFromMagnitudes(magnitudes, edges, out) { toUnitMagnitude(it) }
     }
@@ -166,7 +166,7 @@ object AudioAnalysis {
             // the music, not the difference between left and right, and an
             // average keeps a mono source from reading as twice as loud.
             var sum = 0
-            for (c in 0 until channels) sum += pcm[i * channels + c]
+            for (c in 0 until channels) sum += pcm[(i * channels) + c]
             window[i] = (sum.toFloat() / channels) / PCM_FULL_SCALE
         }
 
@@ -291,8 +291,8 @@ object AudioAnalysis {
         var peak = 0f
         for (bin in 0 until components) {
             val re = component(fft[bin * 2])
-            val im = component(fft[bin * 2 + 1])
-            val magnitude = sqrt(re * re + im * im)
+            val im = component(fft[(bin * 2) + 1])
+            val magnitude = sqrt((re * re) + (im * im))
             if (magnitude > peak) peak = magnitude
         }
         return peak
@@ -305,8 +305,8 @@ object AudioAnalysis {
         var sum = 0f
         for (bin in 0 until components) {
             val re = component(fft[bin * 2])
-            val im = component(fft[bin * 2 + 1])
-            sum += re * re + im * im
+            val im = component(fft[(bin * 2) + 1])
+            sum += (re * re) + (im * im)
         }
         return toUnitMagnitude(sqrt(sum / components))
     }
@@ -346,7 +346,7 @@ object AudioAnalysis {
             val target = (raw[i] * gain).coerceIn(0f, 1f)
             val current = bands[i]
             val coefficient = if (target > current) ATTACK else RELEASE
-            bands[i] = current + (target - current) * coefficient
+            bands[i] = current + ((target - current) * coefficient)
         }
     }
 
@@ -407,9 +407,9 @@ class BeatDetector(
             started = true
             return false
         }
-        if (nowMs - lastBeatMs < cooldownMs) return false
-        if (bass < minLevel || average <= 0.001f) return false
-        if (bass > average * ratio) {
+        if ((nowMs - lastBeatMs) < cooldownMs) return false
+        if ((bass < minLevel) || (average <= 0.001f)) return false
+        if (bass > (average * ratio)) {
             lastBeatMs = nowMs
             return true
         }

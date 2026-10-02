@@ -461,7 +461,7 @@ suspend fun <T> runCapped(capMs: Long, onTimeout: () -> Unit = {}, block: suspen
 
 Сопоставление «фича → сервис → стоп-действие → переключатель настройки» лежит не в сервисах,
 а в `services/FeatureSpec.kt`: `FeatureSpec` описывает фичу одной записью, а `FeatureSpecs`
-(`all`, `of(feature)`, `allFor(features)`) — единственный список. `FeatureServiceController`
+(`all`, `of(feature)`) — единственный список. `FeatureServiceController`
 берёт оттуда всё, кроме решения *что* делать. `FeatureSpec.isRunnable(settings)` отвечает сразу
 на оба вопроса, которые задаёт себе каждый сервис: включён ли мой собственный переключатель и
 включён ли главный глиф-сервис.

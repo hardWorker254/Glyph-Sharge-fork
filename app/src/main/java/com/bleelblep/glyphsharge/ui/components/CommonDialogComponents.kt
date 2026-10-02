@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -27,7 +26,7 @@ import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 @Composable
 fun ThemedValueBadge(
     value: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val themeState = LocalThemeState.current
     
@@ -48,13 +47,13 @@ fun ThemedValueBadge(
             .wrapContentSize(),
         shape = RoundedCornerShape(8.dp),
         color = backgroundColor,
-        contentColor = contentColor
+        contentColor = contentColor,
     ) {
         Text(
             text = value,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
         )
     }
 }
@@ -71,9 +70,8 @@ fun FeatureConfirmationButtons(
     onPrimary: () -> Unit,
     onSettings: () -> Unit,
     onCancel: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    val themeState = LocalThemeState.current
     val haptic = LocalHapticFeedback.current
     // The user's haptic strength is a setting, so it is read once per
     // composition here and handed to HapticUtils, which cannot fetch it itself.
@@ -82,7 +80,7 @@ fun FeatureConfirmationButtons(
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         ElevatedButton(
             onClick = {
@@ -92,24 +90,24 @@ fun FeatureConfirmationButtons(
             modifier = Modifier.fillMaxWidth().height(52.dp),
             colors = ButtonDefaults.elevatedButtonColors(
                 containerColor = themePrimaryActionColor(),
-                contentColor = Color.White
+                contentColor = Color.White,
             ),
             elevation = ButtonDefaults.elevatedButtonElevation(
                 defaultElevation = 6.dp,
-                pressedElevation = 12.dp
+                pressedElevation = 12.dp,
             ),
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(16.dp),
         ) {
             Text(
                 text = primaryLabel,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
             )
         }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Button(
                 onClick = {
@@ -119,16 +117,16 @@ fun FeatureConfirmationButtons(
                 modifier = Modifier.weight(1f).height(48.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = themeSettingsButtonColor(),
-                    contentColor = themeSettingsButtonContentColor()
+                    contentColor = themeSettingsButtonContentColor(),
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
             ) {
                 Text(
                     text = stringResource(id = R.string.action_settings),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
 
@@ -139,15 +137,15 @@ fun FeatureConfirmationButtons(
                 },
                 modifier = Modifier.weight(1f).height(48.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                 ),
                 border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
             ) {
                 Text(
                     text = stringResource(id = R.string.action_cancel),
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
                 )
             }
         }
@@ -159,16 +157,22 @@ fun FeatureConfirmationButtons(
 /**
  * Standardized 3-button layout for feature settings/save dialogs.
  * Used in: PowerPeek, PulseLock, ScreenOff, NfcGlyph, LowBattery config dialogs.
+ *
+ * There is no "saving" state. Every one of these dialogs saves a handful of
+ * synchronous `SharedPreferences` values and closes, so a spinner had nothing
+ * to describe — and because the flag was set on click and never cleared, a
+ * dialog whose `onConfirm` did not close it was left showing "working" for
+ * good. Adding one back means adding something that genuinely takes time and
+ * clearing it on both the success and the failure path.
  */
 @Composable
 fun FeatureSaveButtons(
-    isSaving: Boolean,
     isCurrentlyEnabled: Boolean,
     enableLabel: String,
     onSave: () -> Unit,
     onDisable: () -> Unit,
     onCancel: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
     // The user's haptic strength is a setting, so it is read once per
@@ -178,7 +182,7 @@ fun FeatureSaveButtons(
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         ElevatedButton(
             onClick = {
@@ -188,33 +192,25 @@ fun FeatureSaveButtons(
             modifier = Modifier.fillMaxWidth().height(52.dp),
             colors = ButtonDefaults.elevatedButtonColors(
                 containerColor = themePrimaryActionColor(),
-                contentColor = NothingWhite
+                contentColor = NothingWhite,
             ),
             elevation = ButtonDefaults.elevatedButtonElevation(
                 defaultElevation = 6.dp,
-                pressedElevation = 12.dp
+                pressedElevation = 12.dp,
             ),
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(16.dp),
         ) {
-            if (isSaving) {
-                CircularProgressIndicator(
-                    color = NothingWhite,
-                    strokeWidth = 2.dp,
-                    modifier = Modifier.size(20.dp)
-                )
-            } else {
-                Text(
-                    text = if (isCurrentlyEnabled) stringResource(id = R.string.action_save)
-                        else enableLabel,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            Text(
+                text = if (isCurrentlyEnabled) stringResource(id = R.string.action_save)
+                    else enableLabel,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
         }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Button(
                 onClick = {
@@ -224,14 +220,14 @@ fun FeatureSaveButtons(
                 modifier = Modifier.weight(1f).height(48.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = NothingRed,
-                    contentColor = NothingWhite
+                    contentColor = NothingWhite,
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
             ) {
                 Text(
                     text = stringResource(id = R.string.action_disable),
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
 
@@ -242,15 +238,15 @@ fun FeatureSaveButtons(
                 },
                 modifier = Modifier.weight(1f).height(48.dp),
                 colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.onSurface
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                 ),
                 border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
             ) {
                 Text(
                     text = stringResource(id = R.string.action_cancel),
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
                 )
             }
         }

@@ -87,7 +87,7 @@ class BeatDetectorTest {
         val beats = detector().beatsWhile(frames = 80) { 0.8f }
 
         assertTrue("beat on ${beats.size} of 80 frames", beats.size < 30)
-        assertTrue("still beating at the end: $beats", beats.none { it > start + 12_000 })
+        assertTrue("still beating at the end: $beats", beats.none { it > (start + 12_000) })
     }
 
     @Test
@@ -98,7 +98,7 @@ class BeatDetectorTest {
         detector.beatsWhile(frames = 40) { 0.6f }
 
         val beats = detector.beatsWhile(frames = 40, from = start + 20_000) { i ->
-            if (i % 2 == 0) 0.65f else 0.6f
+            if ((i % 2) == 0) 0.65f else 0.6f
         }
 
         assertEquals(emptyList<Long>(), beats)

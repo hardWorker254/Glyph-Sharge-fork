@@ -15,12 +15,12 @@ import javax.inject.Singleton
  */
 @Singleton
 class ThemeSettings @Inject constructor(
-    @param:GlyphPrefs private val prefs: SharedPreferences
+    @param:GlyphPrefs private val prefs: SharedPreferences,
 ) {
 
     fun saveTheme(isDarkTheme: Boolean) = prefs.putSetting(KEY_IS_DARK_THEME, isDarkTheme)
 
-    fun getTheme(): Boolean = prefs.getSetting(KEY_IS_DARK_THEME, false)
+    fun getTheme(): Boolean = prefs.getSetting(KEY_IS_DARK_THEME, default = false)
 
     fun saveThemeStyle(themeStyle: AppThemeStyle) =
         prefs.putSetting(KEY_THEME_STYLE, themeStyle.name)
@@ -36,7 +36,7 @@ class ThemeSettings @Inject constructor(
     fun getThemeStyle(): AppThemeStyle {
         val styleName = prefs.getSetting(KEY_THEME_STYLE, AppThemeStyle.CLASSIC.name)
         return try {
-            AppThemeStyle.valueOf(styleName ?: AppThemeStyle.CLASSIC.name)
+            AppThemeStyle.valueOf(styleName)
         } catch (_: IllegalArgumentException) {
             AppThemeStyle.CLASSIC
         }

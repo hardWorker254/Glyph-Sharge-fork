@@ -25,7 +25,7 @@ class ScriptTargetTest {
     private fun script(source: String) = ScriptAnimation(
         id = "abc123",
         name = "A script",
-        source = source
+        source = source,
     )
 
     // region Detecting the declaration
@@ -70,7 +70,7 @@ class ScriptTargetTest {
         assertEquals(ScriptTarget.ANY, ScriptTarget.detectIn("-- glyph.target = \"music\""))
         assertEquals(
             ScriptTarget.ANY,
-            ScriptTarget.detectIn("glyph.setAll(1) -- glyph.target = 'music'")
+            ScriptTarget.detectIn("glyph.setAll(1) -- glyph.target = 'music'"),
         )
     }
 
@@ -78,7 +78,7 @@ class ScriptTargetTest {
     fun `a comment does not swallow the line after it`() {
         assertEquals(
             ScriptTarget.MUSIC,
-            ScriptTarget.detectIn("-- switching this off for now\nglyph.target = 'music'")
+            ScriptTarget.detectIn("-- switching this off for now\nglyph.target = 'music'"),
         )
     }
 
@@ -86,13 +86,13 @@ class ScriptTargetTest {
     fun `a declaration inside a block comment is not read`() {
         assertEquals(
             ScriptTarget.ANY,
-            ScriptTarget.detectIn("""--[[ glyph.target = "music" ]]""")
+            ScriptTarget.detectIn("""--[[ glyph.target = "music" ]]"""),
         )
         // The level of equals signs is the Lua convention, and the pattern has
         // to honour it or a `]]` inside the comment ends it early.
         assertEquals(
             ScriptTarget.ANY,
-            ScriptTarget.detectIn("--[==[ glyph.target = 'music' ]==]")
+            ScriptTarget.detectIn("--[==[ glyph.target = 'music' ]==]"),
         )
     }
 

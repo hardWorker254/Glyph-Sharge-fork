@@ -21,6 +21,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -144,7 +145,7 @@ class GlyphAnimationManager @Inject constructor(
 
     suspend fun playChargingAnimationAnimation(
         context: Context,
-        onProgressUpdate: (Float) -> Unit = {}
+        onProgressUpdate: (Float) -> Unit = {},
     ) = playBatteryBar(
         context = context,
         durationMs = settingsRepository.getChargingAnimationDuration(),
@@ -159,7 +160,7 @@ class GlyphAnimationManager @Inject constructor(
     private suspend fun playBatteryBar(
         context: Context,
         durationMs: Long,
-        onProgressUpdate: (Float) -> Unit
+        onProgressUpdate: (Float) -> Unit,
     ) {
         if (!isGlyphServiceEnabled() || !glyphManager.isNothingPhone()) return
 
@@ -178,7 +179,10 @@ class GlyphAnimationManager @Inject constructor(
     suspend fun playMusicVisualizerAnimation() = musicVisualisation.play()
 
     /** Shows what a mode looks like, on made-up audio. */
-    suspend fun previewMusicVisualizer(mode: MusicVisualizationMode) = musicVisualisation.preview(mode)
+    suspend fun previewMusicVisualizer(
+        mode: MusicVisualizationMode,
+        sensitivity: Float = 1f,
+    ) = musicVisualisation.preview(mode, sensitivity)
 
     // endregion
 
@@ -213,10 +217,19 @@ class GlyphAnimationManager @Inject constructor(
 
     // endregion
 
-    /** Aborts whatever is playing — built-in or scripted — and blanks the strip. */
+    /**
+     * Aborts whatever is playing — built-in or scripted — and blanks the strip.
+     *
+     * This is the preempting side, so it clears the renderer's claim outright
+     * rather than through a lease: the animation being interrupted has no lease
+     * to prove ownership with, and its own teardown will arrive separately.
+     * That separation is the point — a holder's `renderer.stop(lease)` can only
+     * ever stop itself, so an interrupted animation unwinding late cannot clear
+     * the flag of whatever took over.
+     */
     fun stopAnimations() {
         scriptRunner.stop()
-        renderer.stop()
+        renderer.stopAll()
         renderer.turnOff()
     }
 
@@ -254,12 +267,12 @@ class GlyphAnimationManager @Inject constructor(
     suspend fun <T> runCapped(
         capMs: Long,
         onTimeout: () -> Unit = {},
-        block: suspend () -> T
+        block: suspend () -> T,
     ): T = coroutineScope {
         val animJob = async(Dispatchers.Default) { block() }
 
         val watchdogJob = launch {
-            delay(capMs)
+            delay(capMs.milliseconds)
             animJob.cancelAndJoin()   // cancel, then wait for cleanup
             stopAnimations()
             onTimeout()
@@ -297,13 +310,13 @@ class GlyphAnimationManager @Inject constructor(
             Log.d(
                 TAG,
                 "Script '${ScriptAnimation.stripPrefix(id)}' -> ${result.status}, " +
-                    "${result.frames} frames in ${result.elapsedMs}ms${result.message?.let { ": $it" } ?: ""}"
+                    "${result.frames} frames in ${result.elapsedMs}ms${result.message?.let { ": $it" } ?: ""}",
             )
             runTrace.record(
                 "script",
                 ScriptAnimation.stripPrefix(id),
                 "${result.status} frames=${result.frames} in ${result.elapsedMs}ms" +
-                    (result.message?.let { " $it" } ?: "")
+                    (result.message?.let { " $it" } ?: ""),
             )
             return
         }

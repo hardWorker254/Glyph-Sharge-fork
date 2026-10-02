@@ -1,7 +1,9 @@
 package com.bleelblep.glyphsharge.ui.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,7 +15,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.ui.components.dialogs.FeatureConfirmationFlow
 import com.bleelblep.glyphsharge.ui.theme.*
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
@@ -21,7 +22,7 @@ import com.bleelblep.glyphsharge.R
 
 data class ChargingAnimationConfig(
     val isEnabled: Boolean = false,
-    val displayDuration: Long = 3000L
+    val displayDuration: Long = 3000L,
 )
 
 @Composable
@@ -30,7 +31,7 @@ fun ChargingAnimationConfirmationDialog(
     onEnableAnimation: () -> Unit,
     onDisableAnimation: () -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     FeatureConfirmationFlow(
         title = stringResource(id = R.string.charging_animation_title),
@@ -47,9 +48,9 @@ fun ChargingAnimationConfirmationDialog(
             ChargingAnimationEnableDialog(
                 onConfirm = { onConfirm() },
                 onDismiss = onDismissSettings,
-                onDisable = onDisable
+                onDisable = onDisable,
             )
-        }
+        },
     )
 }
 
@@ -58,7 +59,7 @@ fun ChargingAnimationEnableDialog(
     onConfirm: (ChargingAnimationConfig) -> Unit,
     onDismiss: () -> Unit,
     onDisable: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     // The store comes from the composition; the card has none to pass on.
     val settingsRepository = LocalSettingsRepository.current
@@ -72,9 +73,7 @@ fun ChargingAnimationEnableDialog(
     var durationSeconds by remember {
         mutableFloatStateOf((settingsRepository.getChargingAnimationDuration() / 1000f).coerceIn(2f, 10f))
     }
-    var isSaving by remember { mutableStateOf(false) }
-
-    val cardColor = themeCardContainerColor()
+val cardColor = themeCardContainerColor()
     val accent = themePrimaryActionColor()
 
     AlertDialog(
@@ -85,31 +84,38 @@ fun ChargingAnimationEnableDialog(
                     text = stringResource(id = R.string.charging_animation_configure_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
                 Text(
                     text = stringResource(id = R.string.charging_animation_configure_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
             }
         },
         text = {
+            // The scroll container every other enable dialog has. See the note
+            // in PowerPeek: without it the content is clipped at a non-default
+            // font scale while the buttons stay reachable, which produces a
+            // dialog the user cannot configure.
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 400.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(16.dp),
                 ) {
                     Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
                                 text = stringResource(id = R.string.charging_animation_duration_title),
@@ -117,21 +123,24 @@ fun ChargingAnimationEnableDialog(
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.weight(1f),
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
                             )
-                            ThemedValueBadge("${durationSeconds.toInt()}" + stringResource(id = R.string.glyph_seconds))
+                            ThemedValueBadge(durationSeconds.toInt().toString() + stringResource(id = R.string.glyph_seconds))
                         }
 
                         Slider(
                             value = durationSeconds,
-                            onValueChange = {
+                            // No haptic per pixel: a drag reports a value for every pixel of travel,
+                            // so firing on each one buzzes continuously under the thumb and buries the
+                            // one that should land at the end. One buzz, at the end.
+                            onValueChange = { durationSeconds = it },
+                            onValueChangeFinished = {
                                 HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
-                                durationSeconds = it
                             },
                             valueRange = 2f..10f,
                             steps = 7,
                             modifier = Modifier.fillMaxWidth(),
-                            colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent)
+                            colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent),
                         )
 
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -144,11 +153,9 @@ fun ChargingAnimationEnableDialog(
         },
         confirmButton = {
             FeatureSaveButtons(
-                isSaving = isSaving,
                 isCurrentlyEnabled = currentlyEnabled,
                 enableLabel = stringResource(id = R.string.charging_animation_button_enable),
                 onSave = {
-                    isSaving = true
                     val newDuration = (durationSeconds * 1000).toLong()
                     settingsRepository.saveChargingAnimationDuration(newDuration)
                     onConfirm(ChargingAnimationConfig(isEnabled = true, displayDuration = newDuration))
@@ -157,12 +164,12 @@ fun ChargingAnimationEnableDialog(
                     onDisable()
                     onDismiss()
                 },
-                onCancel = onDismiss
+                onCancel = onDismiss,
             )
         },
         dismissButton = {},
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(24.dp),
-        modifier = modifier
+        modifier = modifier,
     )
 }

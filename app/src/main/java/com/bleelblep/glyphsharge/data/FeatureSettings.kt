@@ -19,14 +19,14 @@ import javax.inject.Singleton
  */
 @Singleton
 class FeatureSettings @Inject constructor(
-    @param:GlyphPrefs private val prefs: SharedPreferences
+    @param:GlyphPrefs private val prefs: SharedPreferences,
 ) {
 
     // Power Peek
 
     fun savePowerPeekEnabled(enabled: Boolean) = prefs.putSetting(KEY_POWER_PEEK_ENABLED, enabled)
 
-    fun isPowerPeekEnabled(): Boolean = prefs.getSetting(KEY_POWER_PEEK_ENABLED, false)
+    fun isPowerPeekEnabled(): Boolean = prefs.getSetting(KEY_POWER_PEEK_ENABLED, default = false)
 
     fun savePowerPeekThreshold(threshold: Float) =
         prefs.putSetting(KEY_POWER_PEEK_THRESHOLD, threshold)
@@ -43,13 +43,12 @@ class FeatureSettings @Inject constructor(
 
     fun savePulseLockEnabled(enabled: Boolean) = prefs.putSetting(KEY_PULSE_LOCK_ENABLED, enabled)
 
-    fun isPulseLockEnabled(): Boolean = prefs.getSetting(KEY_PULSE_LOCK_ENABLED, false)
+    fun isPulseLockEnabled(): Boolean = prefs.getSetting(KEY_PULSE_LOCK_ENABLED, default = false)
 
     fun savePulseLockAnimationId(id: String) = prefs.putSetting(KEY_PULSE_LOCK_ANIMATION_ID, id)
 
     fun getPulseLockAnimationId(): String =
         prefs.getSetting(KEY_PULSE_LOCK_ANIMATION_ID, DEFAULT_ANIMATION_ID)
-            ?: DEFAULT_ANIMATION_ID
 
     fun savePulseLockDuration(durationMs: Long) = prefs.putSetting(KEY_PULSE_LOCK_DURATION, durationMs)
 
@@ -60,7 +59,7 @@ class FeatureSettings @Inject constructor(
 
     fun saveLowBatteryEnabled(enabled: Boolean) = prefs.putSetting(KEY_LOW_BATTERY_ENABLED, enabled)
 
-    fun isLowBatteryEnabled(): Boolean = prefs.getSetting(KEY_LOW_BATTERY_ENABLED, false)
+    fun isLowBatteryEnabled(): Boolean = prefs.getSetting(KEY_LOW_BATTERY_ENABLED, default = false)
 
     fun saveLowBatteryThreshold(pct: Int) = prefs.putSetting(KEY_LOW_BATTERY_THRESHOLD, pct)
 
@@ -71,7 +70,6 @@ class FeatureSettings @Inject constructor(
 
     fun getLowBatteryAnimationId(): String =
         prefs.getSetting(KEY_LOW_BATTERY_ANIMATION_ID, DEFAULT_ANIMATION_ID)
-            ?: DEFAULT_ANIMATION_ID
 
     fun saveLowBatteryDuration(durationMs: Long) = prefs.putSetting(KEY_LOW_BATTERY_DURATION, durationMs)
 
@@ -83,13 +81,12 @@ class FeatureSettings @Inject constructor(
     fun saveScreenOffFeatureEnabled(enabled: Boolean) =
         prefs.putSetting(KEY_SCREEN_OFF_ENABLED, enabled)
 
-    fun isScreenOffFeatureEnabled(): Boolean = prefs.getSetting(KEY_SCREEN_OFF_ENABLED, false)
+    fun isScreenOffFeatureEnabled(): Boolean = prefs.getSetting(KEY_SCREEN_OFF_ENABLED, default = false)
 
     fun saveScreenOffAnimationId(id: String) = prefs.putSetting(KEY_SCREEN_OFF_ANIMATION_ID, id)
 
     fun getScreenOffAnimationId(): String =
         prefs.getSetting(KEY_SCREEN_OFF_ANIMATION_ID, DEFAULT_ANIMATION_ID)
-            ?: DEFAULT_ANIMATION_ID
 
     fun saveScreenOffDuration(durationMs: Long) = prefs.putSetting(KEY_SCREEN_OFF_DURATION, durationMs)
 
@@ -101,12 +98,12 @@ class FeatureSettings @Inject constructor(
     fun saveNfcFeatureEnabled(enabled: Boolean) =
         prefs.putSetting(KEY_NFC_FEATURE_ENABLED, enabled)
 
-    fun isNfcFeatureEnabled(): Boolean = prefs.getSetting(KEY_NFC_FEATURE_ENABLED, false)
+    fun isNfcFeatureEnabled(): Boolean = prefs.getSetting(KEY_NFC_FEATURE_ENABLED, default = false)
 
     fun saveNfcAnimationId(id: String) = prefs.putSetting(KEY_NFC_ANIMATION_ID, id)
 
     fun getNfcAnimationId(): String =
-        prefs.getSetting(KEY_NFC_ANIMATION_ID, DEFAULT_ANIMATION_ID) ?: DEFAULT_ANIMATION_ID
+        prefs.getSetting(KEY_NFC_ANIMATION_ID, DEFAULT_ANIMATION_ID)
 
     fun saveNfcAnimationDuration(durationMs: Long) =
         prefs.putSetting(KEY_NFC_ANIMATION_DURATION, durationMs)
@@ -120,7 +117,7 @@ class FeatureSettings @Inject constructor(
         prefs.putSetting(KEY_CHARGING_ANIMATION_ENABLED, enabled)
 
     fun isChargingAnimationEnabled(): Boolean =
-        prefs.getSetting(KEY_CHARGING_ANIMATION_ENABLED, false)
+        prefs.getSetting(KEY_CHARGING_ANIMATION_ENABLED, default = false)
 
     fun saveChargingAnimationDuration(durationMs: Long) =
         prefs.putSetting(KEY_CHARGING_ANIMATION_DURATION, durationMs)
@@ -133,14 +130,13 @@ class FeatureSettings @Inject constructor(
     fun saveVpnConnectedEnabled(enabled: Boolean) =
         prefs.putSetting(KEY_VPN_CONNECTED_ENABLED, enabled)
 
-    fun isVpnConnectedEnabled(): Boolean = prefs.getSetting(KEY_VPN_CONNECTED_ENABLED, false)
+    fun isVpnConnectedEnabled(): Boolean = prefs.getSetting(KEY_VPN_CONNECTED_ENABLED, default = false)
 
     fun saveVpnConnectedAnimationId(id: String) =
         prefs.putSetting(KEY_VPN_CONNECTED_ANIMATION_ID, id)
 
     fun getVpnConnectedAnimationId(): String =
         prefs.getSetting(KEY_VPN_CONNECTED_ANIMATION_ID, DEFAULT_ANIMATION_ID)
-            ?: DEFAULT_ANIMATION_ID
 
     fun saveVpnConnectedDuration(durationMs: Long) =
         prefs.putSetting(KEY_VPN_CONNECTED_DURATION, durationMs)
@@ -152,7 +148,7 @@ class FeatureSettings @Inject constructor(
 
     fun saveMusicVizEnabled(enabled: Boolean) = prefs.putSetting(KEY_MUSIC_VIZ_ENABLED, enabled)
 
-    fun isMusicVizEnabled(): Boolean = prefs.getSetting(KEY_MUSIC_VIZ_ENABLED, false)
+    fun isMusicVizEnabled(): Boolean = prefs.getSetting(KEY_MUSIC_VIZ_ENABLED, default = false)
 
     /**
      * A built-in [MusicVisualizationMode] id or a `custom:<uuid>` script id.
@@ -175,7 +171,7 @@ class FeatureSettings @Inject constructor(
     fun saveMusicVizScreenOffOnly(onlyWhenScreenOff: Boolean) =
         prefs.putSetting(KEY_MUSIC_VIZ_SCREEN_OFF_ONLY, onlyWhenScreenOff)
 
-    fun getMusicVizScreenOffOnly(): Boolean = prefs.getSetting(KEY_MUSIC_VIZ_SCREEN_OFF_ONLY, false)
+    fun getMusicVizScreenOffOnly(): Boolean = prefs.getSetting(KEY_MUSIC_VIZ_SCREEN_OFF_ONLY, default = false)
 
     internal companion object {
         // Power Peek. Threshold/duration keep their legacy storage names on

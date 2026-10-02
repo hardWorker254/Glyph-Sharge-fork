@@ -16,12 +16,13 @@ import javax.inject.Singleton
  */
 @Singleton
 class QuietHoursSettings @Inject constructor(
-    @param:GlyphPrefs private val prefs: SharedPreferences
+    @param:GlyphPrefs private val prefs: SharedPreferences,
 ) {
 
     fun saveQuietHoursEnabled(enabled: Boolean) = prefs.putSetting(KEY_QUIET_HOURS_ENABLED, enabled)
 
-    fun isQuietHoursEnabled(): Boolean = prefs.getSetting(KEY_QUIET_HOURS_ENABLED, false)
+    fun isQuietHoursEnabled(): Boolean =
+        prefs.getSetting(KEY_QUIET_HOURS_ENABLED, default = false)
 
     fun saveQuietHoursStartHour(hour: Int) = prefs.putSetting(KEY_QUIET_HOURS_START_HOUR, hour)
 
@@ -57,17 +58,17 @@ class QuietHoursSettings @Inject constructor(
 
         val calendar = Calendar.getInstance()
         val currentTimeInMinutes =
-            calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+            (calendar[Calendar.HOUR_OF_DAY] * 60) + calendar[Calendar.MINUTE]
         val startTimeInMinutes =
-            getQuietHoursStartHour() * 60 + getQuietHoursStartMinute()
+            (getQuietHoursStartHour() * 60) + getQuietHoursStartMinute()
         val endTimeInMinutes =
-            getQuietHoursEndHour() * 60 + getQuietHoursEndMinute()
+            (getQuietHoursEndHour() * 60) + getQuietHoursEndMinute()
 
         return if (startTimeInMinutes <= endTimeInMinutes) {
-            currentTimeInMinutes in startTimeInMinutes..endTimeInMinutes
+            currentTimeInMinutes in (startTimeInMinutes..endTimeInMinutes)
         } else {
             // Overnight
-            currentTimeInMinutes !in (endTimeInMinutes + 1)..<startTimeInMinutes
+            currentTimeInMinutes !in ((endTimeInMinutes + 1)..<startTimeInMinutes)
         }
     }
 

@@ -7,7 +7,7 @@ import org.junit.Test
 /**
  * Tests for `require("glyph.battery")`.
  *
- * The interesting part is [level]: a percentage is a number, but a script can
+ * The interesting part is `level`: a percentage is a number, but a script can
  * only act on it as a number of segments, and that number is different on a
  * Phone (3a) than on a Phone (1). A count written by hand works on the phone
  * its author happened to be holding and lights the wrong LEDs everywhere else.
@@ -21,7 +21,7 @@ class GlyphBatteryModuleTest {
             """
             local battery = require("glyph.battery")
             ${source.trimIndent()}
-            """.trimIndent()
+            """.trimIndent(),
         )
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
         return host
@@ -35,14 +35,14 @@ class GlyphBatteryModuleTest {
             assert(battery.charging == true, 'and reports charging')
             """,
             percent = 64,
-            charging = true
+            charging = true,
         )
         run(
             """
             assert(battery.charging == false, 'and it can report not charging')
             """,
             percent = 12,
-            charging = false
+            charging = false,
         )
     }
 

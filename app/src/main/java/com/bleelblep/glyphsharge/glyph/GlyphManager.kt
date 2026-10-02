@@ -5,7 +5,7 @@ import android.content.Context
 import android.util.Log
 import com.bleelblep.glyphsharge.glyph.device.DeviceProfileFactory
 import com.bleelblep.glyphsharge.glyph.device.DeviceType
-import com.bleelblep.glyphsharge.glyph.engine.GLYPH_MAX_BRIGHTNESS
+
 import com.bleelblep.glyphsharge.utils.LoggingManager
 import com.nothing.ketchum.GlyphException
 import com.nothing.ketchum.GlyphManager
@@ -88,7 +88,7 @@ class GlyphManager @Inject constructor(
                 Log.d(TAG, "Glyph Service Disconnected")
                 LoggingManager.logSessionState(
                     "SERVICE_DISCONNECTED",
-                    "Component: ${componentName.className}"
+                    "Component: ${componentName.className}",
                 )
                 _isServiceConnected = false
                 cleanup()
@@ -127,7 +127,7 @@ class GlyphManager @Inject constructor(
             Log.d(TAG, "Registered device type: $registrationId")
             LoggingManager.logSDKOperation(
                 "DEVICE_REGISTRATION",
-                "Successfully registered $registrationId"
+                "Successfully registered $registrationId",
             )
         } catch (e: GlyphException) {
             Log.e(TAG, "Failed to register device: ${e.message}")
@@ -150,14 +150,7 @@ class GlyphManager @Inject constructor(
         Log.d(TAG, "GlyphManager cleaned up")
     }
 
-    /** `true` when the session is open and frames can be drawn. */
-    fun canPerformOperation(): Boolean {
-        if (!isSessionActive) {
-            Log.w(TAG, "Cannot perform operation - session not active")
-            return false
-        }
-        return true
-    }
+    
 
     fun isNothingPhone(): Boolean = try {
         DeviceType.detect() != null
@@ -197,18 +190,7 @@ class GlyphManager @Inject constructor(
         }
     }
 
-    /**
-     * Opens the session if it is closed, and closes it if it is open.
-     * @return the new state
-     */
-    fun toggleGlyphService(): Boolean {
-        return if (isSessionActive) {
-            runCatching { closeSession() }
-            false
-        } else {
-            runCatching { openSession() }.isSuccess
-        }
-    }
+    
 
     /**
      * Makes sure a session exists, waiting for the system service to bind.
@@ -266,30 +248,6 @@ class GlyphManager @Inject constructor(
     }
 
     /**
-     * Lights every channel at full brightness. The channel list comes from
-     * [DeviceProfileFactory], so this stays correct when a new phone is added.
-     */
-    fun turnOnAllGlyphs() {
-        if (!canPerformOperation()) return
-
-        val channels = DeviceProfileFactory.allChannelsForConnectedDevice()
-        if (channels.isEmpty()) {
-            Log.w(TAG, "turnOnAllGlyphs: no channels for this device")
-            return
-        }
-
-        try {
-            val builder = mGM?.getGlyphFrameBuilder() ?: return
-            channels.forEach { builder.buildChannel(it, GLYPH_MAX_BRIGHTNESS) }
-            mGM?.toggle(builder.build())
-            Log.d(TAG, "All glyphs turned on")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error turning on all glyphs: ${e.message}")
-            handleError(e)
-        }
-    }
-
-    /**
      * Reports a failure and tries to get back to a usable state.
      *
      * The two errors the SDK raises for calling too early or too late are
@@ -299,7 +257,7 @@ class GlyphManager @Inject constructor(
     private fun handleError(error: Exception) {
         Log.e(TAG, "Glyph error: ${error.message}")
 
-        if (error is GlyphException && error.message in RECOVERABLE_ERRORS) {
+        if ((error is GlyphException) && (error.message in RECOVERABLE_ERRORS)) {
             Log.d(TAG, "Attempting to recover from ${error.message}")
             reconnect()
             return

@@ -30,8 +30,8 @@ class BootCompletedReceiver : BroadcastReceiver() {
     @Inject lateinit var settingsRepository: SettingsRepository
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action != Intent.ACTION_BOOT_COMPLETED &&
-            intent.action != Intent.ACTION_LOCKED_BOOT_COMPLETED) return
+        if ((intent.action != Intent.ACTION_BOOT_COMPLETED) &&
+            (intent.action != Intent.ACTION_LOCKED_BOOT_COMPLETED)) return
 
         Log.d(TAG, "Boot broadcast received: ${intent.action}")
 
@@ -112,7 +112,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
 // Removes the Build.VERSION boilerplate from every call site
 private fun Context.startForegroundServiceCompat(
     clazz: Class<*>,
-    configure: Intent.() -> Unit = {}
+    configure: Intent.() -> Unit = {},
 ) {
     val intent = Intent(this, clazz).apply(configure)
     startForegroundService(intent)

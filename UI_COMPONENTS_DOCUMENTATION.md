@@ -37,25 +37,12 @@ Complete reference guide for all UI elements, components, and styling systems.
 ### 1. Color System (`app/src/main/java/com/bleelblep/glyphsharge/ui/theme/Color.kt`)
 
 ```kotlin
-// App Primary Colors
-val GlyphZenRed = Color(0xFFd71921)
-val GlyphZenRedDark = Color(0xFFa01419)
-
 // Nothing Phone Colors
 val NothingRed = Color(0xFFD71921)
 val NothingGray = Color(0xFF2D2D2D)
 val NothingGreen = Color(0xFF00FF00)
 val NothingWhite = Color(0xFFFFFFFF)
-val NothingBlack = Color(0xFF000000)
 val NothingViolate = Color(0xFF674FA3)
-
-// Light Theme Colors
-val NothingLightBackground = Color(0xFFF5F5F5)
-val NothingLightSurface = Color(0xFFFFFFFF)
-
-// Dark Theme Colors
-val NothingDarkBackground = Color(0xFF121212)
-val NothingDarkSurface = Color(0xFF1E1E1E)
 ```
 
 ### 2. Shape System (`app/src/main/java/com/bleelblep/glyphsharge/ui/theme/Shapes.kt`)
@@ -201,12 +188,12 @@ class FontState @Inject constructor(
 
     fun setFontVariant(variant: FontVariant)
     fun toggleCustomFonts()
-    fun updateFontSize(category: FontCategory, scale: Float)
+    fun updateFontSize(category: FontCategory, scale: Float, persist: Boolean = true)
     fun resetFontSizes()
     fun getTitleFont(): FontFamily
     fun getBodyFont(): FontFamily
-    fun getDisplayFont(): FontFamily
     fun getFontDescription(): String
+    fun toggleFontVariant()
 }
 ```
 
@@ -469,8 +456,7 @@ WideFeatureCardWithToggle(
 fun GlyphControlCard(
     enabled: Boolean,
     onEnabledChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-    @DrawableRes illustrationRes: Int? = null
+    modifier: Modifier = Modifier
 )
 ```
 
@@ -1018,13 +1004,6 @@ fun ToggleCard(
 )
 
 @Composable
-fun ThreeStateFontToggle(
-    currentVariant: FontVariant,
-    onVariantSelected: (FontVariant) -> Unit,
-    modifier: Modifier = Modifier
-)
-
-@Composable
 fun SimpleFontSelector(
     currentVariant: FontVariant,
     onVariantSelected: (FontVariant) -> Unit,
@@ -1047,7 +1026,7 @@ fun FontPreview(
 ```
 
 **Features:**
-- `ThreeStateFontToggle` is a row of three morphing buttons (HEADLINE / NDOT / SYSTEM), each with its own shape, colour, size and letter
+- `SimpleFontSelector` is the row of variant buttons (HEADLINE / NDOT / SYSTEM)
 - Size 44 dp → 52 dp on selection, spring-based; the label is set in that variant's own font, so the button is a sample
 - Unselected background is `surfaceVariant`; selected is `NothingViolate` for HEADLINE and NDOT, `NothingRed` for SYSTEM
 - `ToggleCard` is the settings row with a `Switch` — a `NothingViolate` thumb on a 50 % alpha track
@@ -1055,7 +1034,7 @@ fun FontPreview(
 
 **Usage Example:**
 ```kotlin
-ThreeStateFontToggle(
+SimpleFontSelector(
     currentVariant = fontState.currentVariant,
     onVariantSelected = { newVariant ->
         fontState.setFontVariant(newVariant)
@@ -1355,7 +1334,7 @@ scope.launch {
 
 **Location:** `app/src/main/java/com/bleelblep/glyphsharge/ui/utils/HapticUtils.kt`
 
-Every tap in the app goes through one of the five `trigger*Feedback` helpers, or through `performHapticWithIntensity` directly.
+Every tap in the app goes through one of the two `trigger*Feedback` helpers, or through `performHapticWithIntensity` directly.
 
 ```kotlin
 object HapticUtils {
@@ -1388,40 +1367,32 @@ object HapticUtils {
         type: HapticType = HapticType.LIGHT
     )
 
-    // The five helpers the UI actually calls
+    // The two helpers the UI actually calls
     fun triggerLightFeedback(hapticFeedback: HapticFeedback, context: Context, intensity: Float)
     fun triggerMediumFeedback(hapticFeedback: HapticFeedback, context: Context, intensity: Float)
-    fun triggerStrongFeedback(hapticFeedback: HapticFeedback, context: Context, intensity: Float)
-    fun triggerSuccessFeedback(hapticFeedback: HapticFeedback, context: Context, intensity: Float)
-    fun triggerErrorFeedback(hapticFeedback: HapticFeedback, context: Context, intensity: Float)
 
     // Utility functions
-    fun testVibrationIntensity(context: Context, intensity: Int)
-    fun testExactAmplitude(hapticFeedback: HapticFeedback, context: Context, userIntensity: Float)
-    fun performCustomVibration(context: Context, duration: Long, amplitude: Int)
-    fun performCustomVibrationPattern(context: Context, timings: LongArray, amplitudes: IntArray)
-    fun validateIntensity(intensity: Int, vibrator: Vibrator): Int
-    fun getVibrator(context: Context): Vibrator
     fun convertUserIntensityToAndroidAmplitude(userIntensity: Float): Int
-    fun getVibrationInfo(context: Context): VibrationInfo
+
+    // Private: reached only through the helpers above
+    private fun haptic(context: Context, hapticFeedback: HapticFeedback, duration: Long, intensity: Int, type: HapticFeedbackType)
+    private fun performCustomVibration(context: Context, duration: Long, amplitude: Int)
+    private fun performCustomVibrationPattern(context: Context, timings: LongArray, amplitudes: IntArray)
+    private fun validateIntensity(intensity: Int, vibrator: Vibrator): Int
+    private fun hapticsEnabled(context: Context): Boolean
+    private fun getVibrator(context: Context): Vibrator?
 }
 
 enum class HapticType {
     LIGHT, MEDIUM, STRONG, CLICK, SUCCESS, ERROR
 }
-
-data class VibrationInfo(
-    val hasVibrator: Boolean,
-    val hasAmplitudeControl: Boolean,
-    val supportedEffects: List<Int>
-)
 ```
 
 **Features:**
 - Two intensity scales on purpose: the `Int` constants are Android amplitudes, and the `Float` helpers take the user's 0.0-1.0 setting and convert it
 - Compose's `HapticFeedback` fires first, so the system setting is respected, and the custom vibration only follows when the amplitude is not `DEFAULT_AMPLITUDE`
 - `VibratorManager` on Android O+ and `Vibrator` below it, resolved in one place
-- `validateIntensity` clamps against the device's own reported range, and `getVibrationInfo` is the capability check for anything that needs fine-grained amplitude control
+- `validateIntensity` clamps against the device's own reported range, and `hapticsEnabled` reads `Settings.System.HAPTIC_FEEDBACK_ENABLED` before anything is driven, so a user who has switched haptics off is not buzzed anyway
 - `intensity` on the `trigger*` helpers is the user's own setting, injected by the caller because a click handler cannot read a repository — the value arrives from `LocalVibrationIntensity`
 
 **Usage Examples:**
@@ -1447,12 +1418,6 @@ HapticUtils.performHapticWithIntensity(
     userIntensity = 0.66f,
     type = HapticType.MEDIUM
 )
-
-// Check device capabilities
-val info = HapticUtils.getVibrationInfo(context)
-if (info.hasAmplitudeControl) {
-    // Use fine-grained amplitude control
-}
 ```
 
 ### 2. Themed Color Helpers

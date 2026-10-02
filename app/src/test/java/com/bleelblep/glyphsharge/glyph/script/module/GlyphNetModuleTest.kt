@@ -28,7 +28,7 @@ class GlyphNetModuleTest {
         connected = true,
         wifi = true,
         metered = false,
-        vpn = false
+        vpn = false,
     )
 
     /** A phone on cellular: the case where being metered actually matters. */
@@ -36,7 +36,7 @@ class GlyphNetModuleTest {
         connected = true,
         wifi = false,
         metered = true,
-        vpn = false
+        vpn = false,
     )
 
     /** A tunnel up over whatever is underneath it. */
@@ -44,7 +44,7 @@ class GlyphNetModuleTest {
         connected = true,
         wifi = true,
         metered = false,
-        vpn = true
+        vpn = true,
     )
 
     /** Runs [source] against [state], as a script would. */
@@ -53,19 +53,21 @@ class GlyphNetModuleTest {
             """
             local net = require("glyph.net")
             ${source.trimIndent()}
-            """.trimIndent()
+            """.trimIndent(),
         )
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
     }
 
     @Test
     fun `a wifi connection reports every field`() {
-        at(wifi, """
+        at(
+            wifi, """
             assert(net.connected == true, 'the phone is online')
             assert(net.wifi == true, 'and it is over wifi')
             assert(net.metered == false, 'home wifi is not metered')
             assert(net.vpn == false, 'and no tunnel is up')
-        """)
+        """,
+        )
     }
 
     @Test
@@ -73,12 +75,14 @@ class GlyphNetModuleTest {
         // The state a session falls back to when it has not been wired to the
         // platform, so it has to be a state a script can act on rather than an
         // error or a nil field.
-        at(NetworkSnapshot.DISCONNECTED, """
+        at(
+            NetworkSnapshot.DISCONNECTED, """
             assert(net.connected == false, 'nothing is online')
             assert(net.wifi == false, 'so no transport to name')
             assert(net.metered == false, 'and nothing to be charged for')
             assert(net.vpn == false, 'and no tunnel')
-        """)
+        """,
+        )
     }
 
     @Test
@@ -87,20 +91,24 @@ class GlyphNetModuleTest {
         // Wi-Fi underneath it stays true. Collapsing the two — reporting only
         // "some transport is up" — would break the script that wants to know
         // whether it is talking over the tunnel.
-        at(tunnelled, """
+        at(
+            tunnelled, """
             assert(net.vpn == true, 'the tunnel is up')
             assert(net.connected == true, 'and traffic is flowing over it')
             assert(net.wifi == true, 'while the wifi underneath carries it')
-        """)
+        """,
+        )
     }
 
     @Test
     fun `metered is reported for a cellular connection`() {
-        at(cellular, """
+        at(
+            cellular, """
             assert(net.metered == true, 'the user is paying for these bytes')
             assert(net.wifi == false, 'cellular is not wifi')
             assert(net.connected == true, 'but it is still a connection')
-        """)
+        """,
+        )
     }
 
     @Test
@@ -108,13 +116,15 @@ class GlyphNetModuleTest {
         // `if not net.metered` is the whole point of the field, and in Lua a
         // bound function is truthy — so a getter that was not called would make
         // that expression silently wrong rather than loudly broken.
-        at(wifi, """
+        at(
+            wifi, """
             assert(type(net.connected) == 'boolean', 'connected must be a boolean')
             assert(type(net.metered) == 'boolean', 'metered must be a boolean')
             assert(type(net.wifi) == 'boolean', 'wifi must be a boolean')
             assert(type(net.vpn) == 'boolean', 'vpn must be a boolean')
             assert(not net.metered, 'a boolean false is falsey in an if')
-        """)
+        """,
+        )
     }
 
     @Test
@@ -131,7 +141,7 @@ class GlyphNetModuleTest {
             network = {
                 reads++
                 if (reads < 2) NetworkSnapshot.DISCONNECTED else cellular
-            }
+            },
         )
 
         val result = engine.run(
@@ -140,7 +150,7 @@ class GlyphNetModuleTest {
             local first = net.connected
             local second = net.connected
             assert(first == false and second == true, "each read must ask again")
-            """.trimIndent()
+            """.trimIndent(),
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
@@ -150,9 +160,11 @@ class GlyphNetModuleTest {
     fun `require returns the same table within a run`() {
         // A module built per access would make the obvious `net.vpn` in a loop
         // allocate a table every frame.
-        at(wifi, """
+        at(
+            wifi, """
             local again = require("glyph.net")
             assert(again == net, 'a second require must be the same table')
-        """)
+        """,
+        )
     }
 }

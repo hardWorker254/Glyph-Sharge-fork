@@ -945,7 +945,6 @@ data class FeatureSpec(
 object FeatureSpecs {
     val all: List<FeatureSpec>
     fun of(feature: GlyphFeature): FeatureSpec
-    fun allFor(features: Iterable<GlyphFeature>): List<FeatureSpec>
 }
 ```
 
@@ -1797,7 +1796,9 @@ because that is a separate Activity with its own context.
 `FOREGROUND_SERVICE_MEDIA_PROJECTION`, `SYSTEM_ALERT_WINDOW`, `RECEIVE_BOOT_COMPLETED`,
 `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `DISABLE_KEYGUARD`, `TURN_SCREEN_ON`,
 `SCHEDULE_EXACT_ALARM`, `NFC`, `ACCESS_NETWORK_STATE` (VPN Connected — the state, not
-the network, and also what `glyph.net` reads), `RECORD_AUDIO`, `READ_MEDIA_AUDIO`.
+the network, and also what `glyph.net` reads), `RECORD_AUDIO`, `READ_MEDIA_AUDIO`,
+`INTERNET` (the animation store — the only thing the app downloads; an ordinary
+permission, not requested at runtime).
 
 > [!NOTE]
 > The six `require`d modules added **no permission**. `glyph.net` reads
@@ -2056,8 +2057,7 @@ The places where the code behaves in a non-obvious way:
 - `ChargingAnimationConfig.isEnabled` and `PowerPeekConfig.enableWhenScreenOff` are written
   but have **no matching repository keys** — the "only when screen is off" switch in the
   Power Peek dialog does nothing.
-- `ThreeStateFontToggle` and `FontState.getDisplayFont()` are unused.
-- `GlyphControlCard.illustrationRes` is accepted but never used in the body.
+
 - `QuietHoursSettingsScreen` contains an empty `LaunchedEffect(Unit)` with only a comment,
   so `quietHoursEnabled` can go stale.
 
@@ -2096,10 +2096,17 @@ colors `purple_200/500/700`, `teal_200/700`.
 
 On top of the ten built-in animations, the user can write their own — in **Lua 5.2**,
 executed by the pure-JVM [LuaJ](https://github.com/luaj/luaj) 3.0.1 VM
-(`org.luaj:luaj-jse`). This is not a plugin and nothing is fetched from the internet: a
-script lives entirely in `filesDir/glyph_scripts`, runs in a sandbox, and can do nothing but
-light channels, wait, read the device's own state through six `require`d modules, and write
-lines to the studio console.
+(`org.luaj:luaj-jse`). This is not a plugin: a script lives entirely in
+`filesDir/glyph_scripts`, runs in a sandbox, and can do nothing but light channels,
+wait, read the device's own state through six `require`d modules, and write lines to the
+studio console.
+
+> [!NOTE]
+> A script is not fetched from the network and never reaches for one: neither the
+> `.glyphlua` container nor the sandbox gives a Lua script a file system or a socket. The
+> only thing the app downloads is the animation store's index and the one file picked from
+> it, both of which arrive as plain text and land in `filesDir/glyph_scripts`. The
+> `INTERNET` permission is declared for exactly that.
 
 ### Opening the studio
 

@@ -70,7 +70,7 @@ internal class ScriptSession(
      * session that was never given a control can still be asked for a reading
      * and cannot accidentally open hardware.
      */
-    private val sensorControl: SensorControl = SensorControl.NONE
+    private val sensorControl: SensorControl = SensorControl.NONE,
 ) {
     private companion object {
         const val TAG = "ScriptSession"
@@ -88,13 +88,42 @@ internal class ScriptSession(
         const val INSTRUCTION_BUDGET = 200_000_000L
         const val INSTRUCTION_INTERVAL = 20_000L
 
+        /**
+         * How much live heap a single run may grow the process by.
+         *
+         * The instruction budget is not a memory budget, and the gap is wide
+         * enough to matter. A script doing nothing but `t[#t+1] = 1` on an
+         * unbounded table runs the full 200 M instructions and allocates on the
+         * way — measured at roughly ten seconds and 390 MB before the budget
+         * finally trips. On ART with a 256 MB heap that is an
+         * `OutOfMemoryError` long before the budget is reached, and an
+         * `OutOfMemoryError` is an `Error`: it passes under every
+         * `catch (e: Exception)` between the script and the feature service,
+         * and kills a service that had nothing to do with the script.
+         *
+         * 24 MB is generous for anything a glyph animation legitimately needs
+         * — LuaJ's own working set for a session this size is a few hundred KB,
+         * and `ScriptSandboxResourceTest` covers scripts that allocate — while
+         * still tripping long before the process is in trouble. It is measured
+         * as *growth since the session started*, not absolute heap, so a phone
+         * that is already using memory for other reasons is not punished for
+         * it.
+         */
+        const val MAX_HEAP_GROWTH_BYTES = 24L * 1024 * 1024
+
         /** Bounded so a script inside a loop cannot grow the log forever. */
         const val MAX_LOG_LINES = 200
     }
 
-    private enum class AbortKind { STOPPED, TIMED_OUT, INSTRUCTION_LIMIT }
+    private enum class AbortKind { STOPPED, TIMED_OUT, INSTRUCTION_LIMIT, OUT_OF_MEMORY }
 
     private val startedAt = nowMs()
+
+    /**
+     * The heap the process was holding when this run began, so the watchdog
+     * can measure growth rather than absolute use.
+     */
+    private val heapAtStart = usedHeapBytes()
     @Volatile
     private var random: Random = Random(DEFAULT_SEED)
     /** Log lines with the severity they were written at, in the order written. */
@@ -128,17 +157,42 @@ internal class ScriptSession(
         externalStop?.let { return it }
 
         val elapsed = nowMs() - startedAt
-        if (maxDurationMs > 0 && elapsed >= maxDurationMs) {
+        if ((maxDurationMs > 0) && (elapsed >= maxDurationMs)) {
             abortKind = AbortKind.TIMED_OUT
             return "Duration limit of ${maxDurationMs}ms reached (${elapsed}ms elapsed)"
         }
 
-        if (++watchdogTicks * INSTRUCTION_INTERVAL >= INSTRUCTION_BUDGET) {
+        // Checked before the instruction budget because on an allocation loop
+        // this is the one that fires — see [MAX_HEAP_GROWTH_BYTES]. Both are
+        // cheap, and the hook only runs every INSTRUCTION_INTERVAL instructions.
+        val growth = usedHeapBytes() - heapAtStart
+        if (growth >= MAX_HEAP_GROWTH_BYTES) {
+            abortKind = AbortKind.OUT_OF_MEMORY
+            return "Memory limit of ${MAX_HEAP_GROWTH_BYTES / (1024 * 1024)}MB reached by this script"
+        }
+
+        if ((++watchdogTicks * INSTRUCTION_INTERVAL) >= INSTRUCTION_BUDGET) {
             abortKind = AbortKind.INSTRUCTION_LIMIT
             return "Instruction budget of $INSTRUCTION_BUDGET reached"
         }
         return null
     }
+
+    /**
+     * Heap the process is using right now.
+     *
+     * `totalMemory() - freeMemory()` rather than `maxMemory()`: the first is
+     * what is actually held, the second is what the process was promised, and
+     * only the first says anything about a script's own allocation.
+     *
+     * A `SecurityManager` can refuse either call, in which case there is no
+     * number to report — and no number to compare, which leaves the memory
+     * ceiling unenforced rather than the run broken.
+     */
+    private fun usedHeapBytes(): Long = runCatching {
+        val runtime = Runtime.getRuntime()
+        runtime.totalMemory() - runtime.freeMemory()
+    }.getOrDefault(0L)
 
     /** Called from any thread when another animation wants the strip. */
     fun requestExternalStop(reason: String) {
@@ -155,9 +209,9 @@ internal class ScriptSession(
      * effects, because a script may call it every iteration of its own loop.
      */
     fun isRunning(): Boolean {
-        if (scriptFinished || externalStop != null) return false
+        if ((scriptFinished) || (externalStop != null)) return false
         if (maxDurationMs <= 0) return true
-        return nowMs() - startedAt < maxDurationMs
+        return (nowMs() - startedAt) < maxDurationMs
     }
 
     // endregion
@@ -374,7 +428,7 @@ internal class ScriptSession(
             val slice = minOf(CANCEL_POLL_MS, left)
             try {
                 Thread.sleep(slice)
-            } catch (e: InterruptedException) {
+            } catch (_: InterruptedException) {
                 Thread.currentThread().interrupt()
                 throw ScriptAbortedError("interrupted")
             }
@@ -394,7 +448,7 @@ internal class ScriptSession(
     fun randomInt(from: Int, to: Int): Int {
         val low = minOf(from, to)
         val high = maxOf(from, to)
-        val span = high - low + 1
+        val span = (high - low) + 1
         return if (span <= 1) low else low + random.nextInt(span)
     }
 
@@ -459,7 +513,12 @@ internal class ScriptSession(
     fun result(outcome: Varargs?, elapsedMs: Long): ScriptRunResult {
         watchdogReason()?.let { reason ->
             return when (abortKind ?: AbortKind.STOPPED) {
-                AbortKind.TIMED_OUT, AbortKind.INSTRUCTION_LIMIT ->
+                // A script that ran out of memory is reported as a timeout,
+                // because that is what the studio already knows how to explain
+                // — "it did not finish" — and the reason string carries the
+                // actual cause. Giving it its own status would mean every
+                // screen that renders a result had to learn a third failure.
+                AbortKind.TIMED_OUT, AbortKind.INSTRUCTION_LIMIT, AbortKind.OUT_OF_MEMORY ->
                     ScriptRunResult(ScriptStatus.TIMED_OUT, reason, frames, elapsedMs, declaredTarget)
 
                 AbortKind.STOPPED ->
@@ -471,7 +530,7 @@ internal class ScriptSession(
             return ScriptRunResult(ScriptStatus.COMPLETED, null, frames, elapsedMs, declaredTarget)
         }
 
-        if (outcome != null && outcome.arg1().isboolean() && !outcome.arg1().toboolean()) {
+        if ((outcome != null) && outcome.arg1().isboolean() && !outcome.arg1().toboolean()) {
             val message = outcome.arg(2).tojstring().ifBlank { "unknown Lua error" }
             return ScriptRunResult(ScriptStatus.RUNTIME_ERROR, message, frames, elapsedMs, declaredTarget)
         }

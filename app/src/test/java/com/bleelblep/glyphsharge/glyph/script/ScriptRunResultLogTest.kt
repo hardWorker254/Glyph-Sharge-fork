@@ -23,11 +23,11 @@ class ScriptRunResultLogTest {
     private fun run(
         source: String,
         host: FakeHost = FakeHost(),
-        sensorControl: SensorControl = SensorControl.NONE
+        sensorControl: SensorControl = SensorControl.NONE,
     ): ScriptRunResult = LuaScriptEngine(
         profile = testProfile(),
         host = host,
-        sensorControl = sensorControl
+        sensorControl = sensorControl,
     ).run(source)
 
     @Test
@@ -36,13 +36,13 @@ class ScriptRunResultLogTest {
             """
             print("starting")
             print("strip has " .. #glyph.ch.c .. " segments")
-            """.trimIndent()
+            """.trimIndent(),
         )
 
         assertEquals(ScriptStatus.COMPLETED, result.status)
         assertEquals(
             listOf("starting", "strip has 10 segments"),
-            result.logLines.map { it.text }
+            result.logLines.map { it.text },
         )
     }
 
@@ -54,13 +54,13 @@ class ScriptRunResultLogTest {
             print("progress")
             log.info("also progress")
             log.warn("battery is low")
-            """.trimIndent()
+            """.trimIndent(),
         )
 
         assertEquals(ScriptStatus.COMPLETED, result.status)
         assertEquals(
             listOf(LogLevel.INFO, LogLevel.INFO, LogLevel.WARN),
-            result.logLines.map { it.level }
+            result.logLines.map { it.level },
         )
     }
 
@@ -74,7 +74,7 @@ class ScriptRunResultLogTest {
             log.error("nothing to animate")
             print("never reached")
             """.trimIndent(),
-            host
+            host,
         )
 
         // Both halves matter: a line that is on the result but did not stop the
@@ -85,9 +85,9 @@ class ScriptRunResultLogTest {
         assertEquals(
             listOf(
                 ScriptLogLine("about to give up", LogLevel.INFO),
-                ScriptLogLine("nothing to animate", LogLevel.ERROR)
+                ScriptLogLine("nothing to animate", LogLevel.ERROR),
             ),
-            result.logLines
+            result.logLines,
         )
         // Nothing was drawn, because `error` raised before the script could.
         assertTrue(host.frames.isEmpty())
@@ -119,7 +119,7 @@ class ScriptRunResultLogTest {
             local tilt = sensor.magnitude
             print("tilt is " .. tilt)
             """.trimIndent(),
-            sensorControl = control
+            sensorControl = control,
         )
 
         assertEquals(ScriptStatus.COMPLETED, result.status)

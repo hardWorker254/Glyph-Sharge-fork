@@ -25,7 +25,7 @@ enum class AppThemeStyle {
  */
 @Singleton
 class ThemeState @Inject constructor(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
 ) {
     private var _isDarkTheme by mutableStateOf(settingsRepository.getTheme())
     val isDarkTheme: Boolean get() = _isDarkTheme

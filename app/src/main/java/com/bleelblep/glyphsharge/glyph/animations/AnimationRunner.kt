@@ -66,7 +66,7 @@ class AnimationRunner @Inject constructor(
 
         val device = profile ?: return
 
-        renderer.start()
+        val lease = renderer.start("animation")
         try {
             renderer.turnOff()
             delay(CLEANUP_DELAY_MS.milliseconds)
@@ -74,7 +74,7 @@ class AnimationRunner @Inject constructor(
         } catch (e: Exception) {
             renderer.onError(e, "Animation error")
         } finally {
-            renderer.stop()
+            renderer.stop(lease)
             renderer.turnOff()
         }
     }

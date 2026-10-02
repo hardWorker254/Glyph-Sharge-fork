@@ -2,15 +2,12 @@ package com.bleelblep.glyphsharge.services
 
 import android.app.Activity
 import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.AudioManager
-import android.os.IBinder
 import android.os.PowerManager
 import android.util.Log
+import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
@@ -25,7 +22,6 @@ import com.bleelblep.glyphsharge.glyph.audio.MusicVisualizationMode
 import com.bleelblep.glyphsharge.glyph.audio.PlaybackAudioSource
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -64,7 +60,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * service is enabled, which is what makes the level available at all.
  */
 @AndroidEntryPoint
-class MusicVisualizerService : Service() {
+class MusicVisualizerService : FeatureService() {
 
     companion object {
         private const val TAG = "MusicVisualizerService"
@@ -94,9 +90,6 @@ class MusicVisualizerService : Service() {
 
         /** How long a `PARTIAL_WakeLock` is held for one slice. */
         const val WAKE_LOCK_MS = SLICE_MS + 2000L
-
-        /** How long to wait before trying the audio capture again. */
-        const val RETRY_CAPTURE_MS = 4000L
     }
 
     /**
@@ -125,46 +118,53 @@ class MusicVisualizerService : Service() {
      */
     @Inject lateinit var audioFeed: AudioFrameFeed
 
-    private val serviceJob = Job()
-    private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
-
     private var watchJob: Job? = null
 
-    private lateinit var powerManager: PowerManager
-    private lateinit var wakeLock: PowerManager.WakeLock
     private lateinit var audioManager: AudioManager
 
-    /** The last text shown, so the notification is only rebuilt when it changes. */
-    private var lastNotificationText: String? = null
+    // Identity
 
-    override fun onCreate() {
-        super.onCreate()
-        createNotificationChannel()
-        powerManager = getSystemService(POWER_SERVICE) as PowerManager
+    override val isRunnable: Boolean
+        get() = spec.isRunnable(settingsRepository)
+
+    override val startAction: String get() = ACTION_START
+    override val stopAction: String get() = ACTION_STOP
+    override val channelId: String get() = NOTIF_CHANNEL_ID
+    override val notificationId: Int get() = NOTIF_ID
+
+    @get:StringRes
+    override val channelNameRes: Int get() = R.string.music_viz_channel_name
+
+    @get:StringRes
+    override val channelDescriptionRes: Int get() = R.string.music_viz_description
+
+    override val wakeLockTag: String get() = "GlyphSharge:MusicVisualizer"
+
+    override val tag: String get() = TAG
+
+    // Lifecycle
+
+    override fun onFeatureCreated() {
+        super.onFeatureCreated()
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
-        wakeLock = powerManager.newWakeLock(
-            PowerManager.PARTIAL_WAKE_LOCK,
-            "GlyphSharge:MusicVisualizer",
-        )
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForegroundCompat(buildNotification(getString(R.string.music_viz_notif_waiting)))
+    /**
+     * No restart when the app is swiped away.
+     *
+     * A `MediaProjection` token cannot be obtained from the background, so a
+     * restart could only ever fail — and would leave the user with a card that
+     * says "on" and a dark strip.
+     */
+    override val restartsOnTaskRemoval: Boolean get() = false
 
-        if (intent?.action == ACTION_STOP) {
-            shutDown()
-            return START_NOT_STICKY
-        }
-
-        if (!spec.isRunnable(settingsRepository)) {
-            shutDown()
-            return START_NOT_STICKY
-        }
+    override fun onStartCommandAfterGate(intent: Intent?): Int {
 
         // Order matters and is not obvious. `getMediaProjection` refuses to
         // return a token unless a foreground service of type mediaProjection is
-        // already running, so the consent is adopted *here*, after
-        // `startForeground` above — not in the Activity that received it.
+        // already running, so the consent is adopted *here*, after the
+        // `startForeground` the base has already done — not in the Activity
+        // that received it.
         if (intent?.hasExtra(EXTRA_CONSENT_RESULT_CODE) == true) {
             val code = intent.getIntExtra(EXTRA_CONSENT_RESULT_CODE, Activity.RESULT_CANCELED)
             @Suppress("DEPRECATION")
@@ -173,23 +173,12 @@ class MusicVisualizerService : Service() {
         }
 
         startWatching()
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
-    override fun onDestroy() {
+    override fun onFeatureDestroying() {
+        // The WatchLock, both scopes and `stopForegroundCompat` are the base's.
         stopWatching()
-        runCatching { if (wakeLock.isHeld) wakeLock.release() }
-        serviceJob.cancel()
-        super.onDestroy()
-    }
-
-    override fun onBind(intent: Intent?): IBinder? = null
-
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        super.onTaskRemoved(rootIntent)
-        // Deliberately no restart. A `mediaProjection` token cannot be obtained
-        // from the background, so a restart here could only ever fail — and
-        // would leave the user with a card that says "on" and a dark strip.
     }
 
     // region The loop
@@ -219,7 +208,7 @@ class MusicVisualizerService : Service() {
      * revoked token is a user decision, and re-prompting for a microphone to
      * work around it would be worse than saying what went wrong.
      */
-    private suspend fun tryLegacyFallback(): Boolean {
+    private fun tryLegacyFallback(): Boolean {
         if (source.status.value != CaptureStatus.FAILED) return legacyAnalyzer.isCapturing
         Log.i(TAG, "Playback capture failed; trying the legacy Visualizer path")
         return legacyAnalyzer.start()
@@ -267,7 +256,7 @@ class MusicVisualizerService : Service() {
                     timeoutMs = ACQUIRE_TIMEOUT_MS,
                     // The WakeLock is only ever taken inside the block, so
                     // releasing it here can only undo something that happened.
-                    onRelease = { runCatching { if (wakeLock.isHeld) wakeLock.release() } }
+                    onRelease = { runCatching { if (wakeLock.isHeld) wakeLock.release() } },
                 ) {
                     runCatching { wakeLock.acquire(WAKE_LOCK_MS) }
                     // The slice cap. `runCapped` stops the painter at SLICE_MS
@@ -296,9 +285,10 @@ class MusicVisualizerService : Service() {
         !spec.isRunnable(settingsRepository) ||
             settingsRepository.isCurrentlyInQuietHours()
 
+    @Suppress("DEPRECATION")
     private fun screenAllowsVisualization(): Boolean {
         if (!settingsRepository.getMusicVizScreenOffOnly()) return true
-        return !powerManager.isInteractive
+        return !(getSystemService(POWER_SERVICE) as PowerManager).isInteractive
     }
 
     private fun isMusicPlaying(): Boolean {
@@ -307,7 +297,7 @@ class MusicVisualizerService : Service() {
         // Through the feed, not `source`: on a phone where the legacy path is
         // the one that opened, the primary stream is silent by construction and
         // this would then wait on `isMusicActive` alone.
-        return systemSaysMusic || audioFeed.latest().rms > AudioFrame.SILENCE_FLOOR
+        return (systemSaysMusic) || (audioFeed.latest().rms > AudioFrame.SILENCE_FLOOR)
     }
 
     private fun stopWatching() {
@@ -315,7 +305,6 @@ class MusicVisualizerService : Service() {
         watchJob = null
         source.stop()
         legacyAnalyzer.stop()
-        lastNotificationText = null
     }
 
     // endregion
@@ -341,16 +330,13 @@ class MusicVisualizerService : Service() {
     private fun currentModeLabel(): String {
         val mode = MusicVisualizationMode.of(settingsRepository.getMusicVizAnimationId())
             ?: return getString(R.string.music_viz_title)
-        return getString(mode.displayNameRes)
+        return mode.displayName
     }
 
-    private fun showNotification(text: String) {
-        if (text == lastNotificationText) return
-        lastNotificationText = text
-        startForegroundCompat(buildNotification(text))
-    }
+    override fun buildNotification(): Notification =
+        buildNotification(getString(R.string.music_viz_notif_waiting))
 
-    private fun buildNotification(text: String): Notification =
+    override fun buildNotification(text: String): Notification =
         NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
             .setContentTitle(getString(R.string.music_viz_notif_title))
             .setContentText(text)
@@ -368,31 +354,16 @@ class MusicVisualizerService : Service() {
      * a service that throws here dies silently — the feature simply stops and
      * the card still claims it is on.
      */
-    private fun startForegroundCompat(notification: Notification) {
+    override fun startForegroundCompat(notification: Notification) {
         runCatching {
             startForeground(
-                NOTIF_ID,
+                notificationId,
                 notification,
                 ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION or
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
             )
-        }.onFailure { Log.e(TAG, "startForeground refused", it) }
-    }
-
-    private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            NOTIF_CHANNEL_ID,
-            getString(R.string.music_viz_channel_name),
-            NotificationManager.IMPORTANCE_LOW
-        )
-        channel.description = getString(R.string.music_viz_description)
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+        }.onFailure { Log.e(tag, "startForeground refused", it) }
     }
 
     // endregion
-
-    private fun shutDown() {
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
-    }
 }

@@ -320,7 +320,7 @@ Official Nothing fonts with dynamic scaling:
 | `SettingsScaffold`, `DraggableSettingsCard` | `ui/components/layout/SettingsScaffold.kt`, `.../DraggableSettingsCard.kt` | Settings screen frame and swipe-to-navigate card |
 | `HomeSectionHeader`, `FeatureGrid` | `ui/components/layout/SectionLayout.kt` | Section header and the feature grid |
 | `MorphingToggleButton`, `ThreeStateFontMorphingButton` | `ui/components/controls/ToggleButtons.kt` | Morphing on/off toggle |
-| `ThreeStateFontToggle` | `ui/components/FontSettingsComponents.kt` | HEADLINE / NDOT / SYSTEM picker |
+| `SimpleFontSelector` | `ui/components/FontSettingsComponents.kt` | HEADLINE / NDOT / SYSTEM picker |
 | `FeatureDialogScaffold`, `FeatureConfirmationFlow` | `ui/components/dialogs/` | Shared dialog chrome for every feature |
 
 ---

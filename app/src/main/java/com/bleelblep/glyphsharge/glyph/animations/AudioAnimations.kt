@@ -87,7 +87,7 @@ internal suspend fun GlyphRenderer.runMusicVisualization(
     while (isRunning) {
         surface.draw(this, mode, nextFrame())
         drawn++
-        if (maxFrames > 0 && drawn >= maxFrames) return
+        if ((maxFrames > 0) && (drawn >= maxFrames)) return
         delay(AUDIO_FRAME_MS.milliseconds)
     }
 }
@@ -129,6 +129,9 @@ private class MusicSurface(profile: DeviceProfile) {
     private var flash = 0
     private var phase = 0
 
+    /** VORTEX's ring heading, integrated frame by frame. */
+    private var vortexHeading = 0
+
     init {
         val random = Random(System.nanoTime())
         val drops = matrix.drops.coerceAtMost(all.size.coerceAtLeast(1))
@@ -144,6 +147,10 @@ private class MusicSurface(profile: DeviceProfile) {
         if (all.isEmpty()) return
 
         if (frame.isSilent) {
+            // A trace left from before the pause would linger as a ghost
+            // of dead music for a few frames after it resumes, so the
+            // scroll is reset rather than left frozen mid-song.
+            history.fill(0f)
             drawIdle(renderer, mode)
             return
         }
@@ -183,7 +190,7 @@ private class MusicSurface(profile: DeviceProfile) {
             for (j in 0 until lit) {
                 // Brighter towards the top, so a short bar is not merely a
                 // dimmer long one and the strip has a shape.
-                val gradient = (0.45f + 0.55f * (j + 1) / lit)
+                val gradient = (0.45f + ((0.55f * (j + 1)) / lit))
                 val level = brightness(value * gradient)
                 if (level > column[j]) column[j] = level
             }
@@ -205,11 +212,11 @@ private class MusicSurface(profile: DeviceProfile) {
         // to a fixed position instead of travelling with the newest sample.
         val size = history.size
         for (i in strip.indices) {
-            val value = history.getOrElse((historyHead - i + size) % size) { 0f }
+            val value = history.getOrElse(((historyHead - i) + size) % size) { 0f }
             // The head is the newest sample and so the brightest; the tail has
             // already been heard and dims away behind it.
-            val age = 1f - i.toFloat() / size.coerceAtLeast(1)
-            builder.buildChannel(strip[i], brightness(value * (DIM_FLOOR + age * 0.82f)))
+            val age = 1f - (i.toFloat() / size.coerceAtLeast(1))
+            builder.buildChannel(strip[i], brightness(value * (DIM_FLOOR + (age * 0.82f))))
         }
         renderer.toggle(builder, AUDIO_FRAME_MS)
     }
@@ -218,25 +225,35 @@ private class MusicSurface(profile: DeviceProfile) {
     private suspend fun drawMirror(renderer: GlyphRenderer, frame: AudioFrame) {
         val builder = renderer.builder() ?: return
         val centre = strip.size / 2
+        // An even strip has no single middle segment: the fold has to sit
+        // in the gap between the two central ones, or the mirror's outermost
+        // segment on one edge is never reached and the whole mode reads as
+        // off-centre. Every supported phone but the four-segment one has an
+        // even C strip, so this is the rule, not the exception.
+        val even = (strip.size % 2) == 0
         val reach = (strip.size + 1) / 2
 
         for (k in 0 until reach) {
             val value = bands.getOrElse(k.coerceAtMost(bands.lastIndex)) { 0f }
             if (k >= ceil(value * reach).toInt()) continue
 
-            val falloff = 1f - k.toFloat() / reach * 0.7f
+            val falloff = 1f - ((k.toFloat() / reach) * 0.7f)
             val level = brightness(value * falloff)
 
-            val left = centre - k
+            val left = if (even) centre - 1 - k else centre - k
             val right = centre + k
             if (left in strip.indices) builder.buildChannel(strip[left], level)
-            if (right in strip.indices && right != left) builder.buildChannel(strip[right], level)
+            if (right in strip.indices) builder.buildChannel(strip[right], level)
         }
 
-        // The middle segment always burns a little, so the mode still reads as
+        // The middle always burns a little, so the mode still reads as
         // symmetrical when the music is quiet.
-        if (centre in strip.indices) {
-            builder.buildChannel(strip[centre], brightness(DIM_FLOOR * frame.rms + 0.06f))
+        val centreLevel = brightness((DIM_FLOOR * frame.rms) + 0.06f)
+        if (even) {
+            builder.buildChannel(strip[centre - 1], centreLevel)
+            builder.buildChannel(strip[centre], centreLevel)
+        } else if (centre in strip.indices) {
+            builder.buildChannel(strip[centre], centreLevel)
         }
         renderer.toggle(builder, AUDIO_FRAME_MS)
     }
@@ -246,11 +263,11 @@ private class MusicSurface(profile: DeviceProfile) {
         val builder = renderer.builder() ?: return
         val punch = if (flash > 0) flash.toFloat() / BEAT_FLASH_FRAMES else 0f
 
-        lightAll(builder, frame, extra = 0.35f + 0.65f * punch)
+        lightAll(builder, frame, extra = 0.35f + (0.65f * punch))
 
         // The pulse segments — the round dots and short strips — carry the low
         // end, because that is where a kick lives and they read as impacts.
-        val level = brightness(DIM_FLOOR * frame.bass + 0.75f * punch)
+        val level = brightness((DIM_FLOOR * frame.bass) + (0.75f * punch))
         pulse.forEach { builder.buildChannel(it, level) }
 
         renderer.toggle(builder, AUDIO_FRAME_MS)
@@ -266,19 +283,23 @@ private class MusicSurface(profile: DeviceProfile) {
             // and shrinks, which is not rain. The speed is read from the band
             // the head is currently over, so a loud passage runs faster.
             val under = bands.getOrElse(dropHeads[k] % bands.size.coerceAtLeast(1)) { 0f }
-            dropSteps[k] += MATRIX_STEP_MIN + MATRIX_STEP_RANGE * under
+            dropSteps[k] += MATRIX_STEP_MIN + (MATRIX_STEP_RANGE * under)
             val advance = floor(dropSteps[k])
             dropSteps[k] -= advance
             val head = (dropHeads[k] + advance.toInt()) % all.size
             dropHeads[k] = head
 
             val value = bands.getOrElse(head % bands.size.coerceAtLeast(1)) { 0f }
-            val length = (1 + value * matrix.maxLength).roundToInt().coerceIn(1, all.size)
+            val length = (1 + (value * matrix.maxLength)).roundToInt().coerceIn(1, all.size)
             for (j in 0 until length) {
-                val fade = 1f - j.toFloat() / length * 0.8f
+                val fade = 1f - ((j.toFloat() / length) * 0.8f)
+                // The trail follows the head, the way rain falls: laid ahead
+                // of it instead, the drop travels tail-first and its streaks
+                // run backwards up the strip.
+                val behind = ((head - j) + all.size) % all.size
                 builder.buildChannel(
-                    all[(head + j) % all.size],
-                    brightness(value * fade + 0.05f),
+                    all[behind],
+                    brightness((value * fade) + 0.05f),
                 )
             }
         }
@@ -292,19 +313,53 @@ private class MusicSurface(profile: DeviceProfile) {
 
         val size = spiral.size
         val spin = 1 + (frame.bass * 3f).roundToInt()
-        val ringSize = (size * (0.12f + 0.28f * frame.rms)).roundToInt().coerceIn(2, size)
+        val ringSize = (size * (0.12f + (0.28f * frame.rms))).roundToInt().coerceIn(2, size)
 
-        lightRing(builder, phase * spin, ringSize)
-        lightRing(builder, phase * spin + size / 2, ringSize)
+        // The heading is integrated frame by frame. Spelling it as
+        // `phase * spin` ties the position to the frame count *and* the
+        // bass at once, so every time the low end moves the tempo the
+        // rings jump — forward when the spin rises, backwards when it
+        // falls — instead of turning smoothly.
+        vortexHeading = (vortexHeading + spin) % size
+
+        // The rings dim with the level: at a fixed brightness a quiet
+        // passage still burns two full circles, and the mode stops
+        // tracking the music it is meant to display.
+        val level = DIM_FLOOR + (0.82f * frame.rms)
+
+        lightRing(builder, vortexHeading, ringSize, level, forward = true)
+        // The second ring walks the strip the other way round, so the two
+        // cross like a vortex rather than chase each other around in a
+        // train.
+        lightRing(
+            builder,
+            ((size - vortexHeading) + (size / 2)) % size,
+            ringSize,
+            level,
+            forward = false,
+        )
 
         renderer.toggle(builder, AUDIO_FRAME_MS)
     }
 
-    private fun lightRing(builder: GlyphFrame.Builder, head: Int, ringSize: Int) {
+    private fun lightRing(
+        builder: GlyphFrame.Builder,
+        head: Int,
+        ringSize: Int,
+        level: Float,
+        forward: Boolean,
+    ) {
         for (j in 0 until ringSize) {
-            // Brightest at the head, fading round the back of the ring.
-            val fade = 1f - j.toFloat() / ringSize
-            builder.buildChannel(spiral[(head + j) % spiral.size], brightness(0.25f + 0.75f * fade))
+            // Brightest at the head and fading round the back of the ring
+            // — behind the direction of travel, the way a comet's tail
+            // trails it.
+            val fade = 1f - (j.toFloat() / ringSize)
+            val position = if (forward) {
+                ((head - j) + spiral.size) % spiral.size
+            } else {
+                (head + j) % spiral.size
+            }
+            builder.buildChannel(spiral[position], brightness(level * (0.25f + (0.75f * fade))))
         }
     }
 
@@ -326,7 +381,7 @@ private class MusicSurface(profile: DeviceProfile) {
         val index = (phase / 3) % strip.size
         builder.buildChannel(strip[index], brightness(IDLE_BRIGHTNESS))
         builder.buildChannel(
-            strip[(index - 1 + strip.size) % strip.size],
+            strip[((index - 1) + strip.size) % strip.size],
             brightness(IDLE_BRIGHTNESS * 0.5f),
         )
         renderer.toggle(builder, AUDIO_FRAME_MS)
@@ -341,7 +396,7 @@ private class MusicSurface(profile: DeviceProfile) {
 
     /** The whole strip, dimmer with the level and brighter on a beat. */
     private fun lightAll(builder: GlyphFrame.Builder, frame: AudioFrame, extra: Float) {
-        val level = brightness(DIM_FLOOR + 0.55f * frame.rms + extra)
+        val level = brightness((DIM_FLOOR + (0.55f * frame.rms)) + extra)
         all.forEach { builder.buildChannel(it, level) }
     }
 

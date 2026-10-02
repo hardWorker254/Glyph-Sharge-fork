@@ -30,14 +30,14 @@ data class FireworksConfig(
     val maxExplosion: Int,
     val launchDelayMs: Long,
     val explosionDelayMs: Long,
-    val fadeDelayMs: Long
+    val fadeDelayMs: Long,
 )
 
 /** Tuning for the DNA Helix animation. */
 data class DnaConfig(
     val rotations: Int,
     val stepDelayMs: Long,
-    val offDelayMs: Long
+    val offDelayMs: Long,
 )
 
 /**
@@ -67,7 +67,7 @@ class DeviceProfile(
     val c1SeqHold: Long,
     val matrixConfig: MatrixConfig,
     val fireworksConfig: FireworksConfig,
-    val dnaConfig: DnaConfig
+    val dnaConfig: DnaConfig,
 ) {
     /** Same rhythm as [waveGroups], but without the pause between groups. */
     val beedahGroups: List<AnimGroup> = waveGroups.map { AnimGroup(it.segments, it.step) }

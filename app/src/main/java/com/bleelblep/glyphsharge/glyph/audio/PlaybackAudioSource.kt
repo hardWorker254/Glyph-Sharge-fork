@@ -30,8 +30,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.time.Duration.Companion.milliseconds
@@ -119,6 +122,34 @@ class PlaybackAudioSource @Inject constructor(
         /** Delay between reads that returned nothing — nothing is playing. */
         const val IDLE_POLL_MS = 250L
 
+        /**
+         * How long to wait for the reader to leave `read()` before giving up on it.
+         *
+         * `AudioRecord.read` is a blocking native call and coroutine cancellation
+         * does not interrupt it, so "cancel and await" has no ceiling of its own.
+         * The one thing that unblocks it is `stop()` on the recorder, which is
+         * why [teardown] stops first — this constant is the backstop for the
+         * case where even that does not take, so a wedged reader can never pin
+         * `swapping` on and leave the service's watch loop spinning.
+         *
+         * Generous, because reaching it means something is genuinely wrong, and
+         * the alternative to waiting is releasing an `AudioRecord` under a
+         * thread that is still inside it — a native crash, not an exception.
+         */
+        const val READER_EXIT_TIMEOUT_MS = 2_000L
+
+        /**
+         * Where the diagnostic line goes, and how much of it is kept.
+         *
+         * The file is what a user can actually share when they report "the
+         * visualiser does nothing", so it cannot go. But it used to be appended
+         * to indefinitely — once a line per loud frame, every failed read, and
+         * every capture start — which on a visualiser left running for hours
+         * grows without bound in `cacheDir`, with an open/write/close on the
+         * audio thread each time.
+         */
+        const val DIAG_MAX_LINES = 2_000
+
         const val DEFAULT_GAIN = 1.0f
         const val MIN_GAIN = 0.5f
         const val MAX_GAIN = 3.0f
@@ -141,7 +172,7 @@ class PlaybackAudioSource @Inject constructor(
      * its watch loop, and never come back — leaving the card claiming to work
      * over a strip that never lights again.
      */
-    val isSwapping: Boolean get() = swapping
+    val isSwapping: Boolean get() = swaps.get() > 0
 
     /** `true` while a projection token is held, which is what enables drawing. */
     val hasToken: Boolean get() = projection != null
@@ -149,16 +180,51 @@ class PlaybackAudioSource @Inject constructor(
     @Volatile
     private var gain: Float = DEFAULT_GAIN
 
-    @Volatile
-    private var swapping = false
+    /**
+     * How many swaps are in flight, rather than a yes/no.
+     *
+     * A counter because two `onConsent` calls can overlap, and a boolean would
+     * be cleared by whichever finished first — under-reporting while a swap was
+     * still running, which defeats the one thing it exists for.
+     */
+    private val swaps = AtomicInteger(0)
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
-    private var projection: MediaProjection? = null
-    private var callback: MediaProjection.Callback? = null
-    private var callbackThread: HandlerThread? = null
-    private var recorder: AudioRecord? = null
-    private var readerJob: Job? = null
+    /**
+     * Guards the session field group as a unit.
+     *
+     * These are written from three places — the `scope` coroutine that adopts a
+     * token, the `glyph-capture` `HandlerThread` on which the system delivers
+     * `MediaProjection.Callback.onStop`, and whichever thread calls [stop] —
+     * and until now none of them synchronised with the others. `detachSession`
+     * reads five fields and nulls them; a swap landing in the middle produced a
+     * `Session` pairing the *new* recorder with the *old* thread, which leaks an
+     * `AudioRecord`, leaks a `HandlerThread`, and skips an `unregisterCallback`.
+     *
+     * A monitor rather than a `Mutex`: [stop] is not a suspending function and
+     * is called from a platform callback that cannot suspend. The critical
+     * section is five field reads and five writes — the blocking work is all in
+     * [teardown], deliberately outside it.
+     */
+    private val sessionLock = Any()
+
+    /**
+     * Guards the diagnostic buffer, which is reached from the audio thread.
+     *
+     * [report] is called from the reader, from the `scope` coroutines and from
+     * the `glyph-capture` callback thread, so the buffer is not single-threaded
+     * even though it never blocks for long.
+     */
+    private val diagLock = Any()
+    private val diagBuffer = StringBuilder()
+    private var diagLines = 0
+
+    @Volatile private var projection: MediaProjection? = null
+    @Volatile private var callback: MediaProjection.Callback? = null
+    @Volatile private var callbackThread: HandlerThread? = null
+    @Volatile private var recorder: AudioRecord? = null
+    @Volatile private var readerJob: Job? = null
 
     private var edges: IntArray = IntArray(0)
     private var seq = 0L
@@ -184,8 +250,6 @@ class PlaybackAudioSource @Inject constructor(
     fun setGain(value: Float) {
         gain = value.coerceIn(MIN_GAIN, MAX_GAIN)
     }
-
-    fun gain(): Float = gain
 
     /**
      * Whether the app may capture playback at all.
@@ -214,7 +278,7 @@ class PlaybackAudioSource @Inject constructor(
         val manager = context.getSystemService(MediaProjectionManager::class.java)
         return runCatching {
             manager.createScreenCaptureIntent(
-                MediaProjectionConfig.createConfigForDefaultDisplay()
+                MediaProjectionConfig.createConfigForDefaultDisplay(),
             )
         }.getOrElse {
             // Pre-14 devices, or a manufacturer that rejects the config: the
@@ -274,26 +338,55 @@ class PlaybackAudioSource @Inject constructor(
      * to give up.
      */
     private fun adopt(granted: MediaProjection) {
-        swapping = true
+        swaps.incrementAndGet()
         scope.launch {
             try {
-                val stale = detachSession()
-                runCatching { stale.job?.cancelAndJoin() }
-                releaseNow(stale)
-                if (!isActive) return@launch
-                projection = granted
-                watchToken(granted)
-                startRecorder(granted)
+                rebuild(granted)
             } finally {
-                swapping = false
+                swaps.decrementAndGet()
             }
         }
+    }
+
+    /**
+     * Tears the old session down completely, then builds a new recorder.
+     *
+     * The order is the whole of this function. A playback capture cannot be
+     * built while the previous `AudioRecord` is still open — the platform
+     * resolves that by refusing the new recorder, which leaves [status] at
+     * [CaptureStatus.FAILED] and, per its own documentation, something re-consent
+     * cannot recover from. So the teardown has to *finish* before
+     * [startRecorder], and "finish" has to mean the reader is out.
+     *
+     * [teardown] is what makes that possible: `stop()` on the recorder first,
+     * which is the only thing that unblocks a reader parked inside `read()`.
+     */
+    private suspend fun rebuild(granted: MediaProjection) {
+        val stale = detachSession()
+        teardown(stale)
+        if (!currentCoroutineContext().isActive) return
+
+        projection = granted
+        watchToken(granted)
+        startRecorder(granted)
     }
 
     /** Ends the session and releases the token, the recorder and the callback. */
     fun stop() {
         val stale = detachSession()
-        releaseSession(stale)
+
+        // Synchronous, on this thread, before anything is scheduled.
+        //
+        // `AudioRecord.read` blocks and is not interruptible by cancellation, so
+        // a reader with nothing to read sits in it indefinitely. `stop()` is
+        // what makes that read return — and it has to happen now rather than
+        // whenever `scope` gets round to the coroutine, because a caller that
+        // stops and immediately re-consents would otherwise be racing the new
+        // recorder against the old one, which is the failure [rebuild] exists
+        // to prevent.
+        stale.recorder?.let { runCatching { it.stop() } }
+
+        launchTeardown(stale)
         resetFrameState()
         _status.value = CaptureStatus.IDLE
     }
@@ -410,14 +503,21 @@ class PlaybackAudioSource @Inject constructor(
     }
 
     private suspend fun CoroutineScope.readLoop(active: AudioRecord) {
-        while (isActive && recorder === active) {
+        while ((isActive) && (recorder === active)) {
             val read = withContext(Dispatchers.IO) { active.read(pcm, 0, pcm.size) }
 
             when {
                 read < 0 -> if (!surviveReadError(active, read)) return
-                // Nothing playing. What the strip shows is the service's
-                // business — it watches the frame level — and here there is
-                // simply nothing to do.
+                // Defensive rather than expected. A blocking-mode playback
+                // capture does not report "nothing playing" as a zero-length
+                // read — it parks inside `read()` and returns nothing at all,
+                // which is exactly the case [teardown] exists to handle.
+                //
+                // The branch is kept because a zero-length read is legal on the
+                // API and its old comment claimed this was the idle path, which
+                // would have had the next reader looking for the wrong thing.
+                // The pause guards against a spin if a device ever does return 0
+                // in a tight loop.
                 read == 0 -> delay(IDLE_POLL_MS.milliseconds)
                 else -> {
                     readFailures = 0
@@ -440,22 +540,39 @@ class PlaybackAudioSource @Inject constructor(
         readFailures++
         report("read() returned $code (failure $readFailures)")
 
-        if (code == AudioRecord.ERROR_DEAD_OBJECT || readFailures > READ_RETRY_LIMIT) {
+        if ((code == AudioRecord.ERROR_DEAD_OBJECT) || (readFailures > READ_RETRY_LIMIT)) {
             val token = projection ?: run {
                 resetFrameState()
                 _status.value = CaptureStatus.TOKEN_REVOKED
                 return false
             }
-            // The recorder is rebuilt in place and the token kept: it is still
-            // valid, and asking the user to consent again over a transient
-            // failure would be the more annoying outcome.
-            val stale = detachSession()
-            releaseSession(stale)
-            return startRecorder(token)
+
+            // Rebuilt from a *separate* coroutine, and this one returns.
+            //
+            // Both halves matter. Doing it in place would mean tearing down a
+            // session whose `job` is this very coroutine — cancel and await
+            // yourself, which never completes. And calling [startRecorder]
+            // before the teardown finished, which is what this used to do, built
+            // the new `AudioRecord` while the old one was still open: the
+            // platform refused it, the status went to FAILED, and the capture
+            // stayed dead for the rest of the process's life even though the
+            // token was still perfectly valid.
+            //
+            // `isSwapping` covers the gap the same way it does for [adopt], so
+            // a caller polling the status waits instead of giving up.
+            swaps.incrementAndGet()
+            scope.launch {
+                try {
+                    rebuild(token)
+                } finally {
+                    swaps.decrementAndGet()
+                }
+            }
+            return false
         }
 
         delay(READ_RETRY_DELAY_MS.milliseconds)
-        return isActive && this@PlaybackAudioSource.recorder === active
+        return (isActive) && (this@PlaybackAudioSource.recorder === active)
     }
 
     private fun publish(length: Int) {
@@ -466,7 +583,7 @@ class PlaybackAudioSource @Inject constructor(
 
         val bass = AudioAnalysis.bassOf(envelope)
         val level = AudioAnalysis.rmsFromPcm(pcm, length)
-        if (level > AudioFrame.SILENCE_FLOOR && seq % 40 == 0L) {
+        if ((level > AudioFrame.SILENCE_FLOOR) && ((seq % 40) == 0L)) {
             report("SIGNAL rms=$level peak=${envelope.max()} bass=$bass")
         }
         _frames.value = AudioFrame(
@@ -477,7 +594,6 @@ class PlaybackAudioSource @Inject constructor(
             treble = AudioAnalysis.trebleOf(envelope),
             rms = level,
             beat = beatDetector.update(bass, now),
-            timestampMs = now,
         )
     }
 
@@ -488,13 +604,15 @@ class PlaybackAudioSource @Inject constructor(
      * reader — and must not run against fields a *new* session has already
      * refilled.
      */
-    private fun detachSession(): Session = Session(
-        recorder = recorder.also { recorder = null },
-        projection = projection.also { projection = null },
-        callback = callback.also { callback = null },
-        thread = callbackThread.also { callbackThread = null },
-        job = readerJob.also { readerJob = null },
-    )
+    private fun detachSession(): Session = synchronized(sessionLock) {
+        Session(
+            recorder = recorder.also { recorder = null },
+            projection = projection.also { projection = null },
+            callback = callback.also { callback = null },
+            thread = callbackThread.also { callbackThread = null },
+            job = readerJob.also { readerJob = null },
+        )
+    }
 
     private class Session(
         val recorder: AudioRecord?,
@@ -505,23 +623,58 @@ class PlaybackAudioSource @Inject constructor(
     )
 
     /**
-     * Releases a detached session.
+     * Releases a detached session, awaiting the reader on the way.
      *
-     * The reader is cancelled and *awaited* before the recorder is touched:
-     * releasing an `AudioRecord` out from under a thread that is inside
-     * `read` is a native crash, not an exception.
+     * Scheduled rather than awaited, because [stop] is called from a platform
+     * callback that cannot suspend. The part that has to happen synchronously —
+     * `stop()` on the recorder — is done by the caller before this runs.
      */
-    private fun releaseSession(session: Session) {
+    private fun launchTeardown(session: Session) {
         if (scope.isActive) {
-            scope.launch {
-                runCatching { session.job?.cancelAndJoin() }
-                releaseNow(session)
-            }
+            scope.launch { teardown(session) }
         } else {
-            // Nothing left to await on, so release synchronously rather than
+            // Nothing left to await on, so release without waiting rather than
             // leak the audio objects.
             releaseNow(session)
         }
+    }
+
+    /**
+     * Ends a session completely: recorder stopped, reader out, then released.
+     *
+     * The order is not a style choice.
+     *
+     * `AudioRecord.read` on a blocking-mode playback capture does not return
+     * when there is nothing playing — it parks. Coroutine cancellation does not
+     * interrupt a blocking native call, so `cancelAndJoin()` on such a reader
+     * waits for a return that is not coming. That is what made the old order
+     * unusable: cancelling and awaiting *before* stopping meant `adopt` could
+     * hang on a phone with nothing playing, holding `isSwapping` true for good
+     * so the service's watch loop spun without ever drawing again.
+     *
+     * `stop()` first, then a bounded wait, then `release()`. Releasing an
+     * `AudioRecord` underneath a thread still inside `read` is a native crash,
+     * so `release()` is last and is reached on every path.
+     */
+    private suspend fun teardown(session: Session) {
+        session.recorder?.let { runCatching { it.stop() } }
+
+        val job = session.job
+        if (job != null) {
+            val exited = withTimeoutOrNull(READER_EXIT_TIMEOUT_MS.milliseconds) {
+                runCatching { job.cancelAndJoin() }
+                true
+            }
+            if (exited == null) {
+                // The backstop, not the expected path: `stop()` above is what
+                // normally unblocks the read. Logged rather than thrown,
+                // because the recorder is released either way and a wedged
+                // reader must not become the reason a capture never restarts.
+                report("Reader did not exit within ${READER_EXIT_TIMEOUT_MS}ms; releasing anyway")
+            }
+        }
+
+        releaseNow(session)
     }
 
     private fun releaseNow(session: Session) {
@@ -556,6 +709,34 @@ class PlaybackAudioSource @Inject constructor(
     private fun report(message: String) {
         Log.w(TAG, message)
         LoggingManager.log("AUDIO", message)
-        runCatching { File(context.cacheDir, "viz_diag.txt").appendText("$message\n") }
+        appendDiagnostic(message)
     }
+
+    /**
+     * Appends one line to the shareable diagnostic file, keeping it bounded.
+     *
+     * Held in a buffer rather than appended to on every call: this runs on the
+     * audio thread, several times a second while music plays, and an
+     * open/write/close per line showed up in a profile. The file is rotated
+     * rather than truncated so the *end* — the part describing what went wrong —
+     * is what survives.
+     */
+    private fun appendDiagnostic(message: String) {
+        runCatching {
+            synchronized(diagLock) {
+                if (diagLines == 0) diagBuffer.setLength(0)
+                diagBuffer.append(message).append('\n')
+                if (++diagLines > DIAG_MAX_LINES) {
+                    diagFile().writeText(diagBuffer.toString().lines().takeLast(DIAG_MAX_LINES / 2).joinToString("\n"))
+                    diagBuffer.setLength(0)
+                    diagLines = DIAG_MAX_LINES / 2
+                }
+                diagFile().appendText(diagBuffer.toString())
+                diagBuffer.setLength(0)
+                diagLines = 0
+            }
+        }
+    }
+
+    private fun diagFile() = File(context.cacheDir, "viz_diag.txt")
 }

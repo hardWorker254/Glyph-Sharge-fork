@@ -31,7 +31,6 @@ class AudioFrameTest {
         treble = 0f,
         rms = rms,
         beat = beat,
-        timestampMs = 0L
     )
 
     private fun bandsOf(vararg values: Float) = FloatArray(values.size) { values[it] }
@@ -85,7 +84,7 @@ class AudioFrameTest {
 
         assertEquals(
             listOf(0.1f, 0.1f, 0.2f, 0.2f, 0.3f, 0.3f, 0.4f, 0.4f),
-            out.toList()
+            out.toList(),
         )
     }
 
@@ -111,7 +110,7 @@ class AudioFrameTest {
             assertEquals(
                 "$segments segments lost the loudest band",
                 0.9f,
-                out.max()
+                out.max(),
             )
         }
     }

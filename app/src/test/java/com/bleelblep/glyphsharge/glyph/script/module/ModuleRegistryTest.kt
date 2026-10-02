@@ -21,7 +21,7 @@ class ModuleRegistryTest {
     private fun run(
         source: String,
         host: FakeHost = FakeHost(),
-        durationMs: Long = 5_000L
+        durationMs: Long = 5_000L,
     ): ScriptRunResult = LuaScriptEngine(testProfile(), host).run(source, durationMs)
 
     private fun runClean(source: String) {
@@ -38,7 +38,7 @@ class ModuleRegistryTest {
             local time = require("glyph.time")
             assert(type(time.hour) == "number", "glyph.time.hour must be a number")
             assert(type(time.isNight) == "boolean", "glyph.time.isNight must be a boolean")
-            """
+            """,
         )
     }
 
@@ -53,7 +53,7 @@ class ModuleRegistryTest {
             assert(first == second, "the second require must return the same table")
             first.marker = 1
             assert(second.marker == 1, "they must be the same table, not two alike")
-            """
+            """,
         )
     }
 
@@ -65,7 +65,7 @@ class ModuleRegistryTest {
             assert(not ok, "a typo must raise, not return nil")
             assert(string.find(err, "glyph.nett", 1, true) ~= nil, "the name must be in the message")
             assert(string.find(err, "glyph.time", 1, true) ~= nil, "the available list must be there")
-            """
+            """,
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
@@ -82,7 +82,7 @@ class ModuleRegistryTest {
             local time = require("glyph.time")
             time.hour = 99
             assert(time.hour == 99, "the script owns the table it was given")
-            """
+            """,
         )
         assertEquals(first.message, ScriptStatus.COMPLETED, first.status)
 
@@ -90,7 +90,7 @@ class ModuleRegistryTest {
         val second = engineAt(hour = 13, minute = 45).run(
             """
             assert(require("glyph.time").hour == 13, "the second run must see a fresh table")
-            """
+            """,
         )
         assertEquals(second.message, ScriptStatus.COMPLETED, second.status)
     }
@@ -108,7 +108,7 @@ class ModuleRegistryTest {
             """
             local ok = pcall(function() require("io") end)
             assert(not ok, "io must not be reachable through require")
-            """
+            """,
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
@@ -120,7 +120,7 @@ class ModuleRegistryTest {
             """
             local ok = pcall(function() require("os") end)
             assert(not ok, "os must not be reachable through require")
-            """
+            """,
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
@@ -133,7 +133,7 @@ class ModuleRegistryTest {
             assert(dofile == nil, "dofile must stay blanked")
             assert(loadfile == nil, "loadfile must stay blanked")
             assert(package == nil, "package must stay blanked")
-            """
+            """,
         )
     }
 
@@ -146,7 +146,7 @@ class ModuleRegistryTest {
             assert(luajava == nil, "luajava must stay blanked")
             assert(coroutine == nil, "coroutine must stay blanked")
             assert(collectgarbage == nil, "collectgarbage must stay blanked")
-            """
+            """,
         )
     }
 

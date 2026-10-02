@@ -23,7 +23,7 @@ enum class LogLevel {
     /** Something the author should look at, but the run continues. */
     WARN,
 
-    /** The script has given up; [com.bleelblep.glyphsharge.glyph.script.module.GlyphLogModule.error] logs and then raises. */
+    /** The script has given up; `GlyphLogModule.error` logs and then raises. */
     ERROR
 }
 
@@ -35,5 +35,5 @@ enum class LogLevel {
  */
 data class ScriptLogLine(
     val text: String,
-    val level: LogLevel
+    val level: LogLevel,
 )

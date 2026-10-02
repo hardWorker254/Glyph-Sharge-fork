@@ -1,7 +1,6 @@
 package com.bleelblep.glyphsharge.ui.screens
 
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -26,8 +25,8 @@ import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 @Composable
 fun FontSettingsScreen(
     fontState: FontState,
+    modifier: Modifier = Modifier,
     onNavigateBack: () -> Unit,
-    modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
     // The user's haptic strength is a setting, so it is read once per
@@ -38,7 +37,7 @@ fun FontSettingsScreen(
     SettingsScaffold(
         title = stringResource(id = R.string.settings_card_typography),
         modifier = modifier,
-        onBackClick = onNavigateBack
+        onBackClick = onNavigateBack,
     ) {
         // Custom Fonts Toggle Card
         item {
@@ -54,7 +53,7 @@ fun FontSettingsScreen(
                         stringResource(id = R.string.font_settings_toggle_status_on)
                     else
                         stringResource(id = R.string.font_settings_toggle_status_off)
-                }
+                },
             )
         }
 
@@ -63,7 +62,7 @@ fun FontSettingsScreen(
             item {
                 HomeSectionHeader(
                     title = stringResource(id = R.string.font_settings_section_family),
-                    modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+                    modifier = Modifier.padding(start = 4.dp, top = 8.dp),
                 )
             }
 
@@ -73,7 +72,7 @@ fun FontSettingsScreen(
                     onVariantSelected = { variant ->
                         HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                         fontState.setFontVariant(variant)
-                    }
+                    },
                 )
             }
         }
@@ -82,7 +81,7 @@ fun FontSettingsScreen(
         item {
             HomeSectionHeader(
                 title = stringResource(id = R.string.font_settings_section_size),
-                modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+                modifier = Modifier.padding(start = 4.dp, top = 8.dp),
             )
         }
 
@@ -90,14 +89,24 @@ fun FontSettingsScreen(
         item {
             FontSizeControls(
                 fontSizeSettings = fontState.fontSizeSettings,
+                // Live, so the preview grows under the thumb — but not persisted.
+                // A drag reports a value per pixel of travel, and writing each
+                // one meant a `SharedPreferences` commit and a recomposition of
+                // every screen in the app, tens of times for one gesture.
                 onSizeChanged = { category, scale ->
+                    fontState.updateFontSize(category, scale, persist = false)
+                },
+                // One haptic and one write, at the end of the gesture. This used
+                // to fire per pixel as well as inside the slider itself, so each
+                // step of the drag buzzed twice and ran on under the thumb.
+                onSizeChangeFinished = { category, scale ->
                     HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
-                    fontState.updateFontSize(category, scale)
+                    fontState.updateFontSize(category, scale, persist = true)
                 },
                 onReset = {
                     HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
                     fontState.resetFontSizes()
-                }
+                },
             )
         }
 
@@ -105,7 +114,7 @@ fun FontSettingsScreen(
         item {
             HomeSectionHeader(
                 title = stringResource(id = R.string.font_settings_section_preview),
-                modifier = Modifier.padding(start = 4.dp, top = 8.dp)
+                modifier = Modifier.padding(start = 4.dp, top = 8.dp),
             )
         }
 

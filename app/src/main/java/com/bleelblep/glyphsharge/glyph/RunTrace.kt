@@ -22,7 +22,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class RunTrace @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context,
 ) {
 
     private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -46,8 +46,6 @@ class RunTrace @Inject constructor(
 
         LoggingManager.log(TAG, "$feature $step $detail")
     }
-
-    fun dump(): String = prefs.getString(KEY, "").orEmpty()
 
     private companion object {
         const val TAG = "GlyphRun"

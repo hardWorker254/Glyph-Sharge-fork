@@ -1,12 +1,15 @@
 package com.bleelblep.glyphsharge.glyph.script
 
 import com.bleelblep.glyphsharge.data.CustomAnimationRepository
+import com.bleelblep.glyphsharge.glyph.GlyphFeature
+import com.bleelblep.glyphsharge.glyph.GlyphFeatureCoordinator
 import com.bleelblep.glyphsharge.glyph.GlyphManager
 import com.bleelblep.glyphsharge.glyph.animations.AnimationRunner
 import com.bleelblep.glyphsharge.glyph.engine.GlyphRenderer
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 
 /**
@@ -26,6 +29,17 @@ class ScriptPlayback @Inject constructor(
     private val glyphManager: GlyphManager,
     private val customAnimationRepository: CustomAnimationRepository,
     private val scriptRunner: ScriptRunner,
+    /**
+     * Lazy, and that is not incidental.
+     *
+     * The coordinator holds [com.bleelblep.glyphsharge.glyph.GlyphAnimationManager]
+     * so it can interrupt whoever owns the strip, and the manager holds this
+     * class — so a direct dependency would close a construction cycle and Dagger
+     * would refuse the graph. A [Provider] defers the lookup to the moment a
+     * preview actually runs, which is also the only time it is needed: the
+     * feature path is already inside `withStrip` and never comes near here.
+     */
+    private val coordinator: Provider<GlyphFeatureCoordinator>,
 ) {
 
     /**
@@ -86,7 +100,33 @@ class ScriptPlayback @Inject constructor(
         if (!glyphManager.isNothingPhone()) {
             return ScriptRunResult(ScriptStatus.STOPPED, "Glyph is not available on this device.")
         }
-        return playScript { scriptRunner.runScript(source, durationMs) }
+
+        // Through the coordinator, like every other thing that draws.
+        //
+        // This is the one caller that used to skip it, and skipping meant the
+        // preview interleaved with whatever a feature service was playing: both
+        // drew, the LEDs carried both at once, and the preview's teardown cleared
+        // the flag the service's own `while (isRunning)` loop was watching — so
+        // the service's animation stopped halfway and nothing said so.
+        //
+        // `preempt = false`, so a preview never interrupts a feature: it takes
+        // the strip only if it is free, and gives up otherwise. A preview is
+        // the user checking something out, and interrupting a charging animation
+        // for that is worse than the preview not appearing.
+        val played = coordinator.get().withStrip(
+            owner = GlyphFeature.PREVIEW,
+            preempt = false,
+        ) {
+            playScript { scriptRunner.runScript(source, durationMs) }
+        }
+
+        // `null` is "the strip was busy", which is a real answer rather than a
+        // failure to report as one — and saying so beats leaving the user
+        // staring at an editor that appeared to do nothing.
+        return played ?: ScriptRunResult(
+            ScriptStatus.STOPPED,
+            "The glyph is busy with another animation.",
+        )
     }
 
     /**
@@ -107,16 +147,16 @@ class ScriptPlayback @Inject constructor(
             return ScriptRunResult(ScriptStatus.STOPPED, "This phone's LED layout is unknown.")
         }
 
-        renderer.start()
-        try {
+        val lease = renderer.start("script")
+        return try {
             renderer.turnOff()
             delay(AnimationRunner.CLEANUP_DELAY_MS.milliseconds)
-            return block()
+            block()
         } catch (e: Exception) {
             renderer.onError(e, "Script error")
-            return ScriptRunResult(ScriptStatus.RUNTIME_ERROR, e.message)
+            ScriptRunResult(ScriptStatus.RUNTIME_ERROR, e.message)
         } finally {
-            renderer.stop()
+            renderer.stop(lease)
             renderer.turnOff()
         }
     }

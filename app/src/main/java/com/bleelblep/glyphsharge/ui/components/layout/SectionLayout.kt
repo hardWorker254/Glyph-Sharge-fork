@@ -19,14 +19,14 @@ import com.bleelblep.glyphsharge.ui.theme.LocalThemeState
 @Composable
 fun HomeSectionHeader(
     title: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Text(
         text = title,
         style = MaterialTheme.typography.titleMedium,
         color = MaterialTheme.colorScheme.onSurface,
         modifier = modifier
-            .padding(start = 8.dp, bottom = 8.dp, top = 8.dp)
+            .padding(start = 8.dp, bottom = 8.dp, top = 8.dp),
     )
 }
 
@@ -37,7 +37,7 @@ fun HomeSectionHeader(
 fun FeatureGrid(
     modifier: Modifier = Modifier,
     spacing: Int = 16,
-    content: @Composable RowScope.() -> Unit
+    content: @Composable RowScope.() -> Unit,
 ) {
     val themeState = LocalThemeState.current
 
@@ -56,6 +56,6 @@ fun FeatureGrid(
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(enhancedSpacing.dp),
-        content = content
+        content = content,
     )
 }

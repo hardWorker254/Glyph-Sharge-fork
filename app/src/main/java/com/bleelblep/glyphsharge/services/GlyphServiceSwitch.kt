@@ -79,10 +79,11 @@ class GlyphServiceSwitch @Inject constructor(
         if (!glyphManager.isSessionActive && !glyphManager.forceEnsureSession()) {
             "The Glyph service could not be reached"
         } else {
-            // Flag first. Every feature service reads it to decide whether it
-            // may run at all, and GlyphForegroundService stops itself when it
-            // is not set.
-            settingsRepository.saveGlyphServiceEnabled(true)
+            // Flag first, and that order is load-bearing in both directions:
+            // every feature service reads it in `onStartCommand` to decide
+            // whether it may run at all, so it has to be true before any of
+            // them is asked to start.
+            settingsRepository.saveGlyphServiceEnabled(enabled = true)
             // What keeps the app listed in Quick Settings "Active apps", and
             // what every other feature service is then free to start behind.
             serviceController.startPersistentGlyphService()
@@ -91,6 +92,18 @@ class GlyphServiceSwitch @Inject constructor(
         }
     } catch (e: Exception) {
         Log.e(TAG, "Turning the Glyph service on failed", e)
+        // Rolled back, because the alternative is a switch that lies. The flag
+        // is already on disk and the session is already open, so without this
+        // the tile refreshes to ACTIVE and the home card says "on" while none
+        // of the eight services is running — and `isRunnable` would keep them
+        // shut down on every later attempt to start, since the flag says they
+        // may run but nothing is there to run.
+        runCatching {
+            settingsRepository.saveGlyphServiceEnabled(enabled = false)
+            serviceController.stopAll()
+            glyphManager.closeSession()
+        }.onFailure { Log.w(TAG, "Rolling back a failed Glyph switch-on", it) }
+
         e.message ?: "The Glyph service could not be turned on"
     }
 
@@ -98,7 +111,7 @@ class GlyphServiceSwitch @Inject constructor(
         // The same order as [turnOn], read downwards: the flag goes first so
         // nothing on the way down restarts itself, then the session, then the
         // services that were drawing behind it.
-        settingsRepository.saveGlyphServiceEnabled(false)
+        settingsRepository.saveGlyphServiceEnabled(enabled = false)
         runCatching { glyphManager.closeSession() }
             .onFailure { Log.w(TAG, "Closing the Glyph session failed", it) }
         serviceController.stopAll()

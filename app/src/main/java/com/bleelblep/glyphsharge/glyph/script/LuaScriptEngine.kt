@@ -63,7 +63,7 @@ data class ScriptRunResult(
      * sites that never run a script (no LED layout, no glyph on this phone)
      * do not each have to invent a value.
      */
-    val logLines: List<ScriptLogLine> = emptyList()
+    val logLines: List<ScriptLogLine> = emptyList(),
 ) {
     val isSuccess: Boolean get() = status == ScriptStatus.COMPLETED
 }
@@ -98,7 +98,7 @@ enum class ScriptCheckStatus {
  */
 data class ScriptCheckResult(
     val status: ScriptCheckStatus,
-    val message: String? = null
+    val message: String? = null,
 ) {
     val isOk: Boolean get() = status == ScriptCheckStatus.OK
 
@@ -244,16 +244,13 @@ class LuaScriptEngine(
      * provide the second. Defaults to doing nothing, which is what every run
      * in this file's own tests gets.
      */
-    private val sensorControl: SensorControl = SensorControl.NONE
+    private val sensorControl: SensorControl = SensorControl.NONE,
 ) {
     private companion object {
         const val TAG = "LuaScriptEngine"
 
         /** How often the watchdog runs, in VM instructions. */
         const val INSTRUCTION_INTERVAL = 20_000
-
-        /** Hard ceiling on executed instructions for a single run. */
-        const val INSTRUCTION_BUDGET = 200_000_000L
 
         /** Fallback run length when no duration was supplied. */
         const val DEFAULT_DURATION_MS = 5_000L
@@ -279,7 +276,7 @@ class LuaScriptEngine(
         val BANNED_GLOBALS = arrayOf(
             "io", "os", "package", "require", "module",
             "dofile", "loadfile", "load", "loadstring",
-            "luajava", "coroutine", "collectgarbage", "newproxy"
+            "luajava", "coroutine", "collectgarbage", "newproxy",
         )
     }
 
@@ -311,7 +308,7 @@ class LuaScriptEngine(
             clock = wallClock,
             network = network,
             sensor = sensor,
-            sensorControl = sensorControl
+            sensorControl = sensorControl,
         )
         activeSession = current
 
@@ -334,7 +331,7 @@ class LuaScriptEngine(
             activeSession = null
             return ScriptRunResult(
                 ScriptStatus.SYNTAX_ERROR,
-                e.message?.lineSequence()?.firstOrNull { it.isNotBlank() } ?: "Syntax error"
+                e.message?.lineSequence()?.firstOrNull { it.isNotBlank() } ?: "Syntax error",
             )
         }
 
@@ -344,7 +341,7 @@ class LuaScriptEngine(
         return try {
             val outcome = thread.resume(LuaValue.NIL)
             current.result(outcome, now() - startedAt).withScriptLog(current)
-        } catch (e: ScriptAbortedError) {
+        } catch (_: ScriptAbortedError) {
             current.result(null, now() - startedAt).withScriptLog(current)
         } catch (e: Exception) {
             Log.e(TAG, "Script run failed", e)
@@ -354,7 +351,30 @@ class LuaScriptEngine(
                 current.frames,
                 now() - startedAt,
                 current.target(),
-                current.logLines()
+                current.logLines(),
+            )
+        } catch (e: Error) {
+            // The `Errors`, not just the `Exceptions`.
+            //
+            // The memory ceiling in `ScriptSession` is meant to stop a runaway
+            // allocation before this happens, but it is a poll — a script can
+            // outrun it between two watchdog ticks, and a deeply recursive
+            // script can reach the stack limit without allocating a table at
+            // all. Neither is caught by `catch (e: Exception)`, so before this
+            // branch an `OutOfMemoryError` from a store-downloaded script
+            // propagated out of a feature's foreground service and killed the
+            // process, taking an unrelated feature with it.
+            //
+            // Reported as a runtime error so the studio shows the author what
+            // happened, rather than the service dying where it stands.
+            Log.e(TAG, "Script exhausted a VM resource", e)
+            ScriptRunResult(
+                ScriptStatus.RUNTIME_ERROR,
+                describeError(e),
+                current.frames,
+                now() - startedAt,
+                current.target(),
+                current.logLines(),
             )
         } finally {
             activeSession = null
@@ -413,7 +433,7 @@ class LuaScriptEngine(
                 clock = wallClock,
                 network = network,
                 sensor = sensor,
-                sensorControl = sensorControl
+                sensorControl = sensorControl,
             )
             val env = buildGlobals(check)
             env.globals.load(WRAPPER_OPEN + source + "\n" + WRAPPER_CLOSE, "=check")
@@ -421,17 +441,19 @@ class LuaScriptEngine(
         } catch (e: Exception) {
             e.message?.lineSequence()?.firstOrNull { it.isNotBlank() } ?: "Syntax error"
         }
-        if (syntaxError != null) return ScriptCheckResult(ScriptCheckStatus.SYNTAX_ERROR, syntaxError)
-
-        val missing = ModuleSourceScan.missingModules(source).firstOrNull()
-            ?: return ScriptCheckResult.OK
-        // The registry's own wording, verbatim: it is the same string the
-        // script itself will trip over on the phone, so the author reads the
-        // Check output and the failure as the same sentence.
-        return ScriptCheckResult(
-            ScriptCheckStatus.MISSING_MODULE,
-            ModuleRegistry.unknownModuleMessage(missing)
-        )
+        return if (syntaxError != null) {
+            ScriptCheckResult(ScriptCheckStatus.SYNTAX_ERROR, syntaxError)
+        } else {
+            val missing = ModuleSourceScan.missingModules(source).firstOrNull()
+                ?: return ScriptCheckResult.OK
+            // The registry's own wording, verbatim: it is the same string the
+            // script itself will trip over on the phone, so the author reads the
+            // Check output and the failure as the same sentence.
+            ScriptCheckResult(
+                ScriptCheckStatus.MISSING_MODULE,
+                ModuleRegistry.unknownModuleMessage(missing),
+            )
+        }
     }
 
     /** Stops the current run. Safe to call from the main thread at any time. */
@@ -459,7 +481,7 @@ class LuaScriptEngine(
         // watchdog at all. Must happen before the globals are pruned.
         globals.load(DebugLib())
 
-        BANNED_GLOBALS.forEach { globals.set(it, LuaValue.NIL) }
+        BANNED_GLOBALS.forEach { globals[it] = LuaValue.NIL }
 
         GlyphLuaApi.install(globals, current)
 
@@ -468,20 +490,18 @@ class LuaScriptEngine(
         // system, no search path and no `package` behind it. `dofile`, `load`
         // and `loadstring` stay nil, which is what the sandbox is for — this
         // adds a front door to four known rooms, not a way out of the house.
-        globals.set("require", ModuleRegistry.requireFor(current))
+        globals["require"] = ModuleRegistry.requireFor(current)
 
         // `print` is the one output channel a script gets, and it goes to the
         // studio console rather than to stdout.
-        globals.set(
-            "print",
+        globals["print"] =
             GlyphLuaApi.luaFunction("print") { args ->
                 current.log(args.joinToString(" ") { it.tojstring() })
                 LuaValue.NIL
             }
-        )
 
         // Used, then hidden: a script must not be able to clear the hook.
-        globals.set("debug", LuaValue.NIL)
+        globals["debug"] = LuaValue.NIL
         return LuaEnvironment(globals)
     }
 
@@ -515,4 +535,13 @@ class LuaScriptEngine(
      */
     private fun describe(e: Exception): String =
         e.cause?.message ?: e.message ?: e::class.java.simpleName
+
+    /**
+     * The same, for a [Throwable] that is not an [Exception].
+     *
+     * There is no wrapper to unwrap for an `OutOfMemoryError` thrown by the VM
+     * itself, so this reads the message directly.
+     */
+    private fun describeError(e: Error): String =
+        e.message ?: e::class.java.simpleName
 }

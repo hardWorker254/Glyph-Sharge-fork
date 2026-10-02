@@ -54,6 +54,7 @@ import com.bleelblep.glyphsharge.ui.theme.NothingViolate
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Reusable morphing toggle button with smooth shape transitions.
@@ -69,7 +70,7 @@ fun MorphingToggleButton(
             imageVector = Icons.Default.CheckCircle,
             contentDescription = "Enabled",
             tint = Color.White,
-            modifier = Modifier.size(28.dp)
+            modifier = Modifier.size(28.dp),
         )
     },
     disabledIcon: @Composable () -> Unit = {
@@ -77,9 +78,9 @@ fun MorphingToggleButton(
             imageVector = Icons.Default.Close,
             contentDescription = "Disabled",
             tint = Color.White,
-            modifier = Modifier.size(24.dp)
+            modifier = Modifier.size(24.dp),
         )
-    }
+    },
 ) {
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
@@ -92,19 +93,19 @@ fun MorphingToggleButton(
     val width by animateDpAsState(
         targetValue = if (checked) 60.dp else 88.dp,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "width"
+        label = "width",
     )
 
     val height by animateDpAsState(
         targetValue = if (checked) 60.dp else 40.dp,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "height"
+        label = "height",
     )
 
     val cornerRadius by animateDpAsState(
         targetValue = if (checked) 30.dp else 12.dp,
         animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy),
-        label = "cornerRadius"
+        label = "cornerRadius",
     )
 
     val backgroundColor by animateColorAsState(
@@ -122,20 +123,20 @@ fun MorphingToggleButton(
             }
         },
         animationSpec = tween(durationMillis = 300),
-        label = "backgroundColor"
+        label = "backgroundColor",
     )
 
-    var isPressed by remember { mutableStateOf(false) }
+    var isPressed by remember { mutableStateOf(value = false) }
     val pressScale by animateFloatAsState(
         targetValue = if (isPressed) 0.93f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy),
-        label = "pressScale"
+        label = "pressScale",
     )
 
     val activeScale by animateFloatAsState(
         targetValue = if (checked) 1.07f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "activeScale"
+        label = "activeScale",
     )
 
     val totalScale = pressScale * activeScale
@@ -148,28 +149,28 @@ fun MorphingToggleButton(
             .background(backgroundColor)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = null
+                indication = null,
             ) {
                 try {
                     isPressed = true
                     HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                     onCheckedChange(!checked)
                     scope.launch {
-                        delay(120)
+                        delay(120.milliseconds)
                         isPressed = false
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
             },
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         AnimatedContent(
             targetState = checked,
             transitionSpec = {
-                scaleIn(tween(200)) + fadeIn() togetherWith fadeOut()
+                (scaleIn(tween(200)) + fadeIn()) togetherWith fadeOut()
             },
-            label = "iconTransition"
+            label = "iconTransition",
         ) { isChecked ->
             if (isChecked) {
                 enabledIcon()
@@ -188,7 +189,7 @@ fun MorphingToggleButton(
 fun ThreeStateFontMorphingButton(
     currentVariant: FontVariant,
     onVariantSelected: (FontVariant) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
@@ -211,7 +212,7 @@ fun ThreeStateFontMorphingButton(
             FontVariant.SYSTEM -> 60.dp
         },
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "width"
+        label = "width",
     )
 
     val height by animateDpAsState(
@@ -221,7 +222,7 @@ fun ThreeStateFontMorphingButton(
             FontVariant.SYSTEM -> 60.dp
         },
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "height"
+        label = "height",
     )
 
     val cornerRadius by animateDpAsState(
@@ -231,7 +232,7 @@ fun ThreeStateFontMorphingButton(
             FontVariant.SYSTEM -> 30.dp
         },
         animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy),
-        label = "cornerRadius"
+        label = "cornerRadius",
     )
 
     val backgroundColor by animateColorAsState(
@@ -249,16 +250,16 @@ fun ThreeStateFontMorphingButton(
             }
         },
         animationSpec = tween(durationMillis = 300),
-        label = "backgroundColor"
+        label = "backgroundColor",
     )
 
     val contentColor = Color.White
 
-    var isPressed by remember { mutableStateOf(false) }
+    var isPressed by remember { mutableStateOf(value = false) }
     val pressScale by animateFloatAsState(
         targetValue = if (isPressed) 0.93f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioHighBouncy),
-        label = "pressScale"
+        label = "pressScale",
     )
 
     val activeScale by animateFloatAsState(
@@ -268,7 +269,7 @@ fun ThreeStateFontMorphingButton(
             FontVariant.SYSTEM -> 1.07f
         },
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "activeScale"
+        label = "activeScale",
     )
 
     val totalScale = pressScale * activeScale
@@ -281,29 +282,29 @@ fun ThreeStateFontMorphingButton(
             .background(backgroundColor)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = null
+                indication = null,
             ) {
                 try {
                     isPressed = true
                     HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                     onVariantSelected(nextVariant)
                     scope.launch {
-                        delay(120)
+                        delay(120.milliseconds)
                         isPressed = false
                     }
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
             },
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         AnimatedContent(
             targetState = currentVariant,
             transitionSpec = {
-                scaleIn(tween(200)) + fadeIn() togetherWith
-                    scaleOut(tween(150)) + fadeOut()
+                (scaleIn(tween(200)) + fadeIn()) togetherWith
+                    (scaleOut(tween(150)) + fadeOut())
             },
-            label = "fontIconTransition"
+            label = "fontIconTransition",
         ) { variant ->
             Text(
                 text = when (variant) {
@@ -321,10 +322,10 @@ fun ThreeStateFontMorphingButton(
                         FontVariant.HEADLINE -> 18.sp
                         FontVariant.NDOT -> 18.sp
                         FontVariant.SYSTEM -> 20.sp
-                    }
+                    },
                 ),
                 color = contentColor,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Bold,
             )
         }
     }

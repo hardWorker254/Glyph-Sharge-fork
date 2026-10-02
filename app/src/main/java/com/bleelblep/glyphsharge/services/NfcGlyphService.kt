@@ -1,30 +1,23 @@
 package com.bleelblep.glyphsharge.services
 
 import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.nfc.NfcAdapter
 import android.nfc.Tag
-import android.os.IBinder
-import android.os.PowerManager
 import android.util.Log
+import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.glyph.GlyphAnimationManager
 import com.bleelblep.glyphsharge.glyph.GlyphFeature
+import com.bleelblep.glyphsharge.glyph.GlyphFeatureCoordinator
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -46,7 +39,7 @@ import javax.inject.Inject
  * picked up automatically here without any Activity involvement.
  */
 @AndroidEntryPoint
-class NfcGlyphService : Service() {
+class NfcGlyphService : FeatureService() {
 
     companion object {
         private const val TAG = "NfcGlyphService"
@@ -67,7 +60,7 @@ class NfcGlyphService : Service() {
         private const val EXTRA_NFC_ACTION = "extra_nfc_action"
 
         /**
-         * Call this from your Activity's [onNewIntent] / [onResume] so that tag
+         * Call this from your Activity's `onNewIntent` / `onResume` so that tag
          * discoveries are forwarded to the running service.
          *
          * Example:
@@ -82,7 +75,7 @@ class NfcGlyphService : Service() {
             val nfcActions = setOf(
                 NfcAdapter.ACTION_TAG_DISCOVERED,
                 NfcAdapter.ACTION_NDEF_DISCOVERED,
-                NfcAdapter.ACTION_TECH_DISCOVERED
+                NfcAdapter.ACTION_TECH_DISCOVERED,
             )
             if (intent.action !in nfcActions) return
 
@@ -102,29 +95,30 @@ class NfcGlyphService : Service() {
 
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var glyphAnimationManager: GlyphAnimationManager
-    @Inject lateinit var featureCoordinator: com.bleelblep.glyphsharge.glyph.GlyphFeatureCoordinator
+    @Inject lateinit var featureCoordinator: GlyphFeatureCoordinator
 
     /**
      * This service's own registry entry, which owns the run gate — my switch
      * and the master Glyph switch.
-     *
-     * It is needed in three places here, and one of them is the reason it
-     * matters: a forwarded tag intent returns from `onStartCommand` *before* the
-     * usual run gate, so a tag discovered while the feature is off goes
-     * straight to the trigger handler instead of being turned away by the check
-     * that would have caught it.
      */
     private val spec = FeatureSpecs.of(GlyphFeature.NFC)
 
-    // Coroutine scope
+    // Identity
 
-    private val serviceJob = Job()
-    private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
+    override val isRunnable: Boolean
+        get() = spec.isRunnable(settingsRepository)
 
-    private val animationJob = SupervisorJob()
-    private val animationScope = CoroutineScope(Dispatchers.Main + animationJob)
+    override val startAction: String get() = ACTION_START
+    override val stopAction: String get() = ACTION_STOP
+    override val channelId: String get() = NOTIF_CHANNEL_ID
+    override val notificationId: Int get() = NOTIF_ID
 
-    private lateinit var wakeLock: PowerManager.WakeLock
+    @get:StringRes
+    override val channelNameRes: Int get() = R.string.nfc_glyph_channel
+
+    override val wakeLockTag: String get() = "GlyphSharge:NfcAnimation"
+
+    override val tag: String get() = TAG
 
     // BroadcastReceiver — HCE / contactless payment transactions
 
@@ -150,65 +144,49 @@ class NfcGlyphService : Service() {
 
     // Lifecycle
 
-    override fun onCreate() {
-        super.onCreate()
-        createNotificationChannel()
+    override fun onFeatureCreated() {
+        super.onFeatureCreated()
         registerNfcReceiver()
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(
-            PowerManager.PARTIAL_WAKE_LOCK,
-            "GlyphSharge:NfcAnimation"
-        )
         Log.d(TAG, "NfcGlyphService created")
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIF_ID, buildNotification())
-
-        when (intent?.action) {
-            ACTION_STOP -> {
-                shutDown()
-                return START_NOT_STICKY
+    override fun onStartCommandAfterGate(intent: Intent?): Int {
+        // A tag the Activity forwarded arrives here, after the base's run gate
+        // rather than before it. It used to be answered ahead of the gate, but
+        // `triggerGlyphAnimation` re-checks the same gate before drawing
+        // anything, so the observable outcome is unchanged: no animation either
+        // way when the feature is off — the difference is only that the service
+        // now shuts down cleanly instead of staying up.
+        if (intent?.action == ACTION_NFC_TAG_FORWARDED) {
+            val originalAction = intent.getStringExtra(EXTRA_NFC_ACTION) ?: "tag"
+            val label = when (originalAction) {
+                NfcAdapter.ACTION_TAG_DISCOVERED  -> "tag discovered"
+                NfcAdapter.ACTION_NDEF_DISCOVERED -> "NDEF tag"
+                NfcAdapter.ACTION_TECH_DISCOVERED -> "tech tag"
+                else                              -> "NFC tag"
             }
-
-            ACTION_NFC_TAG_FORWARDED -> {
-                val originalAction = intent.getStringExtra(EXTRA_NFC_ACTION) ?: "tag"
-                val label = when (originalAction) {
-                    NfcAdapter.ACTION_TAG_DISCOVERED  -> "tag discovered"
-                    NfcAdapter.ACTION_NDEF_DISCOVERED -> "NDEF tag"
-                    NfcAdapter.ACTION_TECH_DISCOVERED -> "tech tag"
-                    else                              -> "NFC tag"
-                }
-                Log.d(TAG, "Forwarded NFC intent received – $label")
-                triggerGlyphAnimation(eventLabel = label)
-                return START_NOT_STICKY
-            }
-        }
-
-        if (!spec.isRunnable(settingsRepository)) {
-            shutDown()
+            Log.d(TAG, "Forwarded NFC intent received – $label")
+            triggerGlyphAnimation(eventLabel = label)
             return START_NOT_STICKY
         }
 
         return START_STICKY
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        unregisterReceiver(nfcTransactionReceiver)
-        stopForegroundCompat()
-        serviceJob.cancel()
-        Log.d(TAG, "NfcGlyphService destroyed – animation may still be finishing")
-    }
-
-    override fun onBind(intent: Intent?): IBinder? = null
-
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        super.onTaskRemoved(rootIntent)
-        if (!spec.isRunnable(settingsRepository)) return
-
-        val restart = Intent(this, NfcGlyphService::class.java).apply { action = ACTION_START }
-        startForegroundService(restart)
+    override fun onFeatureDestroying() {
+        // Guarded by the base class's own `runCatching` convention: `onCreate`
+        // can fail before the registration completes — the Hilt graph, the
+        // notification channel — and an unguarded `unregisterReceiver` then
+        // throws out of `onDestroy`, which is an uncaught crash rather than a
+        // cleanup failure.
+        //
+        // The animation scope and the WakeLock are the base's to cancel: both
+        // used to be missed, because `animationJob` was a root job that
+        // `serviceJob.cancel()` never reached, so a tag scan mid-animation kept
+        // drawing, kept the strip and the WakeLock, and kept a destroyed
+        // Service alive.
+        runCatching { unregisterReceiver(nfcTransactionReceiver) }
+        Log.d(TAG, "NfcGlyphService destroyed")
     }
 
     // NFC receiver registration
@@ -221,7 +199,7 @@ class NfcGlyphService : Service() {
             this,
             nfcTransactionReceiver,
             filter,
-            ContextCompat.RECEIVER_NOT_EXPORTED
+            ContextCompat.RECEIVER_NOT_EXPORTED,
         )
     }
 
@@ -256,7 +234,7 @@ class NfcGlyphService : Service() {
                         } catch (e: Exception) {
                             Log.w(TAG, "Failed to release WakeLock: ${e.message}")
                         }
-                    }
+                    },
                 ) {
                     val animationId = settingsRepository.getNfcAnimationId()
                     val duration    = settingsRepository.getNfcAnimationDuration()
@@ -274,7 +252,7 @@ class NfcGlyphService : Service() {
                         capMs = duration,
                         onTimeout = {
                             Log.d(TAG, "Duration limit reached – stopping NFC animation")
-                        }
+                        },
                     ) {
                         glyphAnimationManager.playNfcAnimation()
                     }
@@ -287,34 +265,17 @@ class NfcGlyphService : Service() {
             }
         }
     }
-    // Notification helpers
 
-    private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            NOTIF_CHANNEL_ID,
-            "NFC Glyph Service",
-            NotificationManager.IMPORTANCE_LOW
-        )
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-    }
+    // Notification
 
-    private fun buildNotification(): Notification =
+    override fun buildNotification(): Notification =
+        buildNotification(getString(R.string.nfc_glyph_notif_text))
+
+    override fun buildNotification(text: String): Notification =
         NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
-            .setContentTitle("✨ NFC Animation Active")
-            .setContentText("Tap to pay or scan an NFC tag to trigger an animation.")
+            .setContentTitle(getString(R.string.nfc_glyph_notif_title))
+            .setContentText(text)
             .setSmallIcon(R.drawable._44)
             .setOngoing(true)
             .build()
-
-    // Compat helpers
-
-    private fun shutDown() {
-        stopForegroundCompat()
-        stopSelf()
-    }
-
-    @Suppress("DEPRECATION")
-    private fun stopForegroundCompat() {
-        stopForeground(STOP_FOREGROUND_REMOVE)
-    }
 }

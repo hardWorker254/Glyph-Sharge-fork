@@ -20,9 +20,12 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -57,7 +60,7 @@ data class StudioUiState(
     val source: String = "",
     val isDirty: Boolean = false,
     val console: List<ConsoleLine> = emptyList(),
-    val isRunning: Boolean = false
+    val isRunning: Boolean = false,
 )
 
 /**
@@ -74,7 +77,7 @@ class AnimationStudioViewModel @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val repository: CustomAnimationRepository,
     private val glyphAnimationManager: GlyphAnimationManager,
-    private val glyphManager: GlyphManager
+    private val glyphManager: GlyphManager,
 ) : ViewModel() {
 
     private fun text(@StringRes id: Int, vararg args: Any): String =
@@ -90,8 +93,20 @@ class AnimationStudioViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(StudioUiState())
     val uiState: StateFlow<StudioUiState> = _uiState.asStateFlow()
 
-    private val _messages = MutableStateFlow<String?>(null)
-    val messages: StateFlow<String?> = _messages.asStateFlow()
+    // A channel, not a `StateFlow`, because these are events rather than
+    // state. `StateFlow` conflates equal values, and several of these strings
+    // take no argument — `studio_msg_deleted` is the same text every time — so
+    // deleting two scripts in quick succession assigned the same value twice,
+    // the second assignment did not re-emit, and the user saw one toast for
+    // two deletions. A channel delivers every send.
+    //
+    // `HomeViewModel` already works this way; this file was the odd one out.
+    private val _messages = Channel<String>(Channel.BUFFERED)
+    val messages: Flow<String> = _messages.receiveAsFlow()
+
+    private fun notify(message: String) {
+        _messages.trySend(message)
+    }
 
     private var glyphJob: Job? = null
 
@@ -121,7 +136,7 @@ class AnimationStudioViewModel @Inject constructor(
                 name = draft.name,
                 source = draft.source,
                 isDirty = true,
-                console = listOf(ConsoleLine(text(R.string.studio_msg_new_script)))
+                console = listOf(ConsoleLine(text(R.string.studio_msg_new_script))),
             )
         }
     }
@@ -136,7 +151,7 @@ class AnimationStudioViewModel @Inject constructor(
                 name = animation.name,
                 source = animation.source,
                 isDirty = false,
-                console = emptyList()
+                console = emptyList(),
             )
         }
     }
@@ -159,22 +174,35 @@ class AnimationStudioViewModel @Inject constructor(
     fun save() {
         val state = _uiState.value
         val name = state.name.trim().ifEmpty { text(R.string.studio_untitled) }
-        // A new script already has an id in its draft, so both paths below are a
-        // plain save: `editing` is never null while the editor is open.
-        val animation = repository.save(
-            requireNotNull(state.editing).copy(name = name, source = state.source)
-        )
+
+        // Guarded, and it used to be `requireNotNull`.
+        //
+        // `editing` is set whenever the editor opens and cleared by
+        // `closeEditor`, so it is non-null for the whole of the editor's life —
+        // but `save` is a public method, and the KDoc's "never null while the
+        // editor is open" was an assertion about the editor rather than about
+        // this function. Anything that saves without an editor open — a
+        // toolbar action that outlives a back press, a restored state, a
+        // future caller — took the process down with an
+        // `IllegalArgumentException` from a ViewModel.
+        val editing = state.editing
+        if (editing == null) {
+            notify(text(R.string.studio_msg_nothing_to_save))
+            return
+        }
+
+        val animation = repository.save(editing.copy(name = name, source = state.source))
         _uiState.update { it.copy(editing = animation, name = animation.name, isDirty = false) }
-        _messages.value = text(R.string.studio_msg_saved, animation.name)
+        notify(text(R.string.studio_msg_saved, animation.name))
     }
 
     fun delete(id: String) {
         repository.delete(id)
-        _messages.value = text(R.string.studio_msg_deleted)
+        notify(text(R.string.studio_msg_deleted))
     }
 
     fun duplicate(id: String) {
-        repository.duplicate(id)?.let { _messages.value = text(R.string.studio_msg_copied, it.name) }
+        repository.duplicate(id)?.let { notify(text(R.string.studio_msg_copied, it.name)) }
     }
 
     // endregion
@@ -214,8 +242,8 @@ class AnimationStudioViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         console = listOf(
-                            ConsoleLine(text(R.string.studio_msg_no_glyph), LogLevel.ERROR)
-                        )
+                            ConsoleLine(text(R.string.studio_msg_no_glyph), LogLevel.ERROR),
+                        ),
                     )
                 }
                 return
@@ -224,8 +252,8 @@ class AnimationStudioViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         console = listOf(
-                            ConsoleLine(text(R.string.studio_msg_session_closed), LogLevel.ERROR)
-                        )
+                            ConsoleLine(text(R.string.studio_msg_session_closed), LogLevel.ERROR),
+                        ),
                     )
                 }
                 return
@@ -283,7 +311,7 @@ class AnimationStudioViewModel @Inject constructor(
             ScriptStatus.SYNTAX_ERROR ->
                 ConsoleLine(
                     text(R.string.studio_msg_syntax_error, message.orEmpty()),
-                    LogLevel.ERROR
+                    LogLevel.ERROR,
                 )
 
             ScriptStatus.RUNTIME_ERROR ->
@@ -323,10 +351,10 @@ class AnimationStudioViewModel @Inject constructor(
                 val text = repository.readText(uri)
                 repository.importFrom(text, fallback)
             }.onSuccess { animation ->
-                _messages.value = text(R.string.studio_msg_imported, animation.name)
+                notify(text(R.string.studio_msg_imported, animation.name))
                 open(animation.id)
             }.onFailure {
-                _messages.value = text(R.string.studio_msg_import_failed, describe(it))
+                notify(text(R.string.studio_msg_import_failed, describe(it)))
             }
         }
     }
@@ -336,12 +364,12 @@ class AnimationStudioViewModel @Inject constructor(
         viewModelScope.launch {
             val animation = repository.getById(id)
             if (animation == null) {
-                _messages.value = text(R.string.studio_msg_missing)
+                notify(text(R.string.studio_msg_missing))
                 return@launch
             }
             runCatching { repository.exportTo(uri, animation) }
-                .onSuccess { _messages.value = text(R.string.studio_msg_exported, animation.name) }
-                .onFailure { _messages.value = text(R.string.studio_msg_export_failed, describe(it)) }
+                .onSuccess { notify(text(R.string.studio_msg_exported, animation.name)) }
+                .onFailure { notify(text(R.string.studio_msg_export_failed, describe(it))) }
         }
     }
 
@@ -350,29 +378,22 @@ class AnimationStudioViewModel @Inject constructor(
         viewModelScope.launch {
             val animation = repository.getById(id)
             if (animation == null) {
-                _messages.value = text(R.string.studio_msg_missing)
+                notify(text(R.string.studio_msg_missing))
                 return@launch
             }
             val uri = repository.exportToDownloads(animation)
-            _messages.value = if (uri != null) {
-                text(R.string.studio_msg_exported_downloads, uri.lastPathSegment.orEmpty())
-            } else {
-                text(R.string.studio_msg_downloads_failed)
-            }
+            notify(
+        if (uri != null) {
+          text(R.string.studio_msg_exported_downloads, uri.lastPathSegment.orEmpty())
+        } else {
+          text(R.string.studio_msg_downloads_failed)
+        },
+      )
         }
     }
 
     private fun describe(error: Throwable): String =
         error.message ?: text(R.string.studio_msg_unknown_error)
 
-    fun consumeMessage() {
-        _messages.value = null
-    }
-
     // endregion
-
-    companion object {
-        /** How long a run from the editor lasts before the watchdog stops it. */
-        const val RUN_DURATION_MS = ScriptAnimation.SAFETY_CAP_MS
-    }
 }

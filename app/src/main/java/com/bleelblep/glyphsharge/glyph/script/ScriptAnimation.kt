@@ -1,5 +1,6 @@
 package com.bleelblep.glyphsharge.glyph.script
 
+import com.bleelblep.glyphsharge.glyph.device.DeviceType
 import java.util.Locale
 import java.util.UUID
 
@@ -18,12 +19,34 @@ data class ScriptAnimation(
     val name: String,
     val source: String,
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = createdAt
+    val updatedAt: Long = createdAt,
+
+    /**
+     * The models this script claims to work on, as written in the file header.
+     *
+     * **Every model by default, and that default is the honest answer.** A
+     * script written against the named channel groups — `glyph.ch.c` and the
+     * rest — reads its own layout from [ScriptSession.group]
+     * and so behaves correctly on a four-segment Phone (1) and a twenty-segment
+     * Phone (3a) alike. Declaring three models is therefore a statement about
+     * what the author chose to support, not a description of what the code
+     * needs.
+     *
+     * The default rather than an empty set is also what keeps every script
+     * already on a phone working: none of them has this field, and none of
+     * them is broken by not having it.
+     */
+    val devices: Set<DeviceType> = ALL_DEVICES,
 ) {
     /** The string handed to the settings layer and the animation pickers. */
     val runtimeId: String get() = runtimeIdOf(id)
 
+    /** Whether this script is claimed to work on [type]. */
+    fun supports(type: DeviceType?): Boolean = (type != null) && (type in devices)
+
     companion object {
+        /** Every model, the default value of [devices]. */
+        val ALL_DEVICES: Set<DeviceType> = DeviceType.entries.toSet()
         /**
          * Namespace for ids that only this app can resolve. Anything without it
          * is handed to [com.bleelblep.glyphsharge.glyph.GlyphAnimationId].

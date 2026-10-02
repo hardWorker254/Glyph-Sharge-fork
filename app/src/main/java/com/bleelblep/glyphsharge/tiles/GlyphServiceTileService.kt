@@ -79,10 +79,6 @@ class GlyphServiceTileService : TileService() {
         refresh()
     }
 
-    override fun onStopListening() {
-        super.onStopListening()
-    }
-
     override fun onClick() {
         super.onClick()
         // Safe to perform while locked: it is the user's own switch, and it
@@ -126,7 +122,7 @@ class GlyphServiceTileService : TileService() {
         val enabled = settingsRepository.getGlyphServiceEnabled()
         tile.state = if (enabled) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.stateDescription = getString(
-            if (enabled) R.string.tile_state_on else R.string.tile_state_off
+            if (enabled) R.string.tile_state_on else R.string.tile_state_off,
         )
         tile.updateTile()
     }

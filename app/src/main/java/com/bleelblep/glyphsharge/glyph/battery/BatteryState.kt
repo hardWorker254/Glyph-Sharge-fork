@@ -8,7 +8,7 @@ import android.os.BatteryManager
 /** A snapshot of the battery taken at the moment an animation starts. */
 data class BatteryState(
     val percentage: Int,
-    val isCharging: Boolean
+    val isCharging: Boolean,
 )
 
 /**
@@ -34,15 +34,15 @@ object BatteryStateReader {
         val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
         val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1)
 
-        val isPluggedIn = plugged == BatteryManager.BATTERY_PLUGGED_AC ||
-            plugged == BatteryManager.BATTERY_PLUGGED_USB ||
-            plugged == BatteryManager.BATTERY_PLUGGED_WIRELESS ||
-            plugged == BatteryManager.BATTERY_PLUGGED_DOCK
+        val isPluggedIn = (plugged == BatteryManager.BATTERY_PLUGGED_AC) ||
+            (plugged == BatteryManager.BATTERY_PLUGGED_USB) ||
+            (plugged == BatteryManager.BATTERY_PLUGGED_WIRELESS) ||
+            (plugged == BatteryManager.BATTERY_PLUGGED_DOCK)
 
-        val isCharging = isPluggedIn || status == BatteryManager.BATTERY_STATUS_CHARGING
+        val isCharging = isPluggedIn || (status == BatteryManager.BATTERY_STATUS_CHARGING)
 
-        val percentage = if (level != -1 && scale != -1) {
-            (level * 100 / scale.toFloat()).toInt().coerceIn(0, 100)
+        val percentage = if ((level != -1) && (scale != -1)) {
+            ((level * 100) / scale.toFloat()).toInt().coerceIn(0, 100)
         } else {
             FALLBACK_PERCENT
         }

@@ -13,6 +13,10 @@ import androidx.core.content.edit
  * and then throws at runtime on that phone only. The reified type parameter
  * makes the compiler check that pairing instead.
  *
+ * Reads never hand back a null: for the one type that can hold one — a
+ * cleared string — the default is substituted here, so the return type does
+ * not have to lie about it and no caller needs an elvis of its own.
+ *
  * Writes go through `androidx.core.content.edit`, which is `apply()` — the
  * write is asynchronous and the caller is not told whether it reached the
  * disk. Nothing here catches exceptions, so a `ClassCastException` from a
@@ -25,9 +29,9 @@ internal inline fun <reified T> SharedPreferences.getSetting(key: String, defaul
         Int::class -> getInt(key, default as Int) as T
         Long::class -> getLong(key, default as Long) as T
         Float::class -> getFloat(key, default as Float) as T
-        // `null` is a legitimate stored value (a cleared string), so the cast
-        // has to tolerate it and let the caller's own fallback run.
-        String::class -> getString(key, default as String?) as T
+        // `null` is a legitimate stored value (a cleared string), so the read
+        // can come back empty-handed — the caller's default is the answer.
+        String::class -> (getString(key, default as String?) ?: (default as String)) as T
         else -> error("Unsupported settings type ${T::class} for key '$key'")
     }
 }

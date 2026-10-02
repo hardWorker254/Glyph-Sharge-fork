@@ -6,7 +6,6 @@ import com.bleelblep.glyphsharge.glyph.GlyphManager
 import com.bleelblep.glyphsharge.glyph.RunTrace
 import com.bleelblep.glyphsharge.glyph.audio.AudioBand
 import com.bleelblep.glyphsharge.glyph.audio.AudioFrameFeed
-import com.bleelblep.glyphsharge.glyph.device.DeviceProfile
 import com.bleelblep.glyphsharge.glyph.device.DeviceProfileFactory
 import com.bleelblep.glyphsharge.glyph.engine.GlyphRenderer
 import com.bleelblep.glyphsharge.glyph.net.NetworkSource
@@ -23,7 +22,7 @@ import javax.inject.Singleton
  * Runs user scripts against the real glyph.
  *
  * This is the only place that joins the VM to the hardware. The split matters:
- * [LuaScriptEngine] is pure and testable, [CustomAnimationRepository] is pure
+ * [LuaScriptEngine] is pure and testable, `CustomAnimationRepository` is pure
  * storage, and everything that touches `GlyphRenderer` or the battery lives
  * here.
  *
@@ -56,13 +55,26 @@ class ScriptRunner @Inject constructor(
      * [networkSource] above, and the same care about the trailing lambda —
      * named arguments only from here on, since the engine takes three of them.
      */
-    private val sensorSource: SensorSource
+    private val sensorSource: SensorSource,
 ) {
     private companion object {
         const val TAG = "SCRIPT"
     }
 
-    /** The run in progress, so [stop] can reach it from another thread. */
+    /**
+     * The run in progress, so [stop] can reach it from another thread.
+     *
+     * One slot, and that is only safe because everything that draws now goes
+     * through `GlyphFeatureCoordinator.withStrip`: two scripts cannot be running
+     * at once, so there is never a second run for this to lose track of.
+     *
+     * It was not safe when the studio preview drew outside the mutex — a
+     * preview could arrive while a feature's script was running and silently
+     * take this slot, and [stop] would then reach the preview instead of the
+     * feature it was meant to interrupt. A `Set` would have papered over that;
+     * routing the preview through the coordinator is what actually fixed it,
+     * because only one strip owner exists at a time by construction.
+     */
     @Volatile
     private var active: LuaScriptEngine? = null
 
@@ -82,16 +94,16 @@ class ScriptRunner @Inject constructor(
             val profile = DeviceProfileFactory.forConnectedDevice()
                 ?: return@withContext ScriptRunResult(
                     ScriptStatus.RUNTIME_ERROR,
-                    "This phone's LED layout is unknown, so a script cannot run here."
+                    "This phone's LED layout is unknown, so a script cannot run here.",
                 )
 
-            val host = RendererHost(renderer, context, glyphManager, audioFeed)
+            val host = RendererHost(renderer, context, audioFeed)
             val engine = LuaScriptEngine(
                 profile = profile,
                 host = host,
                 network = networkSource::snapshot,
                 sensor = sensorSource::snapshot,
-                sensorControl = sensorSource
+                sensorControl = sensorSource,
             )
             active = engine
             Log.d(TAG, "Running script for ${durationMs}ms on ${profile.type}")
@@ -101,20 +113,20 @@ class ScriptRunner @Inject constructor(
                 // A run that drew nothing means the frames never reached the
                 // hardware — almost always a closed SDK session rather than a
                 // broken script, and worth saying out loud.
-                if (result.frames == 0 || host.dropped > 0) {
+                if ((result.frames == 0) || (host.dropped > 0)) {
                     Log.w(
                         TAG,
                         "Script frames: ${host.emitted} shown, ${host.dropped} dropped. " +
                             "session=${glyphManager.isSessionActive} " +
                             "phone=${glyphManager.isNothingPhone()} " +
-                            "serviceConnected=${glyphManager.isServiceConnected}"
+                            "serviceConnected=${glyphManager.isServiceConnected}",
                     )
                     runTrace.record(
                         "script",
                         "frames",
                         "shown=${host.emitted} dropped=${host.dropped} " +
                             "session=${glyphManager.isSessionActive} " +
-                            "connected=${glyphManager.isServiceConnected}"
+                            "connected=${glyphManager.isServiceConnected}",
                     )
                 }
                 result
@@ -138,13 +150,13 @@ class ScriptRunner @Inject constructor(
      */
     fun check(source: String): ScriptCheckResult {
         val profile = DeviceProfileFactory.forConnectedDevice() ?: return ScriptCheckResult.OK
-        val host = RendererHost(renderer, context, glyphManager, audioFeed)
+        val host = RendererHost(renderer, context, audioFeed)
         return LuaScriptEngine(
             profile = profile,
             host = host,
             network = networkSource::snapshot,
             sensor = sensorSource::snapshot,
-            sensorControl = sensorSource
+            sensorControl = sensorSource,
         )
             .validate(source)
     }
@@ -160,7 +172,6 @@ class ScriptRunner @Inject constructor(
     private class RendererHost(
         private val renderer: GlyphRenderer,
         private val context: Context,
-        private val glyphManager: GlyphManager,
         private val audioFeed: AudioFrameFeed,
     ) : GlyphScriptHost {
 
@@ -209,18 +220,5 @@ class ScriptRunner @Inject constructor(
             if (size == 0) return FloatArray(0)
             return audioFeed.latest().bandsInto(FloatArray(size))
         }
-
-        /** A one-line explanation of why the strip stayed dark, if it did. */
-        fun failureSummary(): String? {
-            if (dropped == 0) return null
-            val reason = when {
-                !glyphManager.isSessionActive -> "no glyph session"
-                else -> "the SDK rejected every frame"
-            }
-            return "dropped=$dropped of ${emitted + dropped} ($reason)"
-        }
     }
 }
-
-/** Convenience for callers that already have a profile, e.g. the studio preview. */
-fun DeviceProfile.isSupported(): Boolean = all.isNotEmpty()

@@ -1,16 +1,12 @@
 package com.bleelblep.glyphsharge.services
 
 import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.Service
-import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import android.os.IBinder
 import android.util.Log
+import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
@@ -18,9 +14,6 @@ import com.bleelblep.glyphsharge.glyph.GlyphAnimationManager
 import com.bleelblep.glyphsharge.glyph.GlyphFeature
 import com.bleelblep.glyphsharge.glyph.GlyphFeatureCoordinator
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -33,7 +26,7 @@ import javax.inject.Inject
  * [NetworkCapabilities.TRANSPORT_VPN] rather than a receiver.
  */
 @AndroidEntryPoint
-class VpnConnectedService : Service() {
+class VpnConnectedService : FeatureService() {
 
     companion object {
         private const val TAG = "VpnConnectedService"
@@ -55,12 +48,9 @@ class VpnConnectedService : Service() {
     @Inject lateinit var glyphAnimationManager: GlyphAnimationManager
     @Inject lateinit var featureCoordinator: GlyphFeatureCoordinator
 
-    private val serviceJob = Job()
-    private val scope = CoroutineScope(Dispatchers.Main + serviceJob)
-
     /**
-     * Set once the callback is registered, so [onDestroy] only tries to
-     * unregister something that exists — a service that never got past
+     * Set once the callback is registered, so [onFeatureDestroying] only tries
+     * to unregister something that exists — a service that never got past
      * `onCreate` would otherwise throw on the way out.
      */
     private var callbackRegistered = false
@@ -105,33 +95,37 @@ class VpnConnectedService : Service() {
         }
     }
 
+    // Identity
+
+    override val isRunnable: Boolean
+        get() = spec.isRunnable(settingsRepository)
+
+    override val startAction: String get() = ACTION_START
+    override val stopAction: String get() = ACTION_STOP
+    override val channelId: String get() = NOTIF_CHANNEL_ID
+    override val notificationId: Int get() = NOTIF_ID
+
+    @get:StringRes
+    override val channelNameRes: Int get() = R.string.vpn_connected_channel
+
+    /**
+     * Never acquired here — a VPN connect is a foreground event and the
+     * animation is capped well inside a foreground service's own window — but
+     * the base creates one from this tag if anything ever asks.
+     */
+    override val wakeLockTag: String get() = "GlyphSharge:VpnConnectedAnimation"
+
+    override val tag: String get() = TAG
+
     // Lifecycle
 
-    override fun onCreate() {
-        super.onCreate()
-        createNotificationChannel()
+    override fun onFeatureCreated() {
+        super.onFeatureCreated()
         registerNetworkCallback()
         Log.d(TAG, "VpnConnectedService created")
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIF_ID, buildNotification())
-
-        if (intent?.action == ACTION_STOP) {
-            shutDown()
-            return START_NOT_STICKY
-        }
-
-        if (!spec.isRunnable(settingsRepository)) {
-            shutDown()
-            return START_NOT_STICKY
-        }
-
-        return START_STICKY
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
+    override fun onFeatureDestroying() {
         if (callbackRegistered) {
             runCatching {
                 (getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager)
@@ -139,19 +133,7 @@ class VpnConnectedService : Service() {
             }
             callbackRegistered = false
         }
-        stopForegroundCompat()
-        serviceJob.cancel()
         Log.d(TAG, "VpnConnectedService destroyed")
-    }
-
-    override fun onBind(intent: Intent?): IBinder? = null
-
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        super.onTaskRemoved(rootIntent)
-        if (!spec.isRunnable(settingsRepository)) return
-
-        val restart = Intent(this, VpnConnectedService::class.java).apply { action = ACTION_START }
-        startForegroundService(restart)
     }
 
     // Trigger registration
@@ -168,7 +150,7 @@ class VpnConnectedService : Service() {
 
         wasConnected = runCatching { vpnIsUp(cm) }
             .onFailure { Log.e(TAG, "Cannot read the current VPN state", it) }
-            .getOrDefault(false)
+            .getOrDefault(defaultValue = false)
         if (wasConnected) Log.d(TAG, "VPN is already connected at start – not triggering")
 
         // `NOT_VPN` must be removed, and this is the whole reason the feature can
@@ -215,7 +197,7 @@ class VpnConnectedService : Service() {
     // Core sequence
 
     private fun playVpnConnectedSequence() {
-        scope.launch {
+        animationScope.launch {
             if (!spec.isRunnable(settingsRepository)) {
                 Log.d(TAG, "Feature disabled – skipping sequence")
                 return@launch
@@ -231,28 +213,27 @@ class VpnConnectedService : Service() {
                 // interrupts a leftover animation rather than being skipped by
                 // it — the same reasoning as the screen-off case.
                 //
-                // `onRelease` runs `stopForegroundCompat()` after the strip is
-                // handed back, and on the throwing path as well as the normal
-                // one. A failed acquisition returns before the block runs, so
-                // the service stays foregrounded from `onStartCommand`.
+                // Foreground for the life of the feature switch, with nothing to
+                // promote or demote around the strip. See the same note in
+                // PulseLockService: dropping the foreground notification after
+                // the first event turned this into an ordinary background
+                // service that Android reclaimed, and the feature silently
+                // worked once per boot.
                 val played = featureCoordinator.withStrip(
                     owner = GlyphFeature.VPN_CONNECTED,
                     preempt = true,
-                    onRelease = { stopForegroundCompat() }
                 ) {
                     val animationId = settingsRepository.getVpnConnectedAnimationId()
                     val duration = glyphAnimationManager.runCapMs(
                         animationId,
-                        settingsRepository.getVpnConnectedDuration()
+                        settingsRepository.getVpnConnectedDuration(),
                     )
 
                     Log.d(TAG, "Sequence start – anim=$animationId duration=${duration}ms")
 
-                    startForeground(NOTIF_ID, buildNotification())
-
                     glyphAnimationManager.runCapped(
                         capMs = duration,
-                        onTimeout = { Log.d(TAG, "Duration limit reached – stopping animation") }
+                        onTimeout = { Log.d(TAG, "Duration limit reached – stopping animation") },
                     ) {
                         glyphAnimationManager.playVpnConnectedAnimation()
                     }
@@ -266,34 +247,16 @@ class VpnConnectedService : Service() {
         }
     }
 
-    // Notification helpers
+    // Notification
 
-    private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            NOTIF_CHANNEL_ID,
-            "VPN Connected Glyph Service",
-            NotificationManager.IMPORTANCE_LOW
-        )
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-    }
+    override fun buildNotification(): Notification =
+        buildNotification(getString(R.string.vpn_connected_notif_text))
 
-    private fun buildNotification(): Notification =
+    override fun buildNotification(text: String): Notification =
         NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
-            .setContentTitle("🛡️ VPN Connected Animation Active")
-            .setContentText("Connecting to a VPN will play your chosen animation.")
+            .setContentTitle(getString(R.string.vpn_connected_notif_title))
+            .setContentText(text)
             .setSmallIcon(R.drawable._44)
             .setOngoing(true)
             .build()
-
-    // Compat helpers
-
-    private fun shutDown() {
-        stopForegroundCompat()
-        stopSelf()
-    }
-
-    @Suppress("DEPRECATION")
-    private fun stopForegroundCompat() {
-        stopForeground(STOP_FOREGROUND_REMOVE)
-    }
 }

@@ -42,6 +42,17 @@ enum class ScriptTarget {
             Regex("""glyph\s*\.\s*target\s*=\s*["']([A-Za-z_][A-Za-z0-9_]*)["']""")
 
         /**
+         * The field [DECLARATION] looks for, matched loosely.
+         *
+         * Every spelling the pattern accepts contains this substring — spaces
+         * may be interleaved around the dot but not inside the word — so using
+         * it as a pre-check cannot reject a declaration the pattern would have
+         * found. That is the property that makes it safe rather than a
+         * shortcut that quietly breaks a spaced-out script.
+         */
+        private const val FIELD_NAME = "target"
+
+        /**
          * Lua comments, stripped before scanning.
          *
          * A commented-out declaration is the easiest way to end up with a
@@ -59,8 +70,24 @@ enum class ScriptTarget {
         internal val BLOCK_COMMENT = Regex("""--\[(=*)\[.*?]\1]""", RegexOption.DOT_MATCHES_ALL)
         internal val LINE_COMMENT = Regex("""--[^\n]*""")
 
-        /** The target named in [source], or [ANY] when it names none. */
+        /**
+         * The target named in [source], or [ANY] when it names none.
+         *
+         * The pre-check is a plain substring scan rather than a pattern match,
+         * and that is deliberate: [DECLARATION] accepts `glyph . target` with
+         * spaces, so anything tighter than "contains the field name" would miss
+         * a valid declaration. Anything looser would not be cheaper.
+         *
+         * It is there because [detectIn] runs on every keystroke — the editor
+         * derives its target badge from the buffer — and the two regex replaces
+         * below each allocate a copy of the entire source. A script with no
+         * declaration in it, which is most of them, now costs one scan that
+         * allocates nothing rather than two that each allocate the script, at
+         * the rate the user types.
+         */
         fun detectIn(source: String): ScriptTarget {
+            if (!source.contains(FIELD_NAME)) return ANY
+
             val code = source.replace(BLOCK_COMMENT, " ").replace(LINE_COMMENT, " ")
             val name = DECLARATION.find(code)?.groupValues?.get(1) ?: return ANY
             return fromName(name) ?: ANY

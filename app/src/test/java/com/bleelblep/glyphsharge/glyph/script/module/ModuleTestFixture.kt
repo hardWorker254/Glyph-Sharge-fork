@@ -37,13 +37,13 @@ internal fun testProfile(): DeviceProfile = DeviceProfile(
     c1SeqHold = 1000L,
     matrixConfig = MatrixConfig(1, 1, 1, 1, 1, 1),
     fireworksConfig = FireworksConfig(1, 1, 1, 1, 1, 1),
-    dnaConfig = DnaConfig(1, 1, 1)
+    dnaConfig = DnaConfig(1, 1, 1),
 )
 
 /** Records the frames a script would have drawn. */
 internal class FakeHost(
     private val percent: Int = 64,
-    private val charging: Boolean = true
+    private val charging: Boolean = true,
 ) : GlyphScriptHost {
     val frames = mutableListOf<Pair<List<Int>, Int>>()
 
@@ -78,10 +78,10 @@ internal fun engineAt(
     minute: Int = 0,
     host: GlyphScriptHost = FakeHost(),
     network: NetworkSnapshot = NetworkSnapshot.DISCONNECTED,
-    sensor: SensorSnapshot = SensorSnapshot.STILL
+    sensor: SensorSnapshot = SensorSnapshot.STILL,
 ): LuaScriptEngine {
     val instant = ZonedDateTime.of(
-        2024, 1, 15, hour, minute, 0, 0, ZoneId.systemDefault()
+        2024, 1, 15, hour, minute, 0, 0, ZoneId.systemDefault(),
     )
     return LuaScriptEngine(
         profile = testProfile(),
@@ -96,6 +96,6 @@ internal fun engineAt(
         // was wrong.
         wallClock = { instant },
         network = { network },
-        sensor = { sensor }
+        sensor = { sensor },
     )
 }

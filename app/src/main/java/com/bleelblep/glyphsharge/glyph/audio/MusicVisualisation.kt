@@ -1,6 +1,8 @@
 package com.bleelblep.glyphsharge.glyph.audio
 
 import com.bleelblep.glyphsharge.data.SettingsRepository
+import com.bleelblep.glyphsharge.glyph.GlyphFeature
+import com.bleelblep.glyphsharge.glyph.GlyphFeatureCoordinator
 import com.bleelblep.glyphsharge.glyph.GlyphManager
 import com.bleelblep.glyphsharge.glyph.animations.AnimationRunner
 import com.bleelblep.glyphsharge.glyph.animations.runMusicVisualization
@@ -10,6 +12,7 @@ import com.bleelblep.glyphsharge.glyph.script.ScriptPlayback
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 import javax.inject.Inject
+import javax.inject.Provider
 import javax.inject.Singleton
 
 /**
@@ -28,6 +31,12 @@ class MusicVisualisation @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val audioFeed: AudioFrameFeed,
     private val scriptPlayback: ScriptPlayback,
+    /**
+     * Lazy for the same reason as in [ScriptPlayback]: the coordinator holds the
+     * animation manager, which holds this class, so a direct dependency closes a
+     * construction cycle. Resolved only when a preview runs.
+     */
+    private val coordinator: Provider<GlyphFeatureCoordinator>,
 ) {
     private companion object {
         /** How long the settings dialog's preview runs: 150 frames at 33 ms, ~5 s. */
@@ -79,27 +88,63 @@ class MusicVisualisation @Inject constructor(
      * the dialog is a dialog that never closes. No service check either — this
      * is an explicit user action in the settings dialog, and the studio preview
      * already plays for real.
+     *
+     * [sensitivity] is applied to the synthetic frames the same way the
+     * capture applies it to real ones, so the preview shows what the
+     * slider does instead of one fixed picture for every setting.
      */
-    suspend fun preview(mode: MusicVisualizationMode) {
+    suspend fun preview(mode: MusicVisualizationMode, sensitivity: Float = 1f) {
         if (!glyphManager.isNothingPhone()) return
         val device = runner.profile ?: return
 
-        renderer.start()
-        try {
-            renderer.turnOff()
-            delay(AnimationRunner.CLEANUP_DELAY_MS.milliseconds)
-            val track = SyntheticTrack()
-            renderer.runMusicVisualization(
-                mode,
-                device,
-                nextFrame = { track.next() },
-                maxFrames = PREVIEW_FRAMES
-            )
-        } catch (e: Exception) {
-            renderer.onError(e, "Music preview error")
-        } finally {
-            renderer.stop()
-            renderer.turnOff()
+        // Through the coordinator, for the same reason
+        // [ScriptPlayback.previewScript] does: a preview that skips the mutex
+        // interleaves with a live service's animation and takes it down with it
+        // on the way out. `preempt = false` — a preview waits its turn rather
+        // than interrupting whatever the strip is already playing.
+        coordinator.get().withStrip(
+            owner = GlyphFeature.PREVIEW,
+            preempt = false,
+        ) {
+            val lease = renderer.start("music-preview")
+            try {
+                renderer.turnOff()
+                delay(AnimationRunner.CLEANUP_DELAY_MS.milliseconds)
+                val track = SyntheticTrack()
+                val gain = sensitivity.coerceIn(AudioAnalyzer.MIN_GAIN, AudioAnalyzer.MAX_GAIN)
+                renderer.runMusicVisualization(
+                    mode,
+                    device,
+                    nextFrame = { track.next().withGain(gain) },
+                    maxFrames = PREVIEW_FRAMES,
+                )
+            } catch (e: Exception) {
+                renderer.onError(e, "Music preview error")
+            } finally {
+                renderer.stop(lease)
+                renderer.turnOff()
+            }
         }
     }
+}
+
+/**
+ * Applies the sensitivity to a made-up frame the way the capture does
+ * to a real one: bands scaled, the thirds recomputed from them, the
+ * overall level untouched. `rms` is measured off the raw PCM before
+ * any gain in the real pipeline, and a preview that scaled it would
+ * make the loudness-driven modes look livelier than they really get.
+ */
+private fun AudioFrame.withGain(gain: Float): AudioFrame {
+    if (gain == 1f) return this
+    val scaled = FloatArray(bands.size) { i -> (bands[i] * gain).coerceIn(0f, 1f) }
+    return AudioFrame(
+        seq = seq,
+        bands = scaled,
+        bass = AudioAnalysis.bassOf(scaled),
+        mid = AudioAnalysis.midOf(scaled),
+        treble = AudioAnalysis.trebleOf(scaled),
+        rms = rms,
+        beat = beat,
+    )
 }

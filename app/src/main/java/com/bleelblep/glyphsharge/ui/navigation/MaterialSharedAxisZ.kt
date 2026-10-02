@@ -26,27 +26,27 @@ object MaterialSharedAxisZ {
         fadeIn(tween(ENTER_DURATION, easing = FastOutSlowInEasing)) +
             scaleIn(
                 tween(ENTER_DURATION, easing = FastOutSlowInEasing),
-                initialScale = SCALE_ENTER
+                initialScale = SCALE_ENTER,
             )
 
     fun exitTransition(): ExitTransition =
         fadeOut(tween(EXIT_DURATION, easing = EaseOut)) +
             scaleOut(
                 tween(EXIT_DURATION, easing = EaseOut),
-                targetScale = SCALE_EXIT
+                targetScale = SCALE_EXIT,
             )
 
     fun popEnterTransition(): EnterTransition =
         fadeIn(tween(ENTER_DURATION, easing = FastOutSlowInEasing)) +
             scaleIn(
                 tween(ENTER_DURATION, easing = FastOutSlowInEasing),
-                initialScale = SCALE_EXIT
+                initialScale = SCALE_EXIT,
             )
 
     fun popExitTransition(): ExitTransition =
         fadeOut(tween(EXIT_DURATION, easing = EaseOut)) +
             scaleOut(
                 tween(EXIT_DURATION, easing = EaseOut),
-                targetScale = SCALE_ENTER
+                targetScale = SCALE_ENTER,
             )
 }

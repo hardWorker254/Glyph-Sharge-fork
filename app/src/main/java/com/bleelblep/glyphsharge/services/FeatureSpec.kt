@@ -61,7 +61,7 @@ data class FeatureSpec(
  * [GlyphFeature]; nothing else in the app has to know the service exists.
  *
  * The order matches [GlyphFeature.entries] so the list can be read against the
- * enum, and [init] fails the build-up if the two ever disagree — an entry
+ * enum, and `init` fails the build-up if the two ever disagree — an entry
  * missing from a `when` compiles, an entry missing from a `Map` lookup does
  * not.
  */
@@ -74,7 +74,7 @@ object FeatureSpecs {
             stopAction = PulseLockService.ACTION_STOP,
             isEnabled = { it.isPulseLockEnabled() },
             saveEnabled = { repo, enabled -> repo.savePulseLockEnabled(enabled) },
-            serviceOffMessage = R.string.pulse_lock_toast
+            serviceOffMessage = R.string.pulse_lock_toast,
         ),
         FeatureSpec(
             feature = GlyphFeature.POWER_PEEK,
@@ -82,7 +82,7 @@ object FeatureSpecs {
             stopAction = PowerPeekService.ACTION_STOP,
             isEnabled = { it.isPowerPeekEnabled() },
             saveEnabled = { repo, enabled -> repo.savePowerPeekEnabled(enabled) },
-            serviceOffMessage = R.string.power_peek_toast
+            serviceOffMessage = R.string.power_peek_toast,
         ),
         FeatureSpec(
             feature = GlyphFeature.LOW_BATTERY,
@@ -90,7 +90,7 @@ object FeatureSpecs {
             stopAction = LowBatteryAlertService.ACTION_STOP,
             isEnabled = { it.isLowBatteryEnabled() },
             saveEnabled = { repo, enabled -> repo.saveLowBatteryEnabled(enabled) },
-            serviceOffMessage = R.string.low_battery_alert_toast
+            serviceOffMessage = R.string.low_battery_alert_toast,
         ),
         FeatureSpec(
             feature = GlyphFeature.SCREEN_OFF,
@@ -98,7 +98,7 @@ object FeatureSpecs {
             stopAction = ScreenOffGlyphService.ACTION_STOP,
             isEnabled = { it.isScreenOffFeatureEnabled() },
             saveEnabled = { repo, enabled -> repo.saveScreenOffFeatureEnabled(enabled) },
-            serviceOffMessage = R.string.screen_off_toast
+            serviceOffMessage = R.string.screen_off_toast,
         ),
         FeatureSpec(
             feature = GlyphFeature.NFC,
@@ -106,7 +106,7 @@ object FeatureSpecs {
             stopAction = NfcGlyphService.ACTION_STOP,
             isEnabled = { it.isNfcFeatureEnabled() },
             saveEnabled = { repo, enabled -> repo.saveNfcFeatureEnabled(enabled) },
-            serviceOffMessage = R.string.nfc_glyph_toast
+            serviceOffMessage = R.string.nfc_glyph_toast,
         ),
         FeatureSpec(
             feature = GlyphFeature.CHARGING_ANIMATION,
@@ -114,7 +114,7 @@ object FeatureSpecs {
             stopAction = ChargingAnimationService.ACTION_STOP,
             isEnabled = { it.isChargingAnimationEnabled() },
             saveEnabled = { repo, enabled -> repo.saveChargingAnimationEnabled(enabled) },
-            serviceOffMessage = R.string.charging_animation_toast
+            serviceOffMessage = R.string.charging_animation_toast,
         ),
         FeatureSpec(
             feature = GlyphFeature.MUSIC_VISUALIZER,
@@ -122,7 +122,7 @@ object FeatureSpecs {
             stopAction = MusicVisualizerService.ACTION_STOP,
             isEnabled = { it.isMusicVizEnabled() },
             saveEnabled = { repo, enabled -> repo.saveMusicVizEnabled(enabled) },
-            serviceOffMessage = R.string.music_viz_toast
+            serviceOffMessage = R.string.music_viz_toast,
         ),
         FeatureSpec(
             feature = GlyphFeature.VPN_CONNECTED,
@@ -130,11 +130,24 @@ object FeatureSpecs {
             stopAction = VpnConnectedService.ACTION_STOP,
             isEnabled = { it.isVpnConnectedEnabled() },
             saveEnabled = { repo, enabled -> repo.saveVpnConnectedEnabled(enabled) },
-            serviceOffMessage = R.string.vpn_connected_toast
-        )
+            serviceOffMessage = R.string.vpn_connected_toast,
+        ),
     )
 
     private val byFeature: Map<GlyphFeature, FeatureSpec> = all.associateBy { it.feature }
+
+    /**
+     * Strip participants that are in [GlyphFeature] but are not features.
+     *
+     * [GlyphFeature.PREVIEW] holds the strip exactly as a feature does — it has
+     * to, or it draws over a live animation — but it has no service to start
+     * and no preference to read, so it has no [FeatureSpec] and is deliberately
+     * absent from [all].
+     *
+     * Listed rather than allowed implicitly, so the `init` check below still
+     * catches a feature that was added and wired up halfway.
+     */
+    val NON_FEATURE_PARTICIPANTS: Set<GlyphFeature> = setOf(GlyphFeature.PREVIEW)
 
     init {
         // Fail here rather than at the first lookup. Every caller of `of` is
@@ -142,7 +155,10 @@ object FeatureSpecs {
         // service to start and no preference to read — so without this check the
         // mistake would surface as a crash deep inside a start intent, or worse,
         // as a feature that silently never runs.
-        val missing = GlyphFeature.entries.filterNot { it in byFeature }
+        val missing = GlyphFeature.entries.asSequence()
+            .filterNot { it in byFeature }
+            .filterNot { it in NON_FEATURE_PARTICIPANTS }
+            .toList()
         check(missing.isEmpty()) {
             "FeatureSpecs has no entry for ${missing.joinToString { it.name }}"
         }
@@ -151,9 +167,8 @@ object FeatureSpecs {
     fun of(feature: GlyphFeature): FeatureSpec =
         byFeature[feature] ?: error(
             "No FeatureSpec for ${feature.name}: a feature with no spec has no " +
-                "service to start and no preference to read"
+                "service to start and no preference to read",
         )
-
-    fun allFor(features: Iterable<GlyphFeature>): List<FeatureSpec> =
-        features.map { of(it) }
 }
+
+    

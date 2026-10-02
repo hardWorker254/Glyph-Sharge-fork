@@ -48,7 +48,7 @@ class StarterScriptTest {
         DeviceType.PHONE1,
         DeviceType.PHONE2,
         DeviceType.PHONE2A,
-        DeviceType.PHONE3A
+        DeviceType.PHONE3A,
     )
 
     private fun profile(type: DeviceType): DeviceProfile =
@@ -62,7 +62,7 @@ class StarterScriptTest {
             assertTrue(
                 "no studio_starter_script under res/$folder",
                 File("src/main/res/$folder/strings.xml").readText()
-                    .contains("name=\"studio_starter_script\"")
+                    .contains("name=\"studio_starter_script\""),
             )
         }
     }
@@ -103,13 +103,13 @@ class StarterScriptTest {
             assertEquals(
                 "${type.name}: the template did not run",
                 ScriptStatus.COMPLETED,
-                result.status
+                result.status,
             )
             // One draw per segment per pass, and the template makes two passes.
             assertEquals(
                 "${type.name}: wrong number of frames for ${profile(type).c.size} segments",
                 2 * profile(type).c.size,
-                host.frames.size
+                host.frames.size,
             )
         }
     }
@@ -128,12 +128,12 @@ class StarterScriptTest {
         assertEquals(
             "a run was not measured: $timings",
             supported.size,
-            timings.size
+            timings.size,
         )
         timings.forEach { (type, elapsed) ->
             assertTrue(
                 "$type took ${elapsed}ms, outside the band a single pass should occupy",
-                elapsed in 600L..2_000L
+                elapsed in (600L..2_000L),
             )
         }
     }
@@ -154,7 +154,7 @@ class StarterScriptTest {
 
         // The bottom of the ramp is `lerp(1000, MAX, 1/n)`, not 1000: the
         // first segment sits one step in, and a Phone (3a) has 20 of them.
-        assertEquals("the wave should open at the bottom of the ramp", 1000 + 3000 / p.c.size, first)
+        assertEquals("the wave should open at the bottom of the ramp", 1000 + (3000 / p.c.size), first)
         assertEquals("the wave should peak at MAX", 4000, peak)
         assertTrue("the wave should fade back down, was $last", last < peak)
         assertTrue("the wave should not be flat, first was $first", first < peak)
@@ -180,7 +180,7 @@ class StarterScriptTest {
             ?.get(1)
             ?: error("studio_starter_script is missing from res/$folder")
 
-        return UNESCAPE.replace(raw) { match ->
+        return unescape.replace(raw) { match ->
             when (match.groupValues[1]) {
                 "n" -> "\n"
                 "t" -> "\t"
@@ -194,5 +194,5 @@ class StarterScriptTest {
     }
 
     /** Android resource escaping, one pass so `\\n` is not read as a newline. */
-    private val UNESCAPE = Regex("""\\(.)""", RegexOption.DOT_MATCHES_ALL)
+    private val unescape = Regex("""\\(.)""", RegexOption.DOT_MATCHES_ALL)
 }

@@ -22,7 +22,7 @@ class SettingsDiagnostics @Inject constructor(
     private val fonts: FontSettings,
     private val glyphService: GlyphServiceSettings,
     private val features: FeatureSettings,
-    private val quietHours: QuietHoursSettings
+    private val quietHours: QuietHoursSettings,
 ) {
 
     fun dumpAllSettings() {

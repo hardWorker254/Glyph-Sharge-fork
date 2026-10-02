@@ -31,7 +31,7 @@ class ScriptValidateResultTest {
             local time = require("glyph.time")
             local util = require("glyph.util")
             glyph.setAll(time.isNight and time.NIGHT or util.clamp(glyph.battery, 0, glyph.MAX))
-            """.trimIndent()
+            """.trimIndent(),
         )
 
         assertEquals(ScriptCheckStatus.OK, result.status)
@@ -61,7 +61,7 @@ class ScriptValidateResultTest {
             "require: no module 'glyph.nett' " +
                 "(available: glyph.battery, glyph.log, glyph.net, glyph.sensor, " +
                 "glyph.time, glyph.util)",
-            result.message
+            result.message,
         )
     }
 

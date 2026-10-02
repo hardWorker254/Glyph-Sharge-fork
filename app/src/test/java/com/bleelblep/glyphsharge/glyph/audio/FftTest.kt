@@ -26,15 +26,15 @@ class FftTest {
 
     /** A sine of exactly [bin] bins of a [size]-point transform: no leakage. */
     private fun atBin(bin: Int, size: Int, amplitude: Float = 1f): FloatArray {
-        val hz = sampleRate.toDouble() * bin / size
+        val hz = (sampleRate.toDouble() * bin) / size
         return FloatArray(size) { i ->
-            (amplitude * sin(2.0 * PI * hz * i / sampleRate)).toFloat()
+            (amplitude * sin((2.0 * PI * hz * i) / sampleRate)).toFloat()
         }
     }
 
     /** A sine at a real frequency, which generally sits between two bins. */
     private fun atHz(hz: Double, size: Int, amplitude: Float = 1f): FloatArray =
-        FloatArray(size) { i -> (amplitude * sin(2.0 * PI * hz * i / sampleRate)).toFloat() }
+        FloatArray(size) { i -> (amplitude * sin((2.0 * PI * hz * i) / sampleRate)).toFloat() }
 
     private fun peakBin(spectrum: FloatArray): Int =
         spectrum.indices.maxByOrNull { spectrum[it] } ?: -1
@@ -56,7 +56,7 @@ class FftTest {
         val size = 1024
         val spectrum = Fft.magnitudeSpectrum(atHz(1_000.0, size), size)
 
-        assertTrue("1 kHz peaked in bin ${peakBin(spectrum)}", peakBin(spectrum) in 22..24)
+        assertTrue("1 kHz peaked in bin ${peakBin(spectrum)}", peakBin(spectrum) in (22..24))
     }
 
     @Test
@@ -201,7 +201,7 @@ class FftTest {
         // 12 kHz is bin 278 at this size, so a stale tail would either move
         // the peak or put a second one where there is no note at all.
         FloatArray(size) { i ->
-            (0.9f * sin(2.0 * PI * 12_000.0 * i / sampleRate)).toFloat()
+            (0.9f * sin((2.0 * PI * 12_000.0 * i) / sampleRate)).toFloat()
         }.copyInto(input, size)
 
         val spectrum = Fft.magnitudeSpectrum(input, size)
@@ -230,8 +230,8 @@ class FftTest {
         val large = Fft.magnitudeSpectrum(atHz(hz, 2048), 2048)
 
         // 1 kHz is bin 23.2 at 1024 points and 46.4 at 2048.
-        assertTrue("1024 peaked in ${peakBin(small)}", peakBin(small) in 22..24)
-        assertTrue("2048 peaked in ${peakBin(large)}", peakBin(large) in 45..47)
+        assertTrue("1024 peaked in ${peakBin(small)}", peakBin(small) in (22..24))
+        assertTrue("2048 peaked in ${peakBin(large)}", peakBin(large) in (45..47))
     }
 
     // endregion

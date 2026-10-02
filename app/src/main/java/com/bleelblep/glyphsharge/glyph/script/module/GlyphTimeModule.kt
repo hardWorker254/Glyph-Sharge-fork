@@ -48,7 +48,7 @@ internal object GlyphTimeModule {
                 live("minute") { LuaValue.valueOf(session.wallClock().minute) }
                 live("minuteOfDay") {
                     val now = session.wallClock()
-                    LuaValue.valueOf(now.hour * MINUTES_PER_HOUR + now.minute)
+                    LuaValue.valueOf((now.hour * MINUTES_PER_HOUR) + now.minute)
                 }
                 live("isNight") { LuaValue.valueOf(isNight(session.wallClock())) }
                 int("DAY", GLYPH_MAX_BRIGHTNESS)
@@ -66,5 +66,5 @@ internal object GlyphTimeModule {
      * both boundaries is what pins that down.
      */
     private fun isNight(now: ZonedDateTime): Boolean =
-        now.hour >= NIGHT_START_HOUR || now.hour < NIGHT_END_HOUR
+        (now.hour >= NIGHT_START_HOUR) || (now.hour < NIGHT_END_HOUR)
 }

@@ -16,13 +16,13 @@ import javax.inject.Singleton
  */
 @Singleton
 class GlyphServiceSettings @Inject constructor(
-    @param:GlyphPrefs private val prefs: SharedPreferences
+    @param:GlyphPrefs private val prefs: SharedPreferences,
 ) {
 
     fun saveGlyphServiceEnabled(enabled: Boolean) =
         prefs.putSetting(KEY_GLYPH_SERVICE_ENABLED, enabled)
 
-    fun getGlyphServiceEnabled(): Boolean = prefs.getSetting(KEY_GLYPH_SERVICE_ENABLED, false)
+    fun getGlyphServiceEnabled(): Boolean = prefs.getSetting(KEY_GLYPH_SERVICE_ENABLED, default = false)
 
     fun saveVibrationIntensity(intensity: Float) =
         prefs.putSetting(KEY_VIBRATION_INTENSITY, intensity)

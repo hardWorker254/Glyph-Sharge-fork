@@ -3,7 +3,7 @@ package com.bleelblep.glyphsharge.ui.components.dialogs
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.bleelblep.glyphsharge.ui.components.FeatureConfirmationButtons
@@ -35,12 +35,20 @@ fun FeatureConfirmationFlow(
     settings: @Composable (
         onConfirm: () -> Unit,
         onDisable: () -> Unit,
-        onDismiss: () -> Unit
+        onDismiss: () -> Unit,
     ) -> Unit,
     modifier: Modifier = Modifier,
-    dismissible: Boolean = false
+    dismissible: Boolean = false,
 ) {
-    var showSettings by remember { mutableStateOf(false) }
+    // Saveable, because which of the two screens of this flow is showing is the
+    // one piece of state a configuration change must not lose. As a plain
+    // `remember` it reset to `false`, which threw the user back to the
+    // confirmation step with the threshold, animation and duration they had
+    // just chosen silently discarded — and, because the Enable button closes
+    // the flow either way, pressing it again then enabled the feature with
+    // defaults and no message. Nothing else in the app had this problem; the
+    // settings screens use `rememberSaveable`.
+    var showSettings by rememberSaveable { mutableStateOf(value = false) }
 
     if (!showSettings) {
         FeatureDialogScaffold(
@@ -57,9 +65,9 @@ fun FeatureConfirmationFlow(
                     primaryLabel = testLabel,
                     onPrimary = onTest,
                     onSettings = { showSettings = true },
-                    onCancel = onDismiss
+                    onCancel = onDismiss,
                 )
-            }
+            },
         )
     }
 
@@ -67,7 +75,6 @@ fun FeatureConfirmationFlow(
         settings(
             { showSettings = false; onEnable() },
             { showSettings = false; onDisable() },
-            { showSettings = false }
-        )
+        ) { showSettings = false }
     }
 }

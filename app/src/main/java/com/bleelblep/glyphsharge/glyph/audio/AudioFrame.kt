@@ -36,8 +36,6 @@ class AudioFrame(
     val rms: Float,
     /** `true` on the frame where a beat was detected. */
     val beat: Boolean,
-    /** `SystemClock.elapsedRealtime()` when this frame was produced. */
-    val timestampMs: Long,
 ) {
     /** True when the audio is quiet enough that a bar should reach zero. */
     val isSilent: Boolean get() = rms < SILENCE_FLOOR
@@ -60,11 +58,11 @@ class AudioFrame(
             return out
         }
         for (i in out.indices) {
-            val from = (i.toLong() * bands.size / out.size).toInt()
+            val from = ((i.toLong() * bands.size) / out.size).toInt()
             val to = (((i + 1).toLong() * bands.size) / out.size).toInt()
                 .coerceIn(from + 1, bands.size)
             var peak = 0f
-            for (j in from.toInt() until to) {
+            for (j in from until to) {
                 if (bands[j] > peak) peak = bands[j]
             }
             out[i] = peak
@@ -83,7 +81,7 @@ class AudioFrame(
      */
     override fun toString(): String =
         "AudioFrame(seq=$seq rms=%.3f bass=%.3f mid=%.3f treble=%.3f beat=$beat)".format(
-            Locale.ROOT, rms, bass, mid, treble, beat
+            Locale.ROOT, rms, bass, mid, treble, beat,
         )
 
     companion object {
@@ -113,7 +111,6 @@ class AudioFrame(
             treble = 0f,
             rms = 0f,
             beat = false,
-            timestampMs = 0L
         )
     }
 }

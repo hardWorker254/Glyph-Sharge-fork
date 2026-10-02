@@ -127,10 +127,10 @@ internal suspend fun GlyphRenderer.runLockPulseAnimation(profile: DeviceProfile)
         profile.nonC.forEach { builder.buildChannel(it, dimmedBrightness) }
 
         for (j in 0..idx) {
-            val brightness = if ((idx == 0 || j == idx)) {
+            val brightness = if ((idx == 0) || (j == idx)) {
                 GLYPH_MAX_BRIGHTNESS
             } else {
-                (GLYPH_MAX_BRIGHTNESS * (0.3f + 0.7f * (j.toFloat() / idx))).toInt()
+                (GLYPH_MAX_BRIGHTNESS * (0.3f + (0.7f * (j.toFloat() / idx)))).toInt()
             }
             builder.buildChannel(profile.c[j], brightness)
         }
@@ -177,7 +177,7 @@ private suspend fun GlyphRenderer.runPhone3aSpiral(profile: DeviceProfile) {
         if (j == i) {
             GLYPH_MAX_BRIGHTNESS
         } else {
-            (GLYPH_MAX_BRIGHTNESS * (0.3f + (j.toFloat() / i.coerceAtLeast(1)) * 0.4f)).toInt()
+            (GLYPH_MAX_BRIGHTNESS * (0.3f + ((j.toFloat() / i.coerceAtLeast(1)) * 0.4f))).toInt()
         }
     }
 
@@ -185,14 +185,14 @@ private suspend fun GlyphRenderer.runPhone3aSpiral(profile: DeviceProfile) {
         if (j == i) {
             GLYPH_MAX_BRIGHTNESS
         } else {
-            (GLYPH_MAX_BRIGHTNESS * (0.5f + (j.toFloat() / i.coerceAtLeast(1)) * 0.5f)).toInt()
+            (GLYPH_MAX_BRIGHTNESS * (0.5f + ((j.toFloat() / i.coerceAtLeast(1)) * 0.5f))).toInt()
         }
     }
 
     progressiveSweep(
         segments = profile.b,
-        stepMs = step + SPIRAL_STAGE_EXTRA_MS * 2,
-        base = dimmed(profile.c, 0.4f) + dimmed(profile.a, 0.7f)
+        stepMs = step + (SPIRAL_STAGE_EXTRA_MS * 2),
+        base = dimmed(profile.c, 0.4f) + dimmed(profile.a, 0.7f),
     ) { _, _ -> GLYPH_MAX_BRIGHTNESS }
 
     toggle(frame(profile.all), SPIRAL_FINALE_MS)
@@ -213,7 +213,7 @@ private suspend fun GlyphRenderer.runSpiralOrder(profile: DeviceProfile) {
         val builder = builder() ?: break
 
         for (j in 0..i) {
-            val brightness = (GLYPH_MAX_BRIGHTNESS * (0.6f + (j.toFloat() / size) * 0.4f)).toInt()
+            val brightness = (GLYPH_MAX_BRIGHTNESS * (0.6f + ((j.toFloat() / size) * 0.4f))).toInt()
             builder.buildChannel(segments[j], brightness)
         }
 
@@ -229,7 +229,7 @@ private suspend fun GlyphRenderer.runSpiralOrder(profile: DeviceProfile) {
         val denom = (size - i).coerceAtLeast(1)
         for (j in i until size) {
             val brightness =
-                (GLYPH_MAX_BRIGHTNESS * (0.6f + ((size - j).toFloat() / denom) * 0.4f)).toInt()
+                (GLYPH_MAX_BRIGHTNESS * (0.6f + (((size - j).toFloat() / denom) * 0.4f))).toInt()
             builder.buildChannel(segments[j], brightness)
         }
 

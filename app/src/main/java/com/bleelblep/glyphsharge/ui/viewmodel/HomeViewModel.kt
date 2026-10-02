@@ -46,10 +46,10 @@ class HomeViewModel @Inject constructor(
     /**
      * The manager the feature dialogs' "Test" buttons drive.
      *
-     * Public because those dialogs are plain Composables: `hiltViewModel()`
-     * resolves from inside a dialog as well as from a screen, which makes this
-     * the injection point they can reach. Same singleton the feature services
-     * hold.
+     * Public because those dialogs are plain Composables: they read this
+     * through [com.bleelblep.glyphsharge.ui.theme.LocalHomeViewModel], which
+     * hands back the instance this Activity drives. Same singleton the feature
+     * services hold.
      */
     val glyphAnimationManager: GlyphAnimationManager,
     private val serviceController: FeatureServiceController,
@@ -85,6 +85,12 @@ class HomeViewModel @Inject constructor(
      * `MainActivity` answer it, which is why there is one chain rather than
      * two that could answer differently.
      *
+     * Both ends of that chain now hold the same instance: `MainActivity`
+     * drains it, and the card raises on it through `LocalHomeViewModel`. When
+     * the screen resolved its own `HomeViewModel` the card's request went into
+     * a channel nobody was reading — it filled up, and nothing happened, with
+     * no error to show for it.
+     *
      * Buffered on purpose: the visualiser card is the last one in the home
      * list, so a request raised while the app is still starting would find
      * nobody collecting it yet.
@@ -104,7 +110,7 @@ class HomeViewModel @Inject constructor(
      */
     fun toggleMusicVisualizer(enabled: Boolean) {
         if (enabled) requestMusicCapture()
-        else setFeatureEnabled(GlyphFeature.MUSIC_VISUALIZER, false)
+        else setFeatureEnabled(GlyphFeature.MUSIC_VISUALIZER, enabled = false)
     }
 
     /**
@@ -132,13 +138,19 @@ class HomeViewModel @Inject constructor(
         val enabledByService = serviceController.readAll()
         _uiState.update { state ->
             state.copy(
-                features = GlyphFeature.entries.associateWith { feature ->
-                    FeatureUiState(
+                // From the registry, not the enum. `GlyphFeature.PREVIEW` is a
+                // strip participant with no service and no preference, so it has
+                // no spec and no card — iterating the enum put a row on the home
+                // screen for a setting that does not exist, and asked
+                // `readAll` about a key it will never hold.
+                features = FeatureSpecs.all.associate { spec ->
+                    val feature = spec.feature
+                    feature to FeatureUiState(
                         feature = feature,
                         isEnabled = enabledByService[feature] ?: false,
-                        isServiceActive = _isNothingPhone
+                        isServiceActive = _isNothingPhone,
                     )
-                }
+                },
             )
         }
     }
@@ -160,11 +172,16 @@ class HomeViewModel @Inject constructor(
             when {
                 outcome.error != null -> emit(
                     context.getString(
-                        if (enabled) R.string.glyph_service_fstart else R.string.glyph_service_fstop
-                    )
+                        if (enabled) R.string.glyph_service_fstart else R.string.glyph_service_fstop,
+                    ),
                 )
                 !outcome.changed ->
-                    emit("Glyph service is already ${if (enabled) "enabled" else "disabled"}")
+                    emit(
+                        context.getString(
+                            if (enabled) R.string.glyph_service_already_enabled
+                            else R.string.glyph_service_already_disabled,
+                        ),
+                    )
                 outcome.isActive -> emit(context.getString(R.string.glyph_service_start))
                 else -> emit(context.getString(R.string.glyph_service_stop))
             }
@@ -179,7 +196,7 @@ class HomeViewModel @Inject constructor(
      * [setNfcDispatchHook] and is told when to enable or disable it.
      */
     fun setFeatureEnabled(feature: GlyphFeature, enabled: Boolean) {
-        if (feature == GlyphFeature.NFC && enabled && !canUseNfc()) return
+        if ((feature == GlyphFeature.NFC) && (enabled && !canUseNfc())) return
 
         // A feature cannot run without the master Glyph service: its service
         // shuts itself down on start and never registers its trigger. Refusing
@@ -197,7 +214,7 @@ class HomeViewModel @Inject constructor(
         _uiState.update { state ->
             state.copy(
                 features = state.features + (feature to
-                    state.stateOf(feature).copy(isEnabled = enabled))
+                    state.stateOf(feature).copy(isEnabled = enabled)),
             )
         }
 
@@ -215,9 +232,9 @@ class HomeViewModel @Inject constructor(
 
     private fun canUseNfc(): Boolean {
         val adapter = NfcAdapter.getDefaultAdapter(context)
-            ?: return reject("NFC is not available on this device")
+            ?: return reject(context.getString(R.string.nfc_not_available))
         if (!adapter.isEnabled) {
-            return reject("Please enable NFC in system settings first")
+            return reject(context.getString(R.string.nfc_enable_in_settings))
         }
         return true
     }
@@ -227,8 +244,19 @@ class HomeViewModel @Inject constructor(
         return false
     }
 
+    /**
+     * The toast the Test button shows, before the animation is asked for.
+     *
+     * Resolved through [TOAST_BY_FEATURE] so the wording follows the device
+     * language. A feature with no entry of its own falls back to the generic
+     * form with its enum name — a last resort, not the normal wording.
+     */
     fun testFeature(feature: GlyphFeature) {
-        emit(TOAST_BY_FEATURE[feature] ?: "Testing ${feature.name}")
+        val toast = TOAST_BY_FEATURE[feature]
+        emit(
+            if (toast != null) context.getString(toast)
+            else context.getString(R.string.toast_testing_generic, feature.name),
+        )
         viewModelScope.launch {
             when (feature) {
                 GlyphFeature.POWER_PEEK ->
@@ -242,6 +270,13 @@ class HomeViewModel @Inject constructor(
                 GlyphFeature.VPN_CONNECTED -> glyphAnimationManager.playVpnConnectedAnimation()
                 GlyphFeature.MUSIC_VISUALIZER ->
                     glyphAnimationManager.playMusicVisualizerAnimation()
+
+                // Not reachable: `PREVIEW` is a strip participant, not a
+                // feature — it has no card, no preference and no Test button,
+                // and its toast is absent from `TOAST_BY_FEATURE` too. Named
+                // rather than `else` so that adding a real feature cannot land
+                // in the wrong branch by default.
+                GlyphFeature.PREVIEW -> Unit
             }
         }
     }
@@ -264,13 +299,13 @@ class HomeViewModel @Inject constructor(
      */
     fun onMusicCaptureResult(resultCode: Int, data: Intent?): Boolean {
         if (resultCode != Activity.RESULT_OK) {
-            settingsRepository.saveMusicVizEnabled(false)
+            settingsRepository.saveMusicVizEnabled(enabled = false)
             tileStateBus.notifyChanged()
             emit(context.getString(R.string.music_viz_consent_denied))
             return false
         }
 
-        settingsRepository.saveMusicVizEnabled(true)
+        settingsRepository.saveMusicVizEnabled(enabled = true)
         serviceController.start(GlyphFeature.MUSIC_VISUALIZER, consent = resultCode to data)
         tileStateBus.notifyChanged()
         emit(context.getString(R.string.music_viz_toast))
@@ -282,15 +317,19 @@ class HomeViewModel @Inject constructor(
     }
 
     private companion object {
+        /**
+         * The toast each feature shows when its Test button is pressed, held as
+         * resource ids so it can be resolved against the device language.
+         */
         val TOAST_BY_FEATURE = mapOf(
-            GlyphFeature.POWER_PEEK to "Testing Power Peek",
-            GlyphFeature.CHARGING_ANIMATION to "Testing Charging Animation",
-            GlyphFeature.PULSE_LOCK to "Testing Pulse Lock",
-            GlyphFeature.SCREEN_OFF to "Testing Screen Off",
-            GlyphFeature.NFC to "Testing NFC",
-            GlyphFeature.LOW_BATTERY to "Testing Low Battery Alert",
-            GlyphFeature.VPN_CONNECTED to "Testing VPN Connected",
-            GlyphFeature.MUSIC_VISUALIZER to "Testing Music Visualizer"
+            GlyphFeature.POWER_PEEK to R.string.toast_testing_power_peek,
+            GlyphFeature.CHARGING_ANIMATION to R.string.toast_testing_charging_animation,
+            GlyphFeature.PULSE_LOCK to R.string.toast_testing_pulse_lock,
+            GlyphFeature.SCREEN_OFF to R.string.toast_testing_screen_off,
+            GlyphFeature.NFC to R.string.toast_testing_nfc,
+            GlyphFeature.LOW_BATTERY to R.string.toast_testing_low_battery_alert,
+            GlyphFeature.VPN_CONNECTED to R.string.toast_testing_vpn_connected,
+            GlyphFeature.MUSIC_VISUALIZER to R.string.toast_testing_music_visualizer,
         )
     }
 }

@@ -3,30 +3,22 @@ package com.bleelblep.glyphsharge.ui.screens
 import android.content.Context
 import android.os.LocaleList
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.ui.components.layout.SettingsScaffold
 import com.bleelblep.glyphsharge.ui.theme.LocalSettingsRepository
 import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
-import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.ui.res.stringResource
 import com.bleelblep.glyphsharge.R
 import java.util.*
@@ -36,7 +28,7 @@ import java.util.*
 data class LanguageOption(
     val code: String,
     val nativeName: String,   // Shown in the dropdown
-    val englishName: String   // For internal reference / sorting
+    val englishName: String,  // For internal reference / sorting
 )
 
 // Available languages list
@@ -44,7 +36,7 @@ data class LanguageOption(
 private val availableLanguages = listOf(
     LanguageOption("en", "English", "English"),
     LanguageOption("ru", "Русский", "Russian"),
-    LanguageOption("system", "🔄 System Default", "System")
+    LanguageOption("system", "🔄 System Default", "System"),
 )
 
 // Language settings screen
@@ -53,8 +45,8 @@ private val availableLanguages = listOf(
 @Composable
 fun LanguageSettingsScreen(
     onBackClick: () -> Unit,
+    modifier: Modifier = Modifier,
     onLanguageChanged: (String) -> Unit = {}, // Callback for app-wide locale update
-    modifier: Modifier = Modifier
 ) {
     // Read from the composition: the nav host holds no store to hand down.
     val settingsRepository = LocalSettingsRepository.current
@@ -70,7 +62,7 @@ fun LanguageSettingsScreen(
     }
 
     // Dropdown state
-    var expanded by remember { mutableStateOf(false) }
+    var expanded by remember { mutableStateOf(value = false) }
     val selectedLanguage = remember(currentLanguageCode) {
         availableLanguages.find { it.code == currentLanguageCode }
             ?: availableLanguages.first { it.code == "system" }
@@ -79,28 +71,28 @@ fun LanguageSettingsScreen(
     SettingsScaffold(
         title = stringResource(R.string.language_selector_title),
         modifier = modifier,
-        onBackClick = onBackClick
+        onBackClick = onBackClick,
     ) {
             // Status Card
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
                     ),
-                    shape = MaterialTheme.shapes.large
+                    shape = MaterialTheme.shapes.large,
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(20.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Language,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(24.dp),
                         )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
@@ -108,12 +100,12 @@ fun LanguageSettingsScreen(
                                 text = stringResource(R.string.language_settings_current_label),
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
                             )
                             Text(
                                 text = selectedLanguage.nativeName,
                                 style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f)
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.9f),
                             )
                         }
                     }
@@ -125,16 +117,16 @@ fun LanguageSettingsScreen(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
+                        containerColor = MaterialTheme.colorScheme.surface,
                     ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                    shape = MaterialTheme.shapes.large
+                    shape = MaterialTheme.shapes.large,
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
                         Text(
                             text = stringResource(R.string.language_settings_select_label),
                             style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
                         )
                         Spacer(modifier = Modifier.height(16.dp))
 
@@ -144,7 +136,7 @@ fun LanguageSettingsScreen(
                             onExpandedChange = {
                                 HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                 expanded = it
-                            }
+                            },
                         ) {
                             OutlinedTextField(
                                 value = selectedLanguage.nativeName,
@@ -156,13 +148,13 @@ fun LanguageSettingsScreen(
                                 colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .menuAnchor()
+                                    .menuAnchor(),
                             )
 
                             ExposedDropdownMenu(
                                 expanded = expanded,
                                 onDismissRequest = { expanded = false },
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
                             ) {
                                 availableLanguages.forEach { language ->
                                     DropdownMenuItem(
@@ -170,18 +162,18 @@ fun LanguageSettingsScreen(
                                             Row(
                                                 verticalAlignment = Alignment.CenterVertically,
                                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                                modifier = Modifier.fillMaxWidth()
+                                                modifier = Modifier.fillMaxWidth(),
                                             ) {
                                                 Text(
                                                     text = language.nativeName,
-                                                    style = MaterialTheme.typography.bodyLarge
+                                                    style = MaterialTheme.typography.bodyLarge,
                                                 )
                                                 if (language.code == currentLanguageCode) {
                                                     Icon(
                                                         imageVector = Icons.Default.Check,
                                                         contentDescription = "Selected",
                                                         tint = MaterialTheme.colorScheme.primary,
-                                                        modifier = Modifier.size(20.dp)
+                                                        modifier = Modifier.size(20.dp),
                                                     )
                                                 }
                                             }
@@ -193,7 +185,7 @@ fun LanguageSettingsScreen(
                                             onLanguageChanged(language.code)
                                             expanded = false
                                         },
-                                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding
+                                        contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
                                     )
                                 }
                             }
@@ -206,7 +198,7 @@ fun LanguageSettingsScreen(
                             text = stringResource(R.string.language_settings_note),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
-                            lineHeight = 18.sp
+                            lineHeight = 18.sp,
                         )
                     }
                 }
@@ -218,21 +210,21 @@ fun LanguageSettingsScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
                         ),
-                        shape = MaterialTheme.shapes.large
+                        shape = MaterialTheme.shapes.large,
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
                                 text = stringResource(R.string.language_settings_restart_note),
                                 style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = stringResource(R.string.language_restart_message),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }

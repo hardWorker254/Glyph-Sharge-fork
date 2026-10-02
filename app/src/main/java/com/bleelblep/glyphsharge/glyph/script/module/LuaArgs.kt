@@ -29,13 +29,6 @@ internal fun Array<LuaValue>.doubleOr(index: Int, default: Double = 0.0): Double
     return value.todouble()
 }
 
-/** A boolean, or [default] when the slot is missing or `nil`. */
-internal fun Array<LuaValue>.boolOr(index: Int, default: Boolean = false): Boolean {
-    val value = raw(index) ?: return default
-    if (value.isnil()) return default
-    return value.toboolean()
-}
-
 /** A string, or [default] when the slot is missing or `nil`. */
 internal fun Array<LuaValue>.stringOr(index: Int, default: String = ""): String {
     val value = raw(index) ?: return default

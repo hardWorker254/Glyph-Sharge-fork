@@ -4,10 +4,12 @@ import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlin.time.Duration.Companion.milliseconds
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -41,6 +43,16 @@ class GlyphFeatureCoordinator @Inject constructor(
         private const val TAG = "GlyphCoordinator"
     }
     private val lock = Mutex()
+
+    /**
+     * Serialises opening a Glyph session across features.
+     *
+     * Separate from [lock] because it guards something that is not the strip:
+     * the session is a single global resource, and two features arriving
+     * together would otherwise both try to open it.
+     */
+    private val sessionGuard = Mutex()
+
     private val _currentOwner = MutableStateFlow<GlyphFeature?>(null)
     val currentOwner: StateFlow<GlyphFeature?> = _currentOwner.asStateFlow()
 
@@ -61,9 +73,9 @@ class GlyphFeatureCoordinator @Inject constructor(
      */
     suspend fun acquireNow(
         owner: GlyphFeature,
-        timeoutMs: Long = PREEMPT_TIMEOUT_MS
+        timeoutMs: Long = PREEMPT_TIMEOUT_MS,
     ): Boolean {
-        if (_currentOwner.value != null && _currentOwner.value != owner) {
+        if ((_currentOwner.value != null) && (_currentOwner.value != owner)) {
             Log.d(TAG, "${owner.name} interrupts ${_currentOwner.value} for the strip")
             glyphAnimationManager.stopAnimations()
         }
@@ -98,7 +110,7 @@ class GlyphFeatureCoordinator @Inject constructor(
         preempt: Boolean = false,
         timeoutMs: Long = if (preempt) PREEMPT_TIMEOUT_MS else ACQUIRE_TIMEOUT_MS,
         onRelease: () -> Unit = {},
-        block: suspend () -> T
+        block: suspend () -> T,
     ): T? {
         val acquired = if (preempt) {
             acquireNow(owner, timeoutMs)
@@ -128,33 +140,47 @@ class GlyphFeatureCoordinator @Inject constructor(
      * or takes nothing.
      */
     suspend fun acquire(owner: GlyphFeature, timeoutMs: Long = ACQUIRE_TIMEOUT_MS): Boolean {
+        // The Glyph session is ensured *before* contending for the strip, not
+        // while holding it.
+        //
+        // Opening a session does not touch the LEDs, so there was no reason to
+        // serialise it behind the strip mutex — but holding the mutex across it
+        // starved everything else: `forceEnsureSession` waits up to two seconds
+        // for the system service to bind, and every other feature gives up
+        // after [ACQUIRE_TIMEOUT_MS], 500 ms. So a single trigger arriving
+        // while the Glyph service was reconnecting silently dropped every other
+        // trigger for the rest of that window — and the feature that did get
+        // in could not draw either.
+        if (!ensureSession()) return false
+
         if (!tryLockWithin(timeoutMs)) return false
 
         _currentOwner.value = owner
-
-        val ready = if (!glyphManager.isSessionActive) {
-            withContext(Dispatchers.IO) {
-                glyphManager.forceEnsureSession()
-            }
-        } else {
-            true
-        }
-
-        if (!ready) {
-            _currentOwner.value = null
-            runCatching { lock.unlock() }
-            return false
-        }
-
         return true
+    }
+
+    /**
+     * Opens a Glyph session if there is not one, with at most one waiter.
+     *
+     * Without the guard two features arriving together would both see no
+     * session and both call `forceEnsureSession`. `openSession` is guarded by a
+     * plain `if` against a volatile flag, so one of them would go on to open a
+     * session the other had just opened.
+     *
+     * Cheap because the guard is only contended on the cold path: the active
+     * check is the common case and never waits.
+     */
+    private suspend fun ensureSession(): Boolean = sessionGuard.withLock {
+        if (glyphManager.isSessionActive) return@withLock true
+        withContext(Dispatchers.IO) { glyphManager.forceEnsureSession() }
     }
 
     /** Polls [lock] until it is free or [timeoutMs] elapses. */
     private suspend fun tryLockWithin(timeoutMs: Long): Boolean {
-        val deadline = System.nanoTime() + timeoutMs * 1_000_000L
+        val deadline = System.nanoTime() + (timeoutMs * 1_000_000L)
         do {
             if (lock.tryLock()) return true
-            delay(TRY_LOCK_POLL_MS)
+            delay(TRY_LOCK_POLL_MS.milliseconds)
         } while (System.nanoTime() < deadline)
         return false
     }
@@ -162,10 +188,22 @@ class GlyphFeatureCoordinator @Inject constructor(
     /**
      * Hands the strip back, ignoring any caller that is not the current owner.
      *
+     * [lock] is the mutual-exclusion primitive here and it alone decides who
+     * holds the strip; [_currentOwner] is what the rest of the app reads, to
+     * report and to decide who to preempt. Nulling the owner and *then*
+     * unlocking is safe in that order — a second `tryLock()` cannot succeed
+     * while the mutex is still locked, so there is no window in which the next
+     * feature is already inside and the previous owner then frees its lock.
+     *
+     * What the owner check does guard is a caller that has already been
+     * dispossessed: it has returned, and letting it unlock would free a lock
+     * the real owner is still holding.
+     *
      * The LEDs are turned off *before* the lock is released, so the next owner
-     * never inherits a strip that is still lit. A caller that lost ownership
-     * mid-run is ignored on purpose: it has already returned, and letting it
-     * unlock would free a lock the real owner is still holding.
+     * never inherits a strip that is still lit.
+     *
+     * `unlock` is wrapped because this runs from `withStrip`'s `finally`, where
+     * an exception replaces whatever the block was already unwinding with.
      */
     fun release(owner: GlyphFeature) {
         if (_currentOwner.value != owner) return
@@ -173,9 +211,7 @@ class GlyphFeatureCoordinator @Inject constructor(
         runCatching { glyphManager.turnOffAll() }
 
         _currentOwner.value = null
-        if (lock.isLocked) {
-            lock.unlock()
-        }
+        runCatching { lock.unlock() }
     }
 }
 
@@ -194,4 +230,19 @@ enum class GlyphFeature {
     CHARGING_ANIMATION,
     MUSIC_VISUALIZER,
     VPN_CONNECTED,
+
+    /**
+     * The studio's preview, and not a feature.
+     *
+     * It is in this enum because it has to take the strip through exactly the
+     * same mutex as everything else. It used not to, and the cost was that
+     * opening the editor drew over a live service's animation — the service
+     * kept drawing too, both interleaved on the same LEDs, and whichever
+     * finished first left the other's half-played sequence on the strip with
+     * nothing anywhere in the log.
+     *
+     * No service and no preference, so no `FeatureSpec`; see
+     * `FeatureSpecs.NON_FEATURE_PARTICIPANTS`.
+     */
+    PREVIEW,
 }

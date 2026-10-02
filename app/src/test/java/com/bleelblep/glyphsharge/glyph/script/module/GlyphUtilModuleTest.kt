@@ -20,7 +20,7 @@ class GlyphUtilModuleTest {
             """
             local util = require("glyph.util")
             ${source.trimIndent()}
-            """.trimIndent()
+            """.trimIndent(),
         )
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
     }
@@ -120,7 +120,7 @@ class GlyphUtilModuleTest {
             local original = 0
             for i = 1, #source do original = original + source[i] end
             assert(original == 45, 'the source must be intact')
-            """
+            """,
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
@@ -133,7 +133,7 @@ class GlyphUtilModuleTest {
             local util = require("glyph.util")
             local ok = pcall(function() util.shuffle(7) end)
             assert(not ok, 'a number is not a list of channels')
-            """
+            """,
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)

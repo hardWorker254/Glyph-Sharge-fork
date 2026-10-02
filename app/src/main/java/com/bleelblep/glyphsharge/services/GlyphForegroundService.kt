@@ -31,13 +31,38 @@ class GlyphForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // `startForeground` first, unconditionally.
+        //
+        // Android gives a service started with `startForegroundService()`
+        // about five seconds to call `startForeground`, and throws
+        // `ForegroundServiceDidNotStartInTimeException` if it does not. That
+        // exception is delivered to *this* process, so refusing to promote
+        // itself because the switch is off was not a quiet no-op: it took the
+        // app down on the next launch.
+        //
+        // The gate is still applied — it just runs after the promotion, which
+        // is the same order [FeatureService] uses.
+        startForeground(NOTIFICATION_ID, buildNotification())
+
         if (!settingsRepository.getGlyphServiceEnabled()) {
-            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopForegroundCompat()
             stopSelf()
             return START_NOT_STICKY
         }
-        startForeground(NOTIFICATION_ID, buildNotification())
         return START_STICKY
+    }
+
+    /**
+     * Drops the notification without throwing.
+     *
+     * Guarded because `onDestroy` restarts this service, and the start can be
+     * refused from the background on a platform that no longer allows it —
+     * an exception out of `onDestroy` is an uncaught crash rather than a
+     * cleanup failure.
+     */
+    @Suppress("DEPRECATION")
+    private fun stopForegroundCompat() {
+        runCatching { stopForeground(STOP_FOREGROUND_REMOVE) }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -58,7 +83,7 @@ class GlyphForegroundService : Service() {
         if (nm.getNotificationChannel(CHANNEL_ID) != null) return
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, "Glyph Foreground Service", NotificationManager.IMPORTANCE_MIN)
-                .apply { setShowBadge(false) }
+                .apply { setShowBadge(false) },
         )
     }
 

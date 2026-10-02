@@ -49,20 +49,18 @@ internal class ModuleBuilder(private val name: String) {
 
     /** A value that is already a Lua value, e.g. a table handed straight through. */
     fun value(key: String, v: LuaValue) {
-        table.set(key, v)
+        table[key] = v
     }
 
     fun int(key: String, v: Int) {
-        table.set(key, LuaValue.valueOf(v))
+        table[key] = LuaValue.valueOf(v)
     }
 
     fun number(key: String, v: Double) {
-        table.set(key, LuaValue.valueOf(v))
+        table[key] = LuaValue.valueOf(v)
     }
 
-    fun bool(key: String, v: Boolean) {
-        table.set(key, LuaValue.valueOf(v))
-    }
+    
 
     /**
      * A key resolved afresh on every read, for anything that moves.
@@ -85,7 +83,7 @@ internal class ModuleBuilder(private val name: String) {
      * keeps a module function from making the watchdog catchable.
      */
     fun func(key: String, f: (Array<LuaValue>) -> LuaValue) {
-        table.set(key, GlyphLuaApi.luaFunction(key, name, f))
+        table[key] = GlyphLuaApi.luaFunction(key, name, f)
     }
 
     /**
@@ -98,7 +96,7 @@ internal class ModuleBuilder(private val name: String) {
     fun build(): LuaTable {
         if (live.isNotEmpty()) {
             val meta = LuaTable()
-            meta.set("__index", liveIndex())
+            meta["__index"] = liveIndex()
             table.setmetatable(meta)
         }
         return table
@@ -117,14 +115,10 @@ internal class ModuleBuilder(private val name: String) {
      * stale one. `rawget` is used rather than `get` for the same reason — `get`
      * would re-enter this very metamethod.
      */
-    private fun liveIndex(): VarArgFunction = GlyphLuaApi.luaFunction(
-        "__index",
-        name,
-        { args ->
-            val key = args.stringOr(2, "")
-            live[key]?.invoke() ?: table.rawget(key)
-        }
-    )
+    private fun liveIndex(): VarArgFunction = GlyphLuaApi.luaFunction("__index", name) { args ->
+        val key = args.stringOr(2, "")
+        live[key]?.invoke() ?: table.rawget(key)
+    }
 
     override fun toString(): String = "ModuleBuilder($name)"
 }

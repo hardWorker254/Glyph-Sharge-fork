@@ -1,5 +1,6 @@
 package com.bleelblep.glyphsharge.glyph.script
 
+import com.bleelblep.glyphsharge.glyph.device.DeviceType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -19,7 +20,7 @@ class ScriptFileFormatTest {
         name = "My Heartbeat",
         source = "local C = glyph.ch.c\nfor i = 1, #C do\n  glyph.set({ C[i] }, 1000)\n  glyph.hold(80)\nend",
         createdAt = 1_700_000_000_000L,
-        updatedAt = 1_700_000_500_000L
+        updatedAt = 1_700_000_500_000L,
     )
 
     @Test
@@ -84,4 +85,159 @@ class ScriptFileFormatTest {
         assertEquals("custom:abc", ScriptAnimation.runtimeIdOf("abc"))
         assertEquals("custom:abc", ScriptAnimation.runtimeIdOf("custom:abc"))
     }
+
+    // region devices
+
+    @Test
+    fun `a round trip keeps the declared models`() {
+        val narrow = original.copy(devices = setOf(DeviceType.PHONE1, DeviceType.PHONE2))
+        val decoded = ScriptFileFormat.decode(ScriptFileFormat.encode(narrow))
+
+        assertEquals(setOf(DeviceType.PHONE1, DeviceType.PHONE2), decoded.devices)
+    }
+
+    @Test
+    fun `a round trip of every model is the default`() {
+        val all = original.copy(devices = ScriptAnimation.ALL_DEVICES)
+        val decoded = ScriptFileFormat.decode(ScriptFileFormat.encode(all))
+
+        assertEquals(ScriptAnimation.ALL_DEVICES, decoded.devices)
+    }
+
+    /**
+     * The regression this field could have broken: every script already saved
+     * on a phone was written before `devices` existed, and the whole point of
+     * the default is that such a file keeps working.
+     */
+    @Test
+    fun `a file written before the field existed claims every model`() {
+        val legacy = """
+            -- Glyph Sharge animation
+            -- format: 1
+            -- name: Old script
+            -- id: abc123def456
+            -- created: 1700000000000
+            -- updated: 1700000000000
+
+            glyph.setAll(glyph.MAX)
+        """.trimIndent()
+
+        val decoded = ScriptFileFormat.decode(legacy)
+
+        assertEquals(ScriptAnimation.ALL_DEVICES, decoded.devices)
+        assertEquals("Old script", decoded.name)
+    }
+
+    @Test
+    fun `a headerless file claims every model`() {
+        // Nothing declared anything, and a script written on the named groups
+        // really does run everywhere.
+        val decoded = ScriptFileFormat.decode("glyph.setAll(glyph.MAX)")
+
+        assertEquals(ScriptAnimation.ALL_DEVICES, decoded.devices)
+    }
+
+    @Test
+    fun `a model this build has never heard of is not a refusal`() {
+        // PHONE4 is an honest claim about a phone that does not exist yet, and
+        // refusing the script over it would leave it uninstallable anywhere.
+        val future = """
+            -- Glyph Sharge animation
+            -- devices: PHONE4
+
+            glyph.setAll(glyph.MAX)
+        """.trimIndent()
+
+        val decoded = ScriptFileFormat.decode(future)
+
+        assertEquals(ScriptAnimation.ALL_DEVICES, decoded.devices)
+    }
+
+    @Test
+    fun `an empty devices field claims every model`() {
+        val decoded = ScriptFileFormat.decode(
+            "-- Glyph Sharge animation\n-- devices:\n\nglyph.setAll(glyph.MAX)",
+        )
+
+        assertEquals(ScriptAnimation.ALL_DEVICES, decoded.devices)
+    }
+
+    @Test
+    fun `a partly unknown list narrows to the models it named`() {
+        val raw = """
+            -- Glyph Sharge animation
+            -- devices: PHONE1, PHONE9 ,PHONE2A
+
+            glyph.setAll(glyph.MAX)
+        """.trimIndent()
+
+        val decoded = ScriptFileFormat.decode(raw)
+
+        assertEquals(setOf(DeviceType.PHONE1, DeviceType.PHONE2A), decoded.devices)
+    }
+
+    @Test
+    fun `the devices key is read whatever its case`() {
+        val raw = """
+            -- Glyph Sharge animation
+            -- Devices: PHONE3A
+
+            glyph.setAll(glyph.MAX)
+        """.trimIndent()
+
+        assertEquals(setOf(DeviceType.PHONE3A), ScriptFileFormat.decode(raw).devices)
+    }
+
+    @Test
+    fun `the exported device line is stable for the same set`() {
+        // A `sha256` over the file is only a content identity if two exports
+        // of one script produce the same bytes, and a `Set` in declaration
+        // order is what makes that true.
+        val devices = setOf(DeviceType.PHONE3A, DeviceType.PHONE1, DeviceType.PHONE2)
+        val first = ScriptFileFormat.encode(original.copy(devices = devices))
+        val second = ScriptFileFormat.encode(original.copy(devices = devices.toList().reversed().toSet()))
+
+        assertEquals(first, second)
+        assertTrue(first.contains("-- devices: PHONE1,PHONE2,PHONE3A"))
+    }
+
+    @Test
+    fun `every model is claimed unless the author says otherwise`() {
+        // The default, asserted directly: a script written against the named
+        // groups is portable, so "all of them" is the true default and not a
+        // stand-in for "unknown".
+        assertEquals(ScriptAnimation.ALL_DEVICES, original.devices)
+        assertTrue(ScriptAnimation.ALL_DEVICES.containsAll(DeviceType.entries))
+    }
+
+    @Test
+    fun `a script reports the models it supports`() {
+        val narrow = original.copy(devices = setOf(DeviceType.PHONE1))
+
+        assertTrue(narrow.supports(DeviceType.PHONE1))
+        assertTrue(!narrow.supports(DeviceType.PHONE3A))
+        // Hardware the app has no layout for supports nothing, which is what
+        // `runScript` already refuses to run on.
+        assertTrue(!narrow.supports(null))
+    }
+
+    @Test
+    fun `a cyrillic id is replaced rather than trusted`() {
+        // `ID_PATTERN` is `[a-zA-Z0-9_-]`, so this is not accepted — and the
+        // point is that it is *silently* replaced, which is exactly why the
+        // review checklist says the id is checked by eye.
+        val raw = """
+            -- Glyph Sharge animation
+            -- id: abc123def456я
+
+            glyph.setAll(glyph.MAX)
+        """.trimIndent()
+
+        val decoded = ScriptFileFormat.decode(raw)
+
+        assertNotEquals("abc123def456я", decoded.id)
+        assertTrue(decoded.id.matches(Regex("[a-zA-Z0-9_-]{1,64}")))
+    }
+
+    // endregion
 }

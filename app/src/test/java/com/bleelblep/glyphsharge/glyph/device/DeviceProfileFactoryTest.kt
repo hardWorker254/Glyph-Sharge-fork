@@ -28,7 +28,7 @@ class DeviceProfileFactoryTest {
         DeviceType.PHONE1,
         DeviceType.PHONE2,
         DeviceType.PHONE2A,
-        DeviceType.PHONE3A
+        DeviceType.PHONE3A,
     )
 
     // region Every model
@@ -55,7 +55,7 @@ class DeviceProfileFactoryTest {
 
             assertTrue(
                 "$type: a group names a channel that is not wired",
-                everywhere.all { it in p.all }
+                everywhere.all { it in p.all },
             )
             // No channel is in two groups. `all` may be larger than the sum of
             // the groups — Phone (2) wires a second C run that is deliberately
@@ -63,11 +63,11 @@ class DeviceProfileFactoryTest {
             assertEquals(
                 "$type: a channel appears in two groups",
                 everywhere.size,
-                everywhere.toSet().size
+                everywhere.toSet().size,
             )
             assertTrue(
                 "$type: a group is not wired",
-                everywhere.size <= p.all.size
+                everywhere.size <= p.all.size,
             )
         }
     }
@@ -99,7 +99,7 @@ class DeviceProfileFactoryTest {
             assertTrue("$type: no pulse segments", p.pulseSegments.isNotEmpty())
             assertTrue(
                 "$type: a pulse segment is not a channel",
-                p.pulseSegments.all { it in p.all }
+                p.pulseSegments.all { it in p.all },
             )
         }
     }
@@ -114,7 +114,7 @@ class DeviceProfileFactoryTest {
                 assertTrue("$type: an empty wave group", group.segments.isNotEmpty())
                 assertTrue(
                     "$type: a wave group names a channel that is not wired",
-                    group.segments.all { it in p.all }
+                    group.segments.all { it in p.all },
                 )
                 assertTrue("$type: a zero-length wave step", group.step > 0)
                 assertTrue("$type: a negative wave pause", group.off >= 0)
@@ -130,7 +130,7 @@ class DeviceProfileFactoryTest {
             assertEquals("$type: nonC", p.all.toSet() - p.c.toSet(), p.nonC.toSet())
             assertTrue(
                 "$type: the supporting light is empty",
-                p.nonC.isNotEmpty()
+                p.nonC.isNotEmpty(),
             )
         }
     }
@@ -164,19 +164,19 @@ class DeviceProfileFactoryTest {
 
         assertTrue(
             "Phone (3a) has ${last.c.size} C segments against ${first.c.size}",
-            last.all.size > first.all.size
+            last.all.size > first.all.size,
         )
         assertTrue(
             "the spiral step did not shrink: ${first.spiralStep} then ${last.spiralStep}",
-            last.spiralStep < first.spiralStep
+            last.spiralStep < first.spiralStep,
         )
         assertTrue(
             "the matrix budget did not grow",
-            last.matrixConfig.drops > first.matrixConfig.drops
+            last.matrixConfig.drops > first.matrixConfig.drops,
         )
         assertTrue(
             "the fireworks count did not grow",
-            last.fireworksConfig.count > first.fireworksConfig.count
+            last.fireworksConfig.count > first.fireworksConfig.count,
         )
     }
 

@@ -1,5 +1,8 @@
 package com.bleelblep.glyphsharge.ui.screens.animations
 
+import android.util.Log
+import androidx.annotation.ArrayRes
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -12,7 +15,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -56,6 +58,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -97,7 +100,7 @@ fun AnimationEditorScreen(
     onCheck: () -> Unit,
     onRunGlyph: () -> Unit,
     onStop: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
     // The user's haptic strength is a setting, so it is read once per
@@ -111,6 +114,11 @@ fun AnimationEditorScreen(
     // this has to track every keystroke to stay honest.
     val detectedTarget = remember(source) { ScriptTarget.detectIn(source) }
 
+    // The page's own scroll state. One for the screen, separate from the two
+    // the code editor keeps for itself — a script is taller than any phone, and
+    // its two axes have to scroll independently of everything around them.
+    val page = rememberScrollState()
+
     Scaffold(
         modifier = modifier.fillMaxSize().imePadding(),
         topBar = {
@@ -118,50 +126,58 @@ fun AnimationEditorScreen(
                 title = {
                     Text(
                         text = if (isDirty) stringResource(R.string.studio_editor_title_dirty)
-                        else stringResource(R.string.studio_editor_title)
+                        else stringResource(R.string.studio_editor_title),
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.settings_back_content_description)
+                            contentDescription = stringResource(R.string.settings_back_content_description),
                         )
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
-                        onSave()
-                    }) {
+                    IconButton(
+                        onClick = {
+                            HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
+                            onSave()
+                        },
+                    ) {
                         Icon(
                             imageVector = Icons.Filled.Save,
-                            contentDescription = stringResource(R.string.studio_action_save)
+                            contentDescription = stringResource(R.string.studio_action_save),
                         )
                     }
                 },
                 windowInsets = WindowInsets.statusBars,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 16.dp)
-                .padding(bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(bottom = 16.dp)
+                // The page scrolls, because the reference card below does not
+                // fit. It used not to: the editor below took `weight(1f)` and
+                // therefore every pixel that was left, so an expanded reference
+                // was measured into a zero-height slot and clipped — reachable
+                // by no gesture at all.
+                .verticalScroll(page),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             OutlinedTextField(
                 value = name,
                 onValueChange = onNameChange,
                 label = { Text(stringResource(R.string.studio_name_label)) },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             )
 
             // Which picker offers this script is decided by `glyph.target` in
@@ -175,20 +191,20 @@ fun AnimationEditorScreen(
                         R.string.studio_target_music
                     } else {
                         R.string.studio_target_any
-                    }
+                    },
                 ),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = cardColor)
+                colors = CardDefaults.cardColors(containerColor = cardColor),
             ) {
                 Column(
                     modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         StudioButton(
@@ -199,7 +215,7 @@ fun AnimationEditorScreen(
                                 onCheck()
                             },
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         StudioButton(
                             icon = if (isRunning) Icons.Filled.Stop else Icons.Filled.PhoneAndroid,
@@ -210,7 +226,7 @@ fun AnimationEditorScreen(
                                 if (isRunning) onStop() else onRunGlyph()
                             },
                             containerColor = accent,
-                            contentColor = MaterialTheme.colorScheme.onPrimary
+                            contentColor = MaterialTheme.colorScheme.onPrimary,
                         )
                     }
 
@@ -224,7 +240,7 @@ fun AnimationEditorScreen(
                                 Text(
                                     text = line.text,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = line.color()
+                                    color = line.color(),
                                 )
                             }
                         }
@@ -238,8 +254,11 @@ fun AnimationEditorScreen(
                 accent = accent,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
-                    .heightIn(min = 160.dp)
+                    // Bounded rather than `weight(1f)`. The editor scrolls in
+                    // both axes by itself, so it does not need to grow to fill
+                    // the screen — and giving it the leftover height is what
+                    // pushed the reference off the bottom in the first place.
+                    .heightIn(min = 200.dp, max = 420.dp),
             )
 
             ApiReference()
@@ -258,7 +277,7 @@ private fun RunningHint() {
     Text(
         text = stringResource(R.string.studio_running_hint),
         style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.primary
+        color = MaterialTheme.colorScheme.primary,
     )
 }
 
@@ -290,7 +309,7 @@ private fun CodeEditor(
     source: String,
     onSourceChange: (String) -> Unit,
     accent: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val vertical = rememberScrollState()
     val horizontal = rememberScrollState()
@@ -299,9 +318,9 @@ private fun CodeEditor(
         modifier = modifier
             .background(
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
             )
-            .padding(12.dp)
+            .padding(12.dp),
     ) {
         BasicTextField(
             value = source,
@@ -310,13 +329,13 @@ private fun CodeEditor(
                 fontFamily = FontFamily.Monospace,
                 fontSize = 13.sp,
                 lineHeight = 20.sp,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
             ),
             cursorBrush = SolidColor(accent),
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(vertical)
-                .horizontalScroll(horizontal)
+                .horizontalScroll(horizontal),
         )
     }
 }
@@ -331,14 +350,14 @@ private fun CodeEditor(
  */
 @Composable
 private fun ApiReference(modifier: Modifier = Modifier) {
-    var expanded by remember { mutableStateOf(false) }
+    var expanded by remember { mutableStateOf(value = false) }
     val cardColor = themeCardContainerColor()
 
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = cardColor),
-        onClick = { expanded = !expanded }
+        onClick = { expanded = !expanded },
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -346,44 +365,46 @@ private fun ApiReference(modifier: Modifier = Modifier) {
                     text = stringResource(R.string.studio_reference_title),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 )
                 Icon(
                     imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                    contentDescription = null
+                    contentDescription = null,
                 )
             }
 
             AnimatedVisibility(visible = expanded) {
                 Column(
                     modifier = Modifier.padding(top = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    API_REFERENCE.forEach { entry ->
-                        ReferenceRow(entry)
-                    }
+                    ReferenceRows(
+                        R.array.studio_api_calls,
+                        R.array.studio_api_descriptions,
+                    )
                     Text(
                         text = stringResource(R.string.studio_reference_modules_title),
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 8.dp)
+                        modifier = Modifier.padding(top = 8.dp),
                     )
-                    MODULE_REFERENCE.forEach { entry ->
-                        ReferenceRow(entry)
-                    }
+                    ReferenceRows(
+                        R.array.studio_module_calls,
+                        R.array.studio_module_descriptions,
+                    )
                     Text(
-                        text = MODULE_REFERENCE_NOTE,
+                        text = stringResource(R.string.studio_reference_modules_note),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp)
+                        modifier = Modifier.padding(top = 4.dp),
                     )
                     Text(
                         text = stringResource(R.string.studio_reference_example_title),
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 8.dp)
+                        modifier = Modifier.padding(top = 8.dp),
                     )
                     Text(
                         text = MODULE_REFERENCE_EXAMPLE,
@@ -391,9 +412,9 @@ private fun ApiReference(modifier: Modifier = Modifier) {
                             fontFamily = FontFamily.Monospace,
                             fontSize = 12.sp,
                             lineHeight = 17.sp,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = MaterialTheme.colorScheme.onSurface,
                         ),
-                        modifier = Modifier.padding(top = 2.dp)
+                        modifier = Modifier.padding(top = 2.dp),
                     )
                 }
             }
@@ -408,6 +429,34 @@ private fun ApiReference(modifier: Modifier = Modifier) {
  * not be able to tell them apart by accident.
  */
 @Composable
+private fun ReferenceRows(
+    @ArrayRes callsId: Int,
+    @ArrayRes descriptionsId: Int,
+) {
+    val calls = stringArrayResource(callsId)
+    val descriptions = stringArrayResource(descriptionsId)
+
+    // The two arrays are index-aligned, which means a row added to one and not
+    // the other would silently pair a call with the wrong description — and a
+    // *missing* translation row would shift every description below it by one.
+    // Truncating to the shorter pair fails as one absent row rather than as a
+    // screen where every explanation belongs to the call above it.
+    val rows = minOf(calls.size, descriptions.size)
+    if ((rows != calls.size) || (rows != descriptions.size)) {
+        Log.w(
+            "AnimationEditor",
+            "Reference arrays disagree: $rows of ${calls.size}/${descriptions.size}",
+        )
+    }
+
+    for (index in 0 until rows) {
+        val call: String = calls[index]
+        val description: String = descriptions[index]
+        ReferenceRow(call to description)
+    }
+}
+
+@Composable
 private fun ReferenceRow(entry: Pair<String, String>) {
     Row {
         Text(
@@ -415,14 +464,14 @@ private fun ReferenceRow(entry: Pair<String, String>) {
             style = TextStyle(
                 fontFamily = FontFamily.Monospace,
                 fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
             ),
-            modifier = Modifier.width(170.dp)
+            modifier = Modifier.width(170.dp),
         )
         Text(
             text = entry.second,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -434,16 +483,16 @@ private fun RowScope.StudioButton(
     label: String,
     onClick: () -> Unit,
     containerColor: Color,
-    contentColor: Color
+    contentColor: Color,
 ) {
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(
             containerColor = containerColor,
-            contentColor = contentColor
+            contentColor = contentColor,
         ),
         shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.weight(1f)
+        modifier = Modifier.weight(1f),
     ) {
         Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp))
         Spacer(modifier = Modifier.width(6.dp))
@@ -455,94 +504,26 @@ private fun RowScope.StudioButton(
 private const val CONSOLE_VISIBLE_LINES = 4
 
 /**
- * Every entry of the `glyph` table, in the order a script author meets them.
+ * The worked example, because six module names and a warning do not tell a
+ * reader what `require` is *for*.
  *
- * Kept next to the editor so that adding a binding to `GlyphLuaApi` and
- * documenting it here stays one edit.
- */
-private val API_REFERENCE = listOf(
-    "glyph.set(list, brightness, [hold])" to "Light channels and keep them lit",
-    "glyph.setAll(brightness, [hold])" to "Light every channel",
-    "glyph.off([holdMs])" to "Blank the strip",
-    "glyph.hold(ms)" to "Wait, interruptibly",
-    "glyph.pulse(list, onMs, offMs, [b])" to "On, all off, then pause",
-    "glyph.blinkAll(onMs, offMs, [b], [times])" to "Blink the whole strip",
-    "glyph.sweep(list, stepMs, [b], [rev])" to "Progressive sweep",
-    "glyph.wave(list, stepMs, [b], [trail])" to "Travelling wave with a tail",
-    "glyph.spiral([cycles], stepMs, [b])" to "Sweep out and back",
-    "glyph.heartbeat([n], beatMs, gapMs, [b])" to "Lub-dub",
-    "glyph.batteryBar(percent, ms)" to "Fill the C strip like charging",
-    "glyph.ch.c / .a / .b / .d / .e" to "Channel groups for this phone",
-    "glyph.ch.all / .nonC / .spiral" to "Whole strip, non-C, spiral order",
-    "glyph.ch.pulse" to "The pulse segments",
-    "glyph.group(\"c\")" to "The same list, by name",
-    "glyph.MAX" to "4000 — the brightest a channel goes",
-    "glyph.device" to "This phone, e.g. PHONE3A",
-    "glyph.battery / .charging" to "Live values, re-read on every access",
-    "glyph.running" to "False once the animation is stopped",
-    "glyph.elapsed() / glyph.frame()" to "Milliseconds elapsed, frames drawn",
-    "glyph.time()" to "Old name for elapsed(); one WARN, then silent",
-    "glyph.rnd(a, b) / .rndFloat()" to "Randomness — fix it with seed(n)",
-    "glyph.seed(n)" to "Same pattern every run",
-    "glyph.ease(t, kind)" to "linear, in, out, inout, bounce, wave, pulse",
-    "glyph.exit()" to "Finish early",
-    "glyph.log(text) / print(text)" to "Write to this console",
-    "glyph.target = \"music\"" to "Offer this script to the visualiser only",
-    "glyph.audio.active / .level" to "Capture state, and loudness 0..1",
-    "glyph.audio.bass / .mid / .treble" to "Energy of each third of the spectrum",
-    "glyph.audio.beat" to "True on the one frame a beat was found",
-    "glyph.audio.bands(n)" to "n values in 0..1, out of 32 bands"
-)
-
-/**
- * The six modules `require` can resolve, in the alphabetical order the
- * registry reports them in, so a name read here is the name on the error
- * message a mistyped one produces.
+ * The three-step day/night dimming is the shape most people reach a script
+ * for: the feature woke it, and the script decides how loudly to answer. It
+ * needs no new service and no permission — the same source runs unchanged on
+ * every feature that can host a script, which is the point a list of module
+ * names cannot make on its own.
  *
- * Hardcoded English for the same reason [API_REFERENCE] is: the whole cheat
- * sheet is one card of developer-facing text, and half of it translated would
- * read worse than none of it. The module names themselves are identifiers and
- * are never reworded.
- */
-private val MODULE_REFERENCE = listOf(
-    "local time = require(\"glyph.time\")" to "How a require call reads: bind it to a local",
-    "glyph.time" to "The wall clock, live: hour, minute, minuteOfDay, isNight",
-    "glyph.battery" to "Charge, live: percent, charging, level() segments",
-    "glyph.net" to "Network, live: connected, wifi, metered, vpn",
-    "glyph.sensor" to "Movement, live: x, y, z, magnitude, shaken",
-    "glyph.log" to "This console: info, warn, and error — which stops the run",
-    "glyph.util" to "Pure arithmetic: clamp, lerp, mapRange, shuffle"
-)
-
-/**
- * The one thing about `require` an author will otherwise get wrong.
+ * **Not a resource, on purpose.** This is code, not prose: it is meant to be
+ * copied out of the app and pasted into the editor, and a translation inside it
+ * would travel with that paste. An example whose comments changed language
+ * halfway through would also be a second thing to keep in step — so it stays in
+ * one place, in one language, byte-for-byte the same on every device. The
+ * prose around it is translated; the code is not.
  *
- * The registry is a closed list, and the error a mistyped name produces is
- * the only place the app ever says so — at run time, on a phone, in the
- * middle of an animation. A line of prose in the one place the author is
- * already looking costs nothing and prevents that.
+ * Kept out of the module rows deliberately: those are one line per module in a
+ * two-column layout, and this needs the lines it actually takes.
  */
-private const val MODULE_REFERENCE_NOTE =
-    "require resolves these six names and nothing else. There is no " +
-        "require(\"os\"), and no way to read a file: that is the sandbox, and " +
-        "it is deliberate. The three severities live in the module — " +
-        "glyph.log on its own is a plain function."
-
-    /**
-     * One worked example, because six names and a warning do not tell a reader
-     * what `require` is *for*.
-     *
-     * The three-step day/night dimming is the shape most people reach a script
-     * for: the feature woke it, and the script decides how loudly to answer.
-     * It needs no new service and no permission — the same source runs
-     * unchanged on every feature that can host a script, which is the point a
-     * list of module names cannot make on its own.
-     *
-     * Kept out of [MODULE_REFERENCE] deliberately: that list is one line per
-     * module in a two-column layout, and this needs the lines it actually
-     * takes. Hardcoded for the same reason as everything else on this card.
-     */
-    private val MODULE_REFERENCE_EXAMPLE = """
+private val MODULE_REFERENCE_EXAMPLE = """
         local time = require("glyph.time")
 
         -- 22:00–06:00 the strip stays dark, 12:00–22:00 it dims,

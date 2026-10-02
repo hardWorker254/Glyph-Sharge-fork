@@ -46,7 +46,7 @@ fun VpnConnectedCard(
     iconSize: Int = 32,
 ) {
     val context = LocalContext.current
-    var showDialog by remember { mutableStateOf(false) }
+    var showDialog by remember { mutableStateOf(value = false) }
     val toastText = stringResource(id = R.string.vpn_connected_toast)
 
     WideFeatureCardWithToggle(
@@ -61,7 +61,7 @@ fun VpnConnectedCard(
             else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
         },
         modifier = modifier,
-        iconSize = iconSize
+        iconSize = iconSize,
     )
 
     if (showDialog && isServiceActive) {
@@ -69,7 +69,7 @@ fun VpnConnectedCard(
             onTest = { onTest(); showDialog = false },
             onEnable = { onEnabledChange(true); showDialog = false },
             onDisable = { onEnabledChange(false); showDialog = false },
-            onDismiss = { showDialog = false }
+            onDismiss = { showDialog = false },
         )
     }
 }
@@ -80,7 +80,7 @@ fun VpnConnectedConfirmationDialog(
     onEnable: () -> Unit,
     onDisable: () -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     FeatureConfirmationFlow(
         title = stringResource(id = R.string.vpn_connected_title),
@@ -99,9 +99,9 @@ fun VpnConnectedConfirmationDialog(
                 onDismiss = onDismissSettings,
                 onEnable = onConfirm,
                 onDisable = onDisable,
-                modifier = modifier
+                modifier = modifier,
             )
-        }
+        },
     )
 }
 
@@ -111,7 +111,7 @@ fun VpnConnectedEnableDialog(
     onDismiss: () -> Unit,
     onEnable: () -> Unit,
     onDisable: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     // The store comes from the composition; the card has none to pass on.
     val settingsRepository = LocalSettingsRepository.current
@@ -132,14 +132,12 @@ fun VpnConnectedEnableDialog(
         mutableStateOf(
             GlyphAnimations.getById(
                 settingsRepository.getVpnConnectedAnimationId(),
-                animationOptions
-            )
+                animationOptions,
+            ),
         )
     }
     val currentlyEnabled = remember { settingsRepository.isVpnConnectedEnabled() }
-    var isSaving by remember { mutableStateOf(false) }
-
-    val glyphAnimationManager = rememberGlyphAnimationManager()
+val glyphAnimationManager = rememberGlyphAnimationManager()
 
     val cardColor = themeCardContainerColor()
     val accent = themePrimaryActionColor()
@@ -153,37 +151,37 @@ fun VpnConnectedEnableDialog(
                     text = stringResource(id = R.string.vpn_connected_configure_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
                 Text(
                     text = stringResource(id = R.string.vpn_connected_configure_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
             }
         },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(16.dp),
                 ) {
                     Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
                             stringResource(id = R.string.vpn_connected_animation_title),
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
 
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
                             animationOptions.forEach { anim ->
                                 FilterChip(
@@ -196,8 +194,8 @@ fun VpnConnectedEnableDialog(
                                     label = { Text(anim.displayName) },
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    ),
                                 )
                             }
                         }
@@ -210,7 +208,7 @@ fun VpnConnectedEnableDialog(
                                         when {
                                         selectedAnimation.isCustom ->
                                             glyphAnimationManager.playCustomAnimation(
-                                                selectedAnimation.id
+                                                selectedAnimation.id,
                                             )
 
                                         else -> when (selectedAnimation.id) {
@@ -229,12 +227,12 @@ fun VpnConnectedEnableDialog(
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = secBtnColors,
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
                         ) {
                             Text(
                                 text = stringResource(id = R.string.vpn_connected_animation_test) + selectedAnimation.displayName,
                                 style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
                             )
                         }
                     }
@@ -247,13 +245,13 @@ fun VpnConnectedEnableDialog(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = cardColor),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(16.dp),
                     ) {
                         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
                                     text = stringResource(id = R.string.vpn_connected_duration_title),
@@ -261,21 +259,24 @@ fun VpnConnectedEnableDialog(
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.weight(1f),
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow = TextOverflow.Ellipsis,
                                 )
-                                ThemedValueBadge("${durationSeconds.toInt()}" + stringResource(id = R.string.glyph_seconds))
+                                ThemedValueBadge(durationSeconds.toInt().toString() + stringResource(id = R.string.glyph_seconds))
                             }
 
                             Slider(
                                 value = durationSeconds,
-                                onValueChange = {
+                                // No haptic per pixel: a drag reports a value for every pixel of travel,
+                                // so firing on each one buzzes continuously under the thumb and buries the
+                                // one that should land at the end. One buzz, at the end.
+                                onValueChange = { durationSeconds = it },
+                                onValueChangeFinished = {
                                     HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
-                                    durationSeconds = it
                                 },
                                 valueRange = 1f..10f,
                                 steps = 8,
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = SliderDefaults.colors(thumbColor = accent)
+                                colors = SliderDefaults.colors(thumbColor = accent),
                             )
 
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -289,22 +290,20 @@ fun VpnConnectedEnableDialog(
         },
         confirmButton = {
             FeatureSaveButtons(
-                isSaving = isSaving,
                 isCurrentlyEnabled = currentlyEnabled,
                 enableLabel = stringResource(id = R.string.vpn_connected_button_enable),
                 onSave = {
-                    isSaving = true
                     settingsRepository.saveVpnConnectedAnimationId(selectedAnimation.id)
                     settingsRepository.saveVpnConnectedDuration((durationSeconds * 1000).toLong())
                     onEnable()
                 },
                 onDisable = onDisable,
-                onCancel = onDismiss
+                onCancel = onDismiss,
             )
         },
         dismissButton = {},
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(24.dp),
-        modifier = modifier
+        modifier = modifier,
     )
 }

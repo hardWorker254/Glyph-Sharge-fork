@@ -1,6 +1,5 @@
 package com.bleelblep.glyphsharge.ui.navigation
 
-import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
@@ -15,6 +14,7 @@ import com.bleelblep.glyphsharge.ui.screens.SettingsScreen
 import com.bleelblep.glyphsharge.ui.screens.ThemeSettingsScreen
 import com.bleelblep.glyphsharge.ui.screens.home.HomeScreen
 import com.bleelblep.glyphsharge.ui.theme.LocalFontState
+import com.bleelblep.glyphsharge.ui.viewmodel.HomeViewModel
 
 /**
  * The whole navigation graph.
@@ -22,10 +22,15 @@ import com.bleelblep.glyphsharge.ui.theme.LocalFontState
  * Every destination is registered here next to the [Routes] constant it
  * answers to, so a route with no screen is obvious at the point of use.
  *
- * The host takes no dependencies: each screen resolves what it needs from the
- * composition — the store from `LocalSettingsRepository`, the ViewModel from
- * `hiltViewModel()` — which leaves a screen reachable from a preview or a test
- * without this host.
+ * The host takes one dependency: [homeViewModel], the same instance
+ * `MainActivity` drives. Everything else each screen resolves from the
+ * composition — the store from `LocalSettingsRepository`, the animation list
+ * from its own `hiltViewModel()` — which leaves those screens reachable from a
+ * preview or a test without this host.
+ *
+ * The home screen is the exception because it cannot be. It reads the master
+ * switch, the feature list and the music-capture channel that `MainActivity`
+ * writes to; letting it resolve its own would put a second copy in between.
  *
  * The animation studio is deliberately absent: `CustomAnimationsActivity`
  * needs its own back stack and its own system file pickers, which a route in
@@ -33,6 +38,7 @@ import com.bleelblep.glyphsharge.ui.theme.LocalFontState
  */
 @Composable
 fun GlyphNavHost(
+    homeViewModel: HomeViewModel,
     navController: NavHostController = rememberNavController(),
 ) {
     val context = LocalContext.current
@@ -43,11 +49,12 @@ fun GlyphNavHost(
         enterTransition = { MaterialSharedAxisZ.enterTransition() },
         exitTransition = { MaterialSharedAxisZ.exitTransition() },
         popEnterTransition = { MaterialSharedAxisZ.popEnterTransition() },
-        popExitTransition = { MaterialSharedAxisZ.popExitTransition() }
+        popExitTransition = { MaterialSharedAxisZ.popExitTransition() },
     ) {
         composable(Routes.HOME) {
             HomeScreen(
-                onOpenSettings = { navController.navigate(Routes.SETTINGS) }
+                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                viewModel = homeViewModel,
             )
         }
 
@@ -59,10 +66,9 @@ fun GlyphNavHost(
                 onQuietHoursSettingsClick = {
                     navController.navigate(Routes.QUIET_HOURS_SETTINGS)
                 },
-                onLanguageSettingsClick = {
-                    navController.navigate(Routes.LANGUAGE_SETTINGS)
-                }
-            )
+            ) {
+                navController.navigate(Routes.LANGUAGE_SETTINGS)
+            }
         }
 
         composable(Routes.THEME_SETTINGS) {
@@ -72,33 +78,37 @@ fun GlyphNavHost(
         composable(Routes.FONT_SETTINGS) {
             FontSettingsScreen(
                 fontState = LocalFontState.current,
-                onNavigateBack = { navController.popBackStack() }
-            )
+            ) {
+                navController.popBackStack()
+            }
         }
 
         composable(Routes.QUIET_HOURS_SETTINGS) {
-            QuietHoursSettingsScreen(
-                onBackClick = { navController.popBackStack() }
-            )
+            QuietHoursSettingsScreen {
+                navController.popBackStack()
+            }
         }
 
         composable(Routes.LANGUAGE_SETTINGS) {
             LanguageSettingsScreen(
                 onBackClick = { navController.popBackStack() },
-                onLanguageChanged = {
-                    // A locale change only takes effect on a fresh Activity.
-                    (context as? ComponentActivity)?.let { activity ->
-                        activity.intent.apply {
-                            addFlags(
-                                Intent.FLAG_ACTIVITY_CLEAR_TOP or
-                                    Intent.FLAG_ACTIVITY_NEW_TASK
-                            )
-                        }
-                        activity.startActivity(activity.intent)
-                        activity.finish()
-                    }
-                }
-            )
+            ) {
+                // `recreate()` is the only thing that applies the locale.
+                //
+                // The chosen code is read in `attachBaseContext`, which runs
+                // on a fresh Activity and nowhere else. What this used to do
+                // instead — `startActivity(activity.intent)` followed by
+                // `finish()` — is defeated by the manifest's
+                // `launchMode="singleTop"`: an Activity already at the top
+                // of its own task is not recreated, it gets `onNewIntent`,
+                // which touches no locale. The user saw the app close and
+                // the language stay as it was.
+                //
+                // `recreate()` also keeps the ViewModels and the
+                // NavBackStackEntry back stack, so the user stays on this
+                // screen instead of being dropped back to Home.
+                (context as? ComponentActivity)?.recreate()
+            }
         }
     }
 }

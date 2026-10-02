@@ -27,7 +27,7 @@ object GlyphAnimations {
         val displayName: String,
         @param:DrawableRes val iconRes: Int,
         /** `true` for a Lua animation, which the duration setting bounds. */
-        val isCustom: Boolean = false
+        val isCustom: Boolean = false,
     )
 
     val list = listOf(
@@ -40,7 +40,7 @@ object GlyphAnimations {
         GlyphAnim("HEARTBEAT", "Heartbeat", R.drawable._44),
         GlyphAnim("MATRIX", "Matrix Rain", R.drawable._78),
         GlyphAnim("FIREWORKS", "Fireworks", R.drawable._44),
-        GlyphAnim("DNA", "DNA Helix", R.drawable._23_24px)
+        GlyphAnim("DNA", "DNA Helix", R.drawable._23_24px),
     )
 
     /** Icon reused for every script: nothing in the app art matches "custom". */
@@ -60,12 +60,12 @@ object GlyphAnimations {
         scope: ScriptScope = ScriptScope.TRIGGER,
     ): List<GlyphAnim> {
         if (custom.isEmpty()) return list
-        return list + custom.filter { it.isVisibleIn(scope) }.map { animation ->
+        return list + custom.asSequence().filter { it.isVisibleIn(scope) }.map { animation ->
             GlyphAnim(
                 id = animation.runtimeId,
                 displayName = animation.name,
                 iconRes = customIcon,
-                isCustom = true
+                isCustom = true,
             )
         }
     }

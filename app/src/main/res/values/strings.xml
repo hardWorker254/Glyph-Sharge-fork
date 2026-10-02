@@ -131,9 +131,22 @@
     <string name="nfc_glyph_note_title">Note</string>
     <string name="nfc_glyph_note_description">• NFC must be enabled in system settings\n• Works with Google Pay, tag scans, etc.\n• HCE payment detection is automatic\n• Tag detection requires the app in foreground</string>
     <string name="nfc_glyph_button_enable">Enable</string>
+    <string name="nfc_not_available">NFC is not available on this device</string>
+    <string name="nfc_enable_in_settings">Please enable NFC in system settings first</string>
 
     <!-- Common toasts -->
     <string name="toast_service_required">Please enable the Glyph service first</string>
+    <string name="toast_testing_power_peek">Testing Power Peek</string>
+    <string name="toast_testing_charging_animation">Testing Charging Animation</string>
+    <string name="toast_testing_pulse_lock">Testing Pulse Lock</string>
+    <string name="toast_testing_screen_off">Testing Screen Off</string>
+    <string name="toast_testing_nfc">Testing NFC</string>
+    <string name="toast_testing_low_battery_alert">Testing Low Battery Alert</string>
+    <string name="toast_testing_vpn_connected">Testing VPN Connected</string>
+    <string name="toast_testing_music_visualizer">Testing Music Visualizer</string>
+    <!-- Fallback for a feature added without a toast of its own: the name is
+         an enum constant, so it is the last resort, not the normal wording. -->
+    <string name="toast_testing_generic">Testing %1$s</string>
 
     <!-- Common action buttons -->
     <string name="action_cancel">Cancel</string>
@@ -146,6 +159,8 @@
     <string name="glyph_service_stop">Glyph service disabled</string>
     <string name="glyph_service_fstart">Failed to enable</string>
     <string name="glyph_service_fstop">Failed to disable</string>
+    <string name="glyph_service_already_enabled">Glyph service is already enabled</string>
+    <string name="glyph_service_already_disabled">Glyph service is already disabled</string>
     <string name="glyph_seconds">s</string>
 
     <!-- Quick Settings tiles. Labels are held to 18 characters: the shade
@@ -166,6 +181,7 @@
     <string name="settings_card_quiet_hours">Quiet Hours</string>
     <string name="settings_section_app_info">App Information</string>
     <string name="settings_card_about">About</string>
+    <string name="settings_about_description">From live battery glyphs to USB-theft alarms, charging history and unlock light-shows—unlock the full power of the NOTHING glyphs.</string>
 
   <!-- Animation Studio -->
   <string name="settings_card_custom_animations">Custom Animations</string>
@@ -228,6 +244,26 @@
   <string name="studio_msg_downloads_failed">Could not write to Downloads.</string>
   <string name="studio_msg_missing">That animation no longer exists.</string>
   <string name="studio_msg_unknown_error">unknown error</string>
+  <string name="studio_msg_nothing_to_save">There is no script open to save.</string>
+
+  <!-- Unsaved work. The editor computed and displayed "unsaved" but back still
+       discarded the buffer outright. -->
+  <string name="studio_discard_title">Discard unsaved changes?</string>
+  <string name="studio_discard_body">This script has changes that have not been saved. Leaving now loses them.</string>
+  <string name="studio_discard_confirm">Discard</string>
+  <string name="studio_discard_cancel">Keep editing</string>
+
+  <!-- Section headers on the home screen. These were Kotlin literals, so a
+       Russian user saw "Features" and "GLYPH LIGHTS" in English above
+       Russian subtitles. -->
+  <string name="home_section_features">Features</string>
+  <string name="home_glyph_lights">GLYPH LIGHTS</string>
+
+  <!-- Log export. The picker used to accept a destination and then write
+       nothing, with no message either way. -->
+  <string name="log_export_done">Logs written.</string>
+  <string name="log_export_empty">There are no logs to export yet.</string>
+  <string name="log_export_failed">Could not write the logs to that location.</string>
   <string name="studio_default_name">My animation</string>
   <string name="studio_untitled">Untitled</string>
   <string name="studio_default_import_name">Imported</string>
@@ -239,16 +275,172 @@
 
   <!-- Lua error text that reaches the console -->
   <string name="studio_lua_unknown_group">unknown channel group ‘%1$s’</string>
-  <string name="studio_lua_bad_channels">expected a channel list, a channel number or a group name</string>
+  <!-- The Glyph API cheat sheet in the editor.
+
+       Calls and descriptions are two index-aligned arrays, not one array of
+       pairs, and that is deliberate: a call signature is an identifier. If it
+       were translatable, a locale could rename `glyph.set` and the cheat sheet
+       would then teach a name that does not exist. Only the descriptions move
+       between locales; the two arrays must always be the same length, which
+       `ReferenceRows` checks rather than trusting. -->
+
+  <string-array name="studio_api_calls">
+    <item>glyph.set(list, brightness, [hold])</item>
+    <item>glyph.setAll(brightness, [hold])</item>
+    <item>glyph.off([holdMs])</item>
+    <item>glyph.hold(ms)</item>
+    <item>glyph.pulse(list, onMs, offMs, [b])</item>
+    <item>glyph.blinkAll(onMs, offMs, [b], [times])</item>
+    <item>glyph.sweep(list, stepMs, [b], [rev])</item>
+    <item>glyph.wave(list, stepMs, [b], [trail])</item>
+    <item>glyph.spiral([cycles], stepMs, [b])</item>
+    <item>glyph.heartbeat([n], beatMs, gapMs, [b])</item>
+    <item>glyph.batteryBar(percent, ms)</item>
+    <item>glyph.ch.c / .a / .b / .d / .e</item>
+    <item>glyph.ch.all / .nonC / .spiral</item>
+    <item>glyph.ch.pulse</item>
+    <item>glyph.group(&quot;c&quot;)</item>
+    <item>glyph.MAX</item>
+    <item>glyph.device</item>
+    <item>glyph.battery / .charging</item>
+    <item>glyph.running</item>
+    <item>glyph.elapsed() / glyph.frame()</item>
+    <item>glyph.time()</item>
+    <item>glyph.rnd(a, b) / .rndFloat()</item>
+    <item>glyph.seed(n)</item>
+    <item>glyph.ease(t, kind)</item>
+    <item>glyph.exit()</item>
+    <item>glyph.log(text) / print(text)</item>
+    <item>glyph.target = &quot;music&quot;</item>
+    <item>glyph.audio.active / .level</item>
+    <item>glyph.audio.bass / .mid / .treble</item>
+    <item>glyph.audio.beat</item>
+    <item>glyph.audio.bands(n)</item>
+  </string-array>
+
+  <string-array name="studio_api_descriptions">
+    <item>Light channels and keep them lit</item>
+    <item>Light every channel</item>
+    <item>Blank the strip</item>
+    <item>Wait, interruptibly</item>
+    <item>On, all off, then pause</item>
+    <item>Blink the whole strip</item>
+    <item>Progressive sweep</item>
+    <item>Travelling wave with a tail</item>
+    <item>Sweep out and back</item>
+    <item>Lub-dub</item>
+    <item>Fill the C strip like charging</item>
+    <item>Channel groups for this phone</item>
+    <item>Whole strip, non-C, spiral order</item>
+    <item>The pulse segments</item>
+    <item>The same list, by name</item>
+    <item>4000 — the brightest a channel goes</item>
+    <item>This phone, e.g. PHONE3A</item>
+    <item>Live values, re-read on every access</item>
+    <item>False once the animation is stopped</item>
+    <item>Milliseconds elapsed, frames drawn</item>
+    <item>Old name for elapsed(); one WARN, then silent</item>
+    <item>Randomness — fix it with seed(n)</item>
+    <item>Same pattern every run</item>
+    <item>linear, in, out, inout, bounce, wave, pulse</item>
+    <item>Finish early</item>
+    <item>Write to this console</item>
+    <item>Offer this script to the visualiser only</item>
+    <item>Capture state, and loudness 0..1</item>
+    <item>Energy of each third of the spectrum</item>
+    <item>True on the one frame a beat was found</item>
+    <item>n values in 0..1, out of 32 bands</item>
+  </string-array>
+
+  <string-array name="studio_module_calls">
+    <item>local time = require(&quot;glyph.time&quot;)</item>
+    <item>glyph.time</item>
+    <item>glyph.battery</item>
+    <item>glyph.net</item>
+    <item>glyph.sensor</item>
+    <item>glyph.log</item>
+    <item>glyph.util</item>
+  </string-array>
+
+  <string-array name="studio_module_descriptions">
+    <item>How a require call reads: bind it to a local</item>
+    <item>The wall clock, live: hour, minute, minuteOfDay, isNight</item>
+    <item>Charge, live: percent, charging, level() segments</item>
+    <item>Network, live: connected, wifi, metered, vpn</item>
+    <item>Movement, live: x, y, z, magnitude, shaken</item>
+    <item>This console: info, warn, and error — which stops the run</item>
+    <item>Pure arithmetic: clamp, lerp, mapRange, shuffle</item>
+  </string-array>
+
+  <string name="studio_reference_modules_note">require resolves these six names and nothing else. There is no require(&quot;os&quot;), and no way to read a file: that is the sandbox, and it is deliberate. The three severities live in the module — glyph.log on its own is a plain function.</string>
+
+  <!-- Animation store. The unsupported label replaces both action buttons
+       rather than disabling them: a greyed-out button on a dimmed card reads
+       as "press it, it might work", and there is nothing to press. -->
+  <string name="store_title">Animation Store</string>
+  <string name="store_open">Store</string>
+  <string name="store_action_install">Install</string>
+  <!-- Not a button any more: the animation is already on the phone, so
+       there is nothing to press. Green because it is an answer — unless the
+       catalogue has published a newer version, which it replaces. -->
+  <string name="store_action_installed">Installed</string>
+  <string name="store_action_update">Update</string>
+  <string name="store_action_test">Test on glyph</string>
+  <string name="store_unsupported_label">Not supported on this phone</string>
+  <string name="store_unsupported_devices">Works on %1$s</string>
+  <string name="store_empty_title">The store is empty</string>
+  <string name="store_empty_body">Nothing has been published to the catalogue yet. Check back later.</string>
+  <string name="store_loading">Loading the catalogue…</string>
+  <string name="store_retry">Retry</string>
+  <string name="store_offline_note">Showing a saved copy — the store could not be reached.</string>
+  <string name="store_refresh">Refresh</string>
+  <string name="store_by_author">by %1$s</string>
+  <string name="store_msg_installed">“%1$s” installed</string>
+  <string name="store_msg_updated">“%1$s” updated</string>
+  <string name="store_msg_tested">“%1$s” finished playing</string>
+  <string name="store_msg_failed">Could not install the animation</string>
+  <string name="store_msg_update_failed">Could not update the animation</string>
+  <string name="store_msg_license">License: %1$s</string>
 
   <!-- Notification for the Glow Gate service -->
   <string name="pulse_lock_notification_channel">Glow Gate Service</string>
   <string name="pulse_lock_notification_title">✨ Glow Gate Active</string>
   <string name="pulse_lock_notification_text">Unlocking will play your chosen animation.</string>
+
+  <!-- The other six feature services. Their channel names were hard-coded
+       English, which is the one string in a notification that cannot be
+       changed after install: a channel's name is frozen the first time it is
+       created. FeatureService now takes these as a string resource so the
+       translation is the only thing that can ever differ. -->
+  <string name="nfc_glyph_channel">NFC Glyph Service</string>
+  <string name="nfc_glyph_notif_title">✨ NFC Animation Active</string>
+  <string name="nfc_glyph_notif_text">Tap to pay or scan an NFC tag to trigger an animation.</string>
+
+  <string name="power_peek_channel">Power Peek Service</string>
+  <string name="power_peek_notif_title">🔋 Power Peek Active</string>
+  <string name="power_peek_notif_text">Wiggle the phone horizontally on a table to check the battery.</string>
+
+  <string name="low_battery_channel">Low Battery Alert Service</string>
+  <string name="low_battery_notif_title">🔋 Low Battery Alert Active</string>
+  <string name="low_battery_notif_text">Monitoring battery level for alerts.</string>
+
+  <string name="screen_off_channel">Screen Off Glyph Service</string>
+  <string name="screen_off_notif_title">✨ Screen Off Animation Active</string>
+  <string name="screen_off_notif_text">Turning the screen off will play your chosen animation.</string>
+
+  <string name="charging_animation_channel">Charging Animation Service</string>
+  <string name="charging_animation_notif_title">⚡ Charging Animation Active</string>
+  <string name="charging_animation_notif_text">Listening for charger connection and disconnection.</string>
+  <string name="charging_animation_channel_description">Shows a Glyph animation when the charger is connected or disconnected.</string>
+
+  <string name="vpn_connected_channel">VPN Connected Glyph Service</string>
+  <string name="vpn_connected_notif_title">🛡️ VPN Connected Animation Active</string>
+  <string name="vpn_connected_notif_text">Connecting to a VPN will play your chosen animation.</string>
     <string name="settings_about_version">v%1$s (%2$d)</string>
     <string name="settings_about_beta_notice">🧪 You\'re using a public release build. Expect occasional quirks and bugs.</string>
     <string name="settings_about_beta_alt">Special thanks to beedah for the countless installs and quick beta testing.</string>
     <string name="settings_about_requires">Requires Android 14+</string>
+    <string name="settings_about_unknown_version">Unknown Version</string>
     <string name="settings_theme_status_light">Light Mode</string>
     <string name="settings_theme_status_dark">Dark Mode</string>
     <string name="settings_quiet_hours_status_on">Glyphs will be quiet during set hours</string>
@@ -263,6 +455,33 @@
     <string name="font_settings_section_size">Font Size Settings</string>
     <string name="font_settings_section_preview">Preview</string>
     <string name="font_settings_button_reset">Reset Sizes</string>
+    <string name="font_settings_family_subtitle">Select your preferred typography style</string>
+    <string name="font_settings_family_ntype_title">NType Headline</string>
+    <string name="font_settings_family_ntype_desc">Modern Nothing display font</string>
+    <string name="font_settings_family_ndot_title">NDot 57 Caps</string>
+    <string name="font_settings_family_ndot_desc">Distinctive caps-only typeface</string>
+    <string name="font_settings_family_system_title">System Default</string>
+    <string name="font_settings_family_system_desc">Your device\'s default font</string>
+    <string name="font_settings_family_selected">Selected</string>
+    <string name="font_settings_card_sizes_title">Font Sizes</string>
+    <string name="font_settings_button_reset_all">Reset All</string>
+    <string name="font_settings_size_display_label">Display Text</string>
+    <string name="font_settings_size_display_desc">Large headlines and display text</string>
+    <string name="font_settings_size_title_label">Titles</string>
+    <string name="font_settings_size_title_desc">Section titles and headings</string>
+    <string name="font_settings_size_body_label">Body Text</string>
+    <string name="font_settings_size_body_desc">Main content and paragraphs</string>
+    <string name="font_settings_size_label_label">Labels</string>
+    <string name="font_settings_size_label_desc">Small text and labels</string>
+    <!-- Preview copy. The samples themselves ("Typography", the T/N/S marks)
+         are the typeface being demonstrated, not copy, and stay put. -->
+    <string name="font_settings_preview_display">Display Large</string>
+    <string name="font_settings_preview_headline">Headline Medium</string>
+    <string name="font_settings_preview_label">Label Medium • Settings Applied</string>
+    <string name="font_settings_preview_body">This is body text showing how your content will look with the current font settings. It demonstrates readability and styling.</string>
+    <string name="font_settings_preview_current">Current Settings</string>
+    <string name="font_settings_preview_font">Font: %1$s</string>
+    <string name="font_settings_preview_custom_sizing"> • Custom sizing applied</string>
 
     <!-- Quiet Hours Settings Screen -->
     <string name="quiet_hours_title">Quiet Hours</string>
@@ -306,11 +525,6 @@
     <string name="theme_style_expressive_desc">Material 3 expressive shapes &amp; colors</string>
     <string name="theme_button_reset">Reset to Default</string>
     <string name="theme_reset_desc">Restore the original Classic theme with light mode settings to get back to the stock appearance.</string>
-    <string name="theme_section_additional">Additional Options</string>
-    <string name="theme_option_color_scheme">Color Scheme</string>
-    <string name="theme_option_color_scheme_desc">Advanced color customization options for power users</string>
-    <string name="theme_option_accent_colors">Accent Colors</string>
-    <string name="theme_option_accent_colors_desc">Fine-tune accent and highlight colors throughout the app</string>
 
     <!-- Language Selector -->
     <string name="language_selector_title">Language</string>
@@ -335,12 +549,6 @@
     <string name="music_viz_configure_subtitle">Customize the visualization</string>
     <string name="music_viz_mode_title">Visualization</string>
     <string name="music_viz_mode_preview">Preview</string>
-    <string name="music_viz_mode_bars">Bars</string>
-    <string name="music_viz_mode_wave">Wave</string>
-    <string name="music_viz_mode_mirror">Mirror</string>
-    <string name="music_viz_mode_beat">Beat</string>
-    <string name="music_viz_mode_matrix">Matrix</string>
-    <string name="music_viz_mode_vortex">Vortex</string>
     <string name="music_viz_sensitivity_title">Sensitivity</string>
     <string name="music_viz_sensitivity_min">Calm</string>
     <string name="music_viz_sensitivity_max">Loud</string>

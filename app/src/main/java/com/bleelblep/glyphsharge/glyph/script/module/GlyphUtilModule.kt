@@ -31,8 +31,8 @@ internal object GlyphUtilModule {
                         clamp(
                             args.doubleOr(1),
                             args.doubleOr(2),
-                            args.doubleOr(3)
-                        )
+                            args.doubleOr(3),
+                        ),
                     )
                 }
                 func("lerp") { args ->
@@ -45,8 +45,8 @@ internal object GlyphUtilModule {
                             args.doubleOr(2),
                             args.doubleOr(3),
                             args.doubleOr(4),
-                            args.doubleOr(5)
-                        )
+                            args.doubleOr(5),
+                        ),
                     )
                 }
                 func("shuffle") { args -> shuffle(session, args) }
@@ -76,7 +76,7 @@ internal object GlyphUtilModule {
      * stuck while the script believed it was still moving.
      */
     private fun lerp(from: Double, to: Double, t: Double): Double =
-        from + (to - from) * t.coerceIn(0.0, 1.0)
+        from + ((to - from) * t.coerceIn(0.0, 1.0))
 
     /**
      * [value] from one range onto another, e.g. audio `0..1` to `0..MAX`.
@@ -93,12 +93,12 @@ internal object GlyphUtilModule {
         inLo: Double,
         inHi: Double,
         outLo: Double,
-        outHi: Double
+        outHi: Double,
     ): Double {
         val span = inHi - inLo
         if (span == 0.0) return outLo
         val t = ((value - inLo) / span).coerceIn(0.0, 1.0)
-        return outLo + (outHi - outLo) * t
+        return outLo + ((outHi - outLo) * t)
     }
 
     /**
@@ -118,12 +118,12 @@ internal object GlyphUtilModule {
             ?: throw IllegalArgumentException("expected a table of channels")
         if (!source.istable()) {
             throw IllegalArgumentException(
-                "expected a table, got ${source.typename()}"
+                "expected a table, got ${source.typename()}",
             )
         }
 
         val input = source.checktable()
-        val values = (1..input.length()).map { input.get(it).toint() }
+        val values = (1..input.length()).map { input[it].toint() }
         val shuffled = values.toMutableList()
         // Fisher-Yates, walking downwards so every index is drawn from a range
         // that still has more than one element in it.
@@ -136,7 +136,7 @@ internal object GlyphUtilModule {
 
         return LuaTable().also { out ->
             shuffled.forEachIndexed { index, channel ->
-                out.set(index + 1, LuaValue.valueOf(channel))
+                out[index + 1] = LuaValue.valueOf(channel)
             }
         }
     }

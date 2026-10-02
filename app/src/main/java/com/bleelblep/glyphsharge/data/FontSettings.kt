@@ -17,7 +17,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class FontSettings @Inject constructor(
-    @param:GlyphPrefs private val prefs: SharedPreferences
+    @param:GlyphPrefs private val prefs: SharedPreferences,
 ) {
 
     fun saveFontVariant(variant: FontVariant) = prefs.putSetting(KEY_FONT_VARIANT, variant.name)
@@ -26,7 +26,7 @@ class FontSettings @Inject constructor(
     fun getFontVariant(): FontVariant {
         val variantName = prefs.getSetting(KEY_FONT_VARIANT, FontVariant.HEADLINE.name)
         return try {
-            FontVariant.valueOf(variantName ?: FontVariant.HEADLINE.name)
+            FontVariant.valueOf(variantName)
         } catch (_: IllegalArgumentException) {
             FontVariant.HEADLINE
         }
@@ -35,7 +35,7 @@ class FontSettings @Inject constructor(
     fun saveUseCustomFonts(useCustom: Boolean) =
         prefs.putSetting(KEY_USE_CUSTOM_FONTS, useCustom)
 
-    fun getUseCustomFonts(): Boolean = prefs.getSetting(KEY_USE_CUSTOM_FONTS, true)
+    fun getUseCustomFonts(): Boolean = prefs.getSetting(KEY_USE_CUSTOM_FONTS, default = true)
 
     fun saveFontSizeSettings(settings: FontSizeSettings) {
         prefs.edit {
@@ -51,7 +51,7 @@ class FontSettings @Inject constructor(
         prefs.getSetting(KEY_FONT_SIZE_DISPLAY_SCALE, 1.0f),
         prefs.getSetting(KEY_FONT_SIZE_TITLE_SCALE, 1.0f),
         prefs.getSetting(KEY_FONT_SIZE_BODY_SCALE, 1.0f),
-        prefs.getSetting(KEY_FONT_SIZE_LABEL_SCALE, 1.0f)
+        prefs.getSetting(KEY_FONT_SIZE_LABEL_SCALE, 1.0f),
     )
 
     /**
@@ -72,7 +72,7 @@ class FontSettings @Inject constructor(
     }
 
     fun getFontSizeSettingsForFont(fontVariant: FontVariant): FontSizeSettings =
-        if (prefs.getSetting(KEY_FONT_SIZE_CUSTOMIZED, false)) {
+        if (prefs.getSetting(KEY_FONT_SIZE_CUSTOMIZED, default = false)) {
             getFontSizeSettings()
         } else {
             FontSizeSettings.getDefaultForFont(fontVariant)

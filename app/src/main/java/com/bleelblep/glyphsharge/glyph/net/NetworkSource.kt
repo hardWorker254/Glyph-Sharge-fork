@@ -44,7 +44,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class NetworkSource @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context,
 ) {
     private companion object {
         const val TAG = "NetworkSource"
@@ -78,7 +78,7 @@ class NetworkSource @Inject constructor(
     fun snapshot(): NetworkSnapshot {
         val now = SystemClock.elapsedRealtime()
         val previous = cached
-        if (previous != null && (now - cachedAtMs < CACHE_TTL_MS)) return previous
+        if ((previous != null) && ((now - cachedAtMs) < CACHE_TTL_MS)) return previous
 
         val read = readNow()
         cached = read
@@ -98,7 +98,7 @@ class NetworkSource @Inject constructor(
      * that really is offline.
      */
     private fun readNow(): NetworkSnapshot = runCatching {
-        val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        val manager = (context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager)
             ?: return@runCatching NetworkSnapshot.DISCONNECTED
 
         // A null active network is the only definition of disconnected, and it
@@ -111,13 +111,8 @@ class NetworkSource @Inject constructor(
         NetworkSnapshot(
             connected = active != null,
             wifi = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true,
-            // `isActiveNetworkMetered` answers "should the user be charged",
-            // so `true` there is `metered = false` here. The name reads
-            // backwards against its own meaning and that is the platform's,
-            // not this class's — the comment is here so the next reader does
-            // not "fix" it.
-            metered = !manager.isActiveNetworkMetered,
-            vpn = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+            metered = manager.isActiveNetworkMetered,
+            vpn = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true,
         )
     }.getOrElse { failure ->
         Log.w(TAG, "Cannot read the network state; reporting disconnected", failure)

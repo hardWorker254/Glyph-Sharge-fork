@@ -19,7 +19,7 @@ import javax.inject.Singleton
 @Singleton
 class FeatureServiceController @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
 ) {
     private companion object {
         const val TAG = "FeatureServices"
@@ -33,7 +33,7 @@ class FeatureServiceController @Inject constructor(
 
     /** Reads every feature's current preference in one pass. */
     fun readAll(): Map<GlyphFeature, Boolean> =
-        FeatureSpecs.all.associate { it.feature to it.isEnabled(settingsRepository) }
+        FeatureSpecs.all.associateBy({ it.feature }) { it.isEnabled(settingsRepository) }
 
     /**
      * Starts a feature's service.
@@ -66,7 +66,7 @@ class FeatureServiceController @Inject constructor(
         }
         val spec = FeatureSpecs.of(feature)
         val intent = Intent(context, spec.serviceClass)
-        if (consent != null && feature == GlyphFeature.MUSIC_VISUALIZER) {
+        if ((consent != null) && (feature == GlyphFeature.MUSIC_VISUALIZER)) {
             intent.putExtra(MusicVisualizerService.EXTRA_CONSENT_RESULT_CODE, consent.first)
             consent.second?.let { intent.putExtra(MusicVisualizerService.EXTRA_CONSENT_DATA, it) }
         }
@@ -79,7 +79,7 @@ class FeatureServiceController @Inject constructor(
             context.startService(
                 Intent(context, spec.serviceClass).apply {
                     action = spec.stopAction
-                }
+                },
             )
         }
         runCatching { context.stopService(Intent(context, spec.serviceClass)) }
@@ -94,10 +94,31 @@ class FeatureServiceController @Inject constructor(
         if (enabled) start(feature) else stop(feature)
     }
 
-    /** Starts every feature the user has switched on. Used at app start. */
+    /**
+     * Starts every feature the user has switched on. Used at app start.
+     *
+     * Each start is independent. They used to sit in one `forEach`, so the
+     * first feature that threw — `startForegroundService` raises
+     * `ForegroundServiceStartNotAllowedException` from the background, which a
+     * Quick Settings tap is — aborted the iteration and left every feature
+     * after it silently not started, while their cards said "on".
+     */
     fun startAllEnabled() {
-        GlyphFeature.entries.forEach { feature ->
-            if (isEnabled(feature)) start(feature)
+        // [FeatureSpecs.all], not [GlyphFeature.entries] — and that distinction
+        // was a launch crash.
+        //
+        // The enum carries [GlyphFeature.PREVIEW], a strip participant with no
+        // service and no preference, so it has no entry here. Iterating the enum
+        // reached `isEnabled(PREVIEW)`, `FeatureSpecs.of` threw, and it threw
+        // out of `MainActivity.onCreate` before a single frame was drawn.
+        //
+        // The registry is the right thing to iterate in any case: it is the list
+        // of things that *have* a service, which is what this function starts.
+        // `readAll` below already worked that way; these two did not.
+        FeatureSpecs.all.forEach { spec ->
+            if (!spec.isEnabled(settingsRepository)) return@forEach
+            runCatching { start(spec.feature) }
+                .onFailure { Log.w(TAG, "${spec.feature} did not start", it) }
         }
     }
 
@@ -117,7 +138,9 @@ class FeatureServiceController @Inject constructor(
 
     /** Stops every feature service. Used when the master glyph service goes off. */
     fun stopAll() {
-        GlyphFeature.entries.forEach { stop(it) }
+        // The registry, for the same reason as [startAllEnabled]: a strip
+        // participant with no service has nothing to stop, and asking would throw.
+        FeatureSpecs.all.forEach { stop(it.feature) }
         runCatching { context.stopService(Intent(context, GlyphForegroundService::class.java)) }
         runCatching { context.stopService(Intent(context, QuietHoursService::class.java)) }
     }

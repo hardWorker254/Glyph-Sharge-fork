@@ -4,19 +4,18 @@
 
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="com.nothing.ketchum.permission.ENABLE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
-    <uses-permission android:name="android.permission.TURN_SCREEN_ON" />
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.NFC" />
+
+    <!-- Fetching the animation store's index and the scripts it offers. This
+         is the only thing the app uses the network for: a script the user
+         writes is stored locally and the Lua sandbox never reaches a socket, so
+         nothing that runs on the glyph can talk to anything. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- Watching the VPN transport: Android broadcasts no "VPN connected"
          event, so the feature registers a NetworkCallback for TRANSPORT_VPN,
          which only needs the network state, not the network itself. -->
@@ -136,11 +135,19 @@
                 android:value="This service plays a glyph animation on device lock." />
         </service>
 
+        <!-- Every `specialUse` service needs a subtype property, including this
+             one: the Play Console rejects a submission that declares the type
+             without describing what it is for. This declaration had been
+             missing while the two copy-pasted neighbours below it were given
+             the right text. -->
         <service
             android:name=".services.GlyphForegroundService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="specialUse" />
+            android:foregroundServiceType="specialUse" >
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Holds the Glyph hardware session open and keeps the feature services alive while they wait for their triggers." />
+        </service>
 
         <service
             android:name=".services.LowBatteryAlertService"

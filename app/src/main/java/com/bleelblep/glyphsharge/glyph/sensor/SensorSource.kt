@@ -62,7 +62,7 @@ import kotlin.math.sqrt
  */
 @Singleton
 class SensorSource @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context,
 ) : SensorControl {
     private companion object {
         const val TAG = "SensorSource"
@@ -181,6 +181,19 @@ class SensorSource @Inject constructor(
      * zero and both start, and the second `stop` would leave the registration
      * alive for the rest of the process. Failing the compare and re-reading is
      * the cheap half of a spin that is taken once per run, not once per frame.
+     *
+     * Taking the reference and registering are two steps, and a `stop`
+     * arriving between them found nothing to unregister — the count went to
+     * zero, the listener was not there yet, and the registration that landed
+     * afterwards then outlived the run that wanted it by the life of the
+     * process. So the count is re-read once the registration is in: a `stop`
+     * that slipped through is answered by undoing our own work.
+     *
+     * A lock would close the window more tidily, but [snapshot] is on the draw
+     * path at sixty frames a second, and [register] makes a binder call. The
+     * re-check keeps the hot path — a run that already holds a reference, which
+     * is every frame after the first — down to one atomic read and no lock at
+     * all.
      */
     private fun acquireIfIdle() {
         while (true) {
@@ -188,6 +201,11 @@ class SensorSource @Inject constructor(
             if (held > 0) return
             if (holders.compareAndSet(0, 1)) {
                 register()
+                // Someone gave the reference back while we were registering.
+                if (holders.get() <= 0) {
+                    holders.set(0)
+                    unregister()
+                }
                 return
             }
         }
@@ -211,7 +229,7 @@ class SensorSource @Inject constructor(
 
         val manager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
         val accelerometer = manager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        if (manager == null || accelerometer == null) {
+        if ((manager == null) || (accelerometer == null)) {
             noAccelerometer = true
             Log.i(TAG, "No accelerometer on this device; glyph.sensor reports still")
             return
@@ -228,15 +246,23 @@ class SensorSource @Inject constructor(
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
         }
 
+        // `registerListener` answers with a boolean and does not throw when it
+        // declines. Checking only for an exception therefore recorded a refusal
+        // as a success: the thread was kept alive for the whole run, `holders`
+        // stayed at one, and the script was handed [SensorSnapshot.STILL]
+        // forever with nothing in the studio console to say why — exactly the
+        // failure the reference count exists to prevent, reached by the other
+        // door.
         val registered = runCatching {
             manager.registerListener(created, accelerometer, SAMPLE_PERIOD_US, Handler(thread.looper))
-        }
-        if (registered.isFailure) {
+        }.getOrNull()
+
+        if (registered != true) {
             // The thread has to go back even though the listener never
             // arrived; a HandlerThread started and abandoned is a thread that
             // runs until the process does.
             runCatching { thread.quitSafely() }
-            Log.w(TAG, "Cannot register the accelerometer; glyph.sensor reports still", registered.exceptionOrNull())
+            Log.w(TAG, "Cannot register the accelerometer; glyph.sensor reports still")
             return
         }
 
@@ -291,15 +317,15 @@ class SensorSource @Inject constructor(
             val x = values.getOrElse(0) { 0f }
             val y = values.getOrElse(1) { 0f }
             val z = values.getOrElse(2) { 0f }
-            val magnitude = sqrt(x * x + y * y + z * z)
+            val magnitude = sqrt(((x * x) + (y * y)) + (z * z))
             latest.set(
                 SensorSnapshot(
                     x = x,
                     y = y,
                     z = z,
                     magnitude = magnitude,
-                    shaken = magnitude > SHAKE_THRESHOLD_MS2
-                )
+                    shaken = magnitude > SHAKE_THRESHOLD_MS2,
+                ),
             )
         }.onFailure {
             // A malformed event must not take the listener thread with it: a

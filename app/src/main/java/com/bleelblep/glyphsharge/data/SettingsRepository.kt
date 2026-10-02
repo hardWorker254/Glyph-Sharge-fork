@@ -46,7 +46,7 @@ class SettingsRepository @Inject constructor(
     private val language: LanguageSettings,
     private val userPresence: UserPresenceSettings,
     @Suppress("unused") private val migrations: SettingsMigrations,
-    private val diagnostics: SettingsDiagnostics
+    private val diagnostics: SettingsDiagnostics,
 ) {
 
     // Font settings
@@ -60,8 +60,6 @@ class SettingsRepository @Inject constructor(
     fun getUseCustomFonts(): Boolean = fonts.getUseCustomFonts()
 
     fun saveFontSizeSettings(settings: FontSizeSettings) = fonts.saveFontSizeSettings(settings)
-
-    fun getFontSizeSettings(): FontSizeSettings = fonts.getFontSizeSettings()
 
     fun clearFontSizeCustomization() = fonts.clearFontSizeCustomization()
 
@@ -108,8 +106,6 @@ class SettingsRepository @Inject constructor(
     fun savePowerPeekDuration(duration: Long) = features.savePowerPeekDuration(duration)
 
     fun getPowerPeekDuration(): Long = features.getPowerPeekDuration()
-
-    fun saveVibrationIntensity(intensity: Float) = glyphService.saveVibrationIntensity(intensity)
 
     fun getVibrationIntensity(): Float = glyphService.getVibrationIntensity()
 

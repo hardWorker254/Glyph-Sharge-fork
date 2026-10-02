@@ -44,7 +44,7 @@ object DeviceProfileFactory {
         DeviceType.PHONE1 to phone1(),
         DeviceType.PHONE2 to phone2(),
         DeviceType.PHONE2A to phone2a(),
-        DeviceType.PHONE3A to phone3a()
+        DeviceType.PHONE3A to phone3a(),
     )
 
     private val timings: Map<DeviceType, Timings> = mapOf(
@@ -52,26 +52,26 @@ object DeviceProfileFactory {
             spiralStep = 100L,
             matrix = MatrixConfig(20, 3, 8, stepDelayMs = 100L, offDelayMs = 50L, brightnessDecrement = 200),
             fireworks = FireworksConfig(5, 5, 10, launchDelayMs = 300L, explosionDelayMs = 500L, fadeDelayMs = 200L),
-            dna = DnaConfig(rotations = 3, stepDelayMs = 150L, offDelayMs = 50L)
+            dna = DnaConfig(rotations = 3, stepDelayMs = 150L, offDelayMs = 50L),
         ),
         DeviceType.PHONE2 to Timings(
             spiralStep = 80L,
             matrix = MatrixConfig(25, 4, 10, stepDelayMs = 80L, offDelayMs = 40L, brightnessDecrement = 150),
             fireworks = FireworksConfig(6, 8, 15, launchDelayMs = 250L, explosionDelayMs = 400L, fadeDelayMs = 150L),
-            dna = DnaConfig(rotations = 3, stepDelayMs = 120L, offDelayMs = 40L)
+            dna = DnaConfig(rotations = 3, stepDelayMs = 120L, offDelayMs = 40L),
         ),
         DeviceType.PHONE2A to Timings(
             spiralStep = 70L,
             matrix = MatrixConfig(30, 5, 12, stepDelayMs = 70L, offDelayMs = 35L, brightnessDecrement = 120),
             fireworks = FireworksConfig(7, 10, 20, launchDelayMs = 200L, explosionDelayMs = 350L, fadeDelayMs = 100L),
-            dna = DnaConfig(rotations = 3, stepDelayMs = 100L, offDelayMs = 30L)
+            dna = DnaConfig(rotations = 3, stepDelayMs = 100L, offDelayMs = 30L),
         ),
         DeviceType.PHONE3A to Timings(
             spiralStep = 60L,
             matrix = MatrixConfig(35, 6, 15, stepDelayMs = 60L, offDelayMs = 30L, brightnessDecrement = 100),
             fireworks = FireworksConfig(8, 12, 25, launchDelayMs = 180L, explosionDelayMs = 300L, fadeDelayMs = 80L),
-            dna = DnaConfig(rotations = 3, stepDelayMs = 80L, offDelayMs = 25L)
-        )
+            dna = DnaConfig(rotations = 3, stepDelayMs = 80L, offDelayMs = 25L),
+        ),
     )
 
     /** Phone (1): A, B, C1..C4, E, D1..D8, wired in that order. */
@@ -90,7 +90,7 @@ object DeviceProfileFactory {
             spiralOrder = e + a + b + c + d,
             pulseSegments = a + b + e,
             c1SeqStep = 250L,
-            c1SeqHold = 1000L
+            c1SeqHold = 1000L,
         )
     }
 
@@ -112,7 +112,7 @@ object DeviceProfileFactory {
             spiralOrder = e + a + b + c + cOther + d,
             pulseSegments = a + b + e,
             c1SeqStep = 250L,
-            c1SeqHold = 1000L
+            c1SeqHold = 1000L,
         )
     }
 
@@ -128,12 +128,12 @@ object DeviceProfileFactory {
             all = all,
             waveGroups = listOf(
                 AnimGroup(c, step = 80L, off = 30L),
-                AnimGroup(a + b, step = 160L, off = 50L)
+                AnimGroup(a + b, step = 160L, off = 50L),
             ),
             spiralOrder = a + b + c,
             pulseSegments = a + b,
             c1SeqStep = 180L,
-            c1SeqHold = 1500L
+            c1SeqHold = 1500L,
         )
     }
 
@@ -150,12 +150,12 @@ object DeviceProfileFactory {
             waveGroups = listOf(
                 AnimGroup(c, step = 80L, off = 25L),
                 AnimGroup(a, step = 100L, off = 30L),
-                AnimGroup(b, step = 120L, off = 40L)
+                AnimGroup(b, step = 120L, off = 40L),
             ),
             spiralOrder = all,
             pulseSegments = listOf(25, 33, 9),
             c1SeqStep = 200L,
-            c1SeqHold = 2000L
+            c1SeqHold = 2000L,
         )
     }
 
@@ -175,7 +175,7 @@ object DeviceProfileFactory {
         c1SeqHold = c1SeqHold,
         matrixConfig = timing.matrix,
         fireworksConfig = timing.fireworks,
-        dnaConfig = timing.dna
+        dnaConfig = timing.dna,
     )
 
     /** The profile of the connected phone, or `null` on unsupported hardware. */
@@ -197,10 +197,5 @@ object DeviceProfileFactory {
         return layout.toProfile(timings.getValue(layout.type))
     }
 
-    /**
-     * Every LED channel of the connected phone, or an empty list on
-     * unsupported hardware. This is the list that lights the whole strip at once.
-     */
-    fun allChannelsForConnectedDevice(): List<Int> =
-        forConnectedDevice()?.all.orEmpty()
+    
 }

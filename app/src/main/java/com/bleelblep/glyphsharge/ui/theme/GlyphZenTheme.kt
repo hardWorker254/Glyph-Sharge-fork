@@ -33,7 +33,7 @@ fun GlyphZenTheme(
     themeState: ThemeState,
     fontState: FontState,
     dynamicColor: Boolean = false,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     val darkTheme = themeState.isDarkTheme
     val themeStyle = themeState.themeStyle
@@ -59,13 +59,13 @@ fun GlyphZenTheme(
 
     CompositionLocalProvider(
         LocalFontState provides fontState,
-        LocalThemeState provides themeState
+        LocalThemeState provides themeState,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = getTypography(themeStyle, fontState),
             shapes = getShapes(themeStyle),
-            content = content
+            content = content,
         )
     }
 }

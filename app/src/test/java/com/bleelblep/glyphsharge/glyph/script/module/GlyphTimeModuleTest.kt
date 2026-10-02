@@ -23,7 +23,7 @@ class GlyphTimeModuleTest {
             """
             local time = require("glyph.time")
             ${source.trimIndent()}
-            """.trimIndent()
+            """.trimIndent(),
         )
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
     }
@@ -53,11 +53,13 @@ class GlyphTimeModuleTest {
 
     @Test
     fun `the brightness levels are ordered and reachable`() {
-        at(12, 0, """
+        at(
+            12, 0, """
             assert(time.DAY == glyph.MAX, 'DAY is full brightness')
             assert(time.NIGHT == 0, 'NIGHT is off')
             assert(time.DUSK < time.DAY and time.DUSK > time.NIGHT, 'DUSK is in between')
-        """)
+        """,
+        )
     }
 
     @Test
@@ -77,7 +79,7 @@ class GlyphTimeModuleTest {
             wallClock = {
                 reads++
                 ZonedDateTime.of(2024, 1, 15, 13, reads, 0, 0, ZoneId.systemDefault())
-            }
+            },
         )
 
         val result = engine.run(
@@ -86,7 +88,7 @@ class GlyphTimeModuleTest {
             local first = time.minute
             local second = time.minute
             assert(first ~= second, "each read must consult the clock again")
-            """.trimIndent()
+            """.trimIndent(),
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)

@@ -6,9 +6,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontStyle
-import androidx.compose.ui.text.font.FontVariation
-import androidx.compose.ui.res.fontResource
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import javax.inject.Inject
@@ -31,7 +28,7 @@ data class FontSizeSettings(
     val displayScale: Float = 1.0f,    // Scale for display text
     val titleScale: Float = 1.0f,      // Scale for title text
     val bodyScale: Float = 1.0f,       // Scale for body text
-    val labelScale: Float = 1.0f       // Scale for label text
+    val labelScale: Float = 1.0f,      // Scale for label text
 ) {
     companion object {
         fun getDefaultForFont(fontVariant: FontVariant): FontSizeSettings {
@@ -40,13 +37,13 @@ data class FontSizeSettings(
                     displayScale = 0.8f,
                     titleScale = 0.8f,
                     bodyScale = 0.8f,
-                    labelScale = 0.8f
+                    labelScale = 0.8f,
                 )
                 FontVariant.HEADLINE, FontVariant.NDOT -> FontSizeSettings(
                     displayScale = 1.0f,
                     titleScale = 1.0f,
                     bodyScale = 1.0f,
-                    labelScale = 1.0f
+                    labelScale = 1.0f,
                 )
             }
         }
@@ -55,7 +52,7 @@ data class FontSizeSettings(
 
 @Singleton
 class FontState @Inject constructor(
-    private val settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository,
 ) {
     var currentVariant by mutableStateOf(settingsRepository.getFontVariant())
         private set
@@ -70,19 +67,19 @@ class FontState @Inject constructor(
     val headlineFont = FontFamily(
         Font(R.font.ntype_82_headline, FontWeight.Normal),
         Font(R.font.ntype_82_headline, FontWeight.Medium),
-        Font(R.font.ntype_82_headline, FontWeight.Bold)
+        Font(R.font.ntype_82_headline, FontWeight.Bold),
     )
 
     val ndotFont = FontFamily(
         Font(R.font.ndot55caps, FontWeight.Normal),
         Font(R.font.ndot55caps, FontWeight.Medium),
-        Font(R.font.ndot55caps, FontWeight.Bold)
+        Font(R.font.ndot55caps, FontWeight.Bold),
     )
 
     val regularFont = FontFamily(
         Font(R.font.ntype_82_regular, FontWeight.Normal),
         Font(R.font.ntype_82_regular, FontWeight.Medium),
-        Font(R.font.ntype_82_regular, FontWeight.Bold)
+        Font(R.font.ntype_82_regular, FontWeight.Bold),
     )
 
     // System font fallback
@@ -104,14 +101,26 @@ class FontState @Inject constructor(
         settingsRepository.saveUseCustomFonts(useCustomFonts)
     }
 
-    fun updateFontSize(category: FontCategory, scale: Float) {
+    /**
+     * Moves one size slider, and optionally writes it out.
+     *
+     * Split from the write on purpose. A drag reports a value for every pixel
+     * of travel, and this used to persist each one — a `SharedPreferences`
+     * write, and a full recomposition of every screen in the app, tens of times
+     * for a single gesture. The live update is kept, because watching the text
+     * grow under the thumb is the point of a live preview; only the write is
+     * deferred, to the drag's end.
+     *
+     * @param persist `false` while the thumb is moving, `true` once it stops.
+     */
+    fun updateFontSize(category: FontCategory, scale: Float, persist: Boolean = true) {
         fontSizeSettings = when (category) {
             FontCategory.DISPLAY -> fontSizeSettings.copy(displayScale = scale)
             FontCategory.TITLE -> fontSizeSettings.copy(titleScale = scale)
             FontCategory.BODY -> fontSizeSettings.copy(bodyScale = scale)
             FontCategory.LABEL -> fontSizeSettings.copy(labelScale = scale)
         }
-        settingsRepository.saveFontSizeSettings(fontSizeSettings)
+        if (persist) settingsRepository.saveFontSizeSettings(fontSizeSettings)
     }
 
     fun resetFontSizes() {
@@ -137,8 +146,6 @@ class FontState @Inject constructor(
             FontVariant.SYSTEM -> systemFont
         }
     }
-
-    fun getDisplayFont(): FontFamily = getTitleFont()
 
     fun getFontDescription(): String {
         if (!useCustomFonts) return "System Default"

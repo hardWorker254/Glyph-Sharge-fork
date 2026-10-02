@@ -94,9 +94,9 @@ fun MusicVisualizerConfirmationDialog(
             MusicVisualizerEnableDialog(
                 onConfirm = { onConfirm() },
                 onDismiss = onDismissSettings,
-                onDisable = onDisable
+                onDisable = onDisable,
             )
-        }
+        },
     )
 }
 
@@ -110,7 +110,7 @@ fun MusicVisualizerEnableDialog(
     onConfirm: (MusicVisualizerConfig) -> Unit,
     onDismiss: () -> Unit,
     onDisable: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     // The store comes from the composition; the card has none to pass on.
     val settingsRepository = LocalSettingsRepository.current
@@ -134,7 +134,7 @@ fun MusicVisualizerEnableDialog(
     }
     var selectedScriptId by remember {
         mutableStateOf(
-            scriptOptions.firstOrNull { it.runtimeId == settingsRepository.getMusicVizAnimationId() }
+            scriptOptions.firstOrNull { it.runtimeId == settingsRepository.getMusicVizAnimationId() },
         )
     }
     var sensitivity by remember {
@@ -143,8 +143,10 @@ fun MusicVisualizerEnableDialog(
     var screenOffOnly by remember {
         mutableStateOf(settingsRepository.getMusicVizScreenOffOnly())
     }
-    var isSaving by remember { mutableStateOf(false) }
-
+    // No `isSaving`: the save is four synchronous SharedPreferences writes and
+    // an `apply()`, so there is no work for a spinner to describe, and leaving
+    // it set on a dialog whose `onConfirm` did not close it was a button that
+    // showed "working" forever while nothing was working.
     val cardColor = themeCardContainerColor()
     val accent = themePrimaryActionColor()
 
@@ -153,19 +155,19 @@ fun MusicVisualizerEnableDialog(
         title = {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
                     text = stringResource(id = R.string.music_viz_configure_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
                 Text(
                     text = stringResource(id = R.string.music_viz_configure_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
             }
         },
@@ -175,43 +177,42 @@ fun MusicVisualizerEnableDialog(
                     .fillMaxWidth()
                     .heightIn(max = 400.dp)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(16.dp),
                 ) {
                     Column(
                         modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Text(
                             text = stringResource(id = R.string.music_viz_mode_title),
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
 
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
                             MusicVisualizationMode.entries.forEach { mode ->
-                                val isSelected = selectedScriptId == null && selectedMode == mode
+                                val isSelected = (selectedScriptId == null) && (selectedMode == mode)
                                 FilterChip(
                                     selected = isSelected,
                                     onClick = {
                                         HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                         selectedMode = mode
                                         selectedScriptId = null
-                                        settingsRepository.saveMusicVizAnimationId(mode.id)
                                     },
-                                    label = { Text(stringResource(id = mode.displayNameRes)) },
+                                    label = { Text(mode.displayName) },
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    ),
                                 )
                             }
 
@@ -221,29 +222,35 @@ fun MusicVisualizerEnableDialog(
                                     onClick = {
                                         HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                         selectedScriptId = script
-                                        settingsRepository.saveMusicVizAnimationId(script.runtimeId)
                                     },
                                     label = { Text(script.name) },
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
+                                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    ),
                                 )
                             }
                         }
 
                         // Previewed on made-up audio: a dialog cannot reach the
                         // live capture without a service, and the point here is
-                        // to show the *shape* of the mode.
+                        // to show the *shape* of the mode — with the current
+                        // sensitivity applied, so the slider has something to
+                        // show for itself.
                         Button(
                             onClick = {
                                 val mode = selectedMode ?: MusicVisualizationMode.DEFAULT
                                 HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                 scope.launch {
-                                    runCatching { glyphAnimationManager.previewMusicVisualizer(mode) }
+                                    runCatching {
+                                        glyphAnimationManager.previewMusicVisualizer(
+                                            mode,
+                                            sensitivity,
+                                        )
+                                    }
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text(stringResource(id = R.string.music_viz_mode_preview))
                         }
@@ -253,16 +260,16 @@ fun MusicVisualizerEnableDialog(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(16.dp),
                 ) {
                     Column(
                         modifier = Modifier.padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
                                 text = stringResource(id = R.string.music_viz_sensitivity_title),
@@ -270,36 +277,39 @@ fun MusicVisualizerEnableDialog(
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.weight(1f),
                                 maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                overflow = TextOverflow.Ellipsis,
                             )
                             ThemedValueBadge(String.format(Locale.getDefault(), "%.1f", sensitivity))
                         }
 
                         Slider(
                             value = sensitivity,
-                            onValueChange = {
+                            // No haptic per pixel: a drag reports a value for every pixel of travel,
+                            // so firing on each one buzzes continuously under the thumb and buries the
+                            // one that should land at the end. One buzz, at the end.
+                            onValueChange = { sensitivity = it },
+                            onValueChangeFinished = {
                                 HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
-                                sensitivity = it
                             },
                             valueRange = SENSITIVITY_MIN..SENSITIVITY_MAX,
                             steps = 4,
                             modifier = Modifier.fillMaxWidth(),
-                            colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent)
+                            colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent),
                         )
 
                         Row(
                             Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
                             Text(
                                 stringResource(id = R.string.music_viz_sensitivity_min),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Text(
                                 stringResource(id = R.string.music_viz_sensitivity_max),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -308,26 +318,26 @@ fun MusicVisualizerEnableDialog(
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(16.dp),
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(20.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = stringResource(id = R.string.music_viz_screen_off_only),
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = stringResource(id = R.string.music_viz_screen_off_only_note),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         Switch(
@@ -335,7 +345,7 @@ fun MusicVisualizerEnableDialog(
                             onCheckedChange = {
                                 HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
                                 screenOffOnly = it
-                            }
+                            },
                         )
                     }
                 }
@@ -343,11 +353,19 @@ fun MusicVisualizerEnableDialog(
         },
         confirmButton = {
             FeatureSaveButtons(
-                isSaving = isSaving,
                 isCurrentlyEnabled = currentlyEnabled,
                 enableLabel = stringResource(id = R.string.music_viz_button_enable),
+                // All three settings are written together, here. The chip
+                // handlers used to write the animation id as soon as a mode was
+                // tapped, which meant pressing Cancel left the mode changed on
+                // disk while `sensitivity` and `screenOffOnly` were not — and
+                // the next run of the feature, possibly started from the Quick
+                // Settings tile, used a mix of two abandoned sessions.
                 onSave = {
-                    isSaving = true
+                    settingsRepository.saveMusicVizAnimationId(
+                        selectedScriptId?.runtimeId
+                            ?: (selectedMode ?: MusicVisualizationMode.DEFAULT).id,
+                    )
                     settingsRepository.saveMusicVizSensitivity(sensitivity)
                     settingsRepository.saveMusicVizScreenOffOnly(screenOffOnly)
                     onConfirm(
@@ -357,20 +375,20 @@ fun MusicVisualizerEnableDialog(
                                 ?: (selectedMode ?: MusicVisualizationMode.DEFAULT).id,
                             sensitivity = sensitivity,
                             screenOffOnly = screenOffOnly,
-                        )
+                        ),
                     )
                 },
                 onDisable = {
                     onDisable()
                     onDismiss()
                 },
-                onCancel = onDismiss
+                onCancel = onDismiss,
             )
         },
         dismissButton = {},
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(24.dp),
-        modifier = modifier
+        modifier = modifier,
     )
 }
 

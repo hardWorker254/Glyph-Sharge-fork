@@ -48,6 +48,41 @@ class QuietHoursService : Service() {
         // Must stay distinct: PendingIntent identity is (requestCode, action).
         private const val RC_START = 100
         private const val RC_END   = 101
+
+        /**
+         * How wide the degraded alarm is when exact alarms are unavailable.
+         *
+         * Android's own guidance for `setWindow` is a tenth of the interval;
+         * for a daily do-not-disturb window that is a little over two hours,
+         * which is too wide to be worth having. Half an hour is the smallest
+         * value that still lets the system batch the two alarms together
+         * across Doze, and it keeps the window's edges within a range nobody
+         * would call broken.
+         */
+        private const val FALLBACK_WINDOW_MS = 30 * 60_000L
+
+        /**
+         * Whether this app may arm exact alarms right now.
+         *
+         * Read by the settings toggle so it can send the user to the one
+         * system screen that grants it, instead of the feature quietly running
+         * on a 30-minute window with nothing on screen to say why.
+         *
+         * False is the answer on every device that has not been told otherwise,
+         * which is the normal state since Android 14 stopped granting the
+         * permission at install. That is not a reason to hide the prompt: the
+         * window still works, it just starts late.
+         */
+        fun canScheduleExactAlarms(context: Context): Boolean = runCatching {
+            // `getSystemService` returns null where there is no AlarmManager at
+            // all, and a `ContextWrapper` around nothing throws instead of
+            // returning null — so the whole question is wrapped rather than
+            // just the call on the manager. The settings toggle asks it while
+            // the user is tapping, and there is no answer worth a crash.
+            val manager = (context.getSystemService(ALARM_SERVICE) as? AlarmManager)
+                ?: return@runCatching false
+            manager.canScheduleExactAlarms()
+        }.getOrDefault(defaultValue = false)
     }
 
     @Inject lateinit var settingsRepository: SettingsRepository
@@ -60,7 +95,7 @@ class QuietHoursService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val alarmManager: AlarmManager by lazy {
-        getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        getSystemService(ALARM_SERVICE) as AlarmManager
     }
 
     // Broadcast receiver – receives EXACT alarm broadcasts (getBroadcast PI)
@@ -96,7 +131,7 @@ class QuietHoursService : Service() {
             addAction(ACTION_QUIET_HOURS_START)
             addAction(ACTION_QUIET_HOURS_END)
         }
-        registerReceiver(quietHoursReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        registerReceiver(quietHoursReceiver, filter, RECEIVER_NOT_EXPORTED)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -146,8 +181,11 @@ class QuietHoursService : Service() {
     }
 
     /**
-     * Schedules a single exact alarm for the next occurrence of [isStartAlarm].
+     * Schedules a single alarm for the next occurrence of [isStartAlarm].
      * If today's time has already passed, the alarm is pushed to tomorrow.
+     *
+     * Exact when it can be, a window when it cannot, and never a crash — see
+     * [setAlarm] for why the second one matters more than it looks.
      */
     @SuppressLint("ScheduleExactAlarm")
     private fun scheduleExactAlarm(isStartAlarm: Boolean) {
@@ -158,14 +196,14 @@ class QuietHoursService : Service() {
                 settingsRepository.getQuietHoursStartHour(),
                 settingsRepository.getQuietHoursStartMinute(),
                 RC_START,
-                ACTION_QUIET_HOURS_START
+                ACTION_QUIET_HOURS_START,
             )
         } else {
             AlarmParams(
                 settingsRepository.getQuietHoursEndHour(),
                 settingsRepository.getQuietHoursEndMinute(),
                 RC_END,
-                ACTION_QUIET_HOURS_END
+                ACTION_QUIET_HOURS_END,
             )
         }
 
@@ -181,10 +219,69 @@ class QuietHoursService : Service() {
         }.timeInMillis
 
         val pi = buildBroadcastPendingIntent(requestCode, action)
+        val which = if (isStartAlarm) "START" else "END"
 
-        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+        setAlarm(triggerAt, pi, which)
+    }
 
-        Log.d(TAG, "Scheduled ${if (isStartAlarm) "START" else "END"} alarm at $triggerAt")
+    /**
+     * Arms one alarm, degrading instead of failing.
+     *
+     * Since Android 14, `SCHEDULE_EXACT_ALARM` is not granted at install: the
+     * user has to turn on "Alarms & reminders" in special app access, and
+     * `setExactAndAllowWhileIdle` throws `SecurityException` without it. That
+     * exception is thrown on the main thread out of `onStartCommand`, so it
+     * was an uncaught crash — the process died when the user enabled quiet
+     * hours, and again on every reboot with it enabled, because
+     * `BootCompletedReceiver` starts this service.
+     *
+     * The degraded path is a window rather than a failure because precision is
+     * what quiet hours actually needs least: a "do not disturb" window that
+     * starts up to [FALLBACK_WINDOW_MS] late is the feature working, and a
+     * crash that happens whenever the feature is switched on is the feature
+     * not existing. `VpnConnectedService` applies the same rule to its own
+     * permission-gated call, which is why this one is the last to catch up.
+     *
+     * The `canScheduleExactAlarms` check is a courtesy that saves the log
+     * noise; the `runCatching` is what actually guarantees no crash, because a
+     * grant can also be revoked between the check and the call.
+     */
+    private fun setAlarm(triggerAt: Long, pi: PendingIntent, which: String) {
+        val exactAllowed = runCatching { alarmManager.canScheduleExactAlarms() }
+            .getOrDefault(defaultValue = false)
+
+        if (exactAllowed) {
+            val armed = runCatching {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pi)
+            }.isSuccess
+            if (armed) {
+                Log.d(TAG, "Scheduled $which exact alarm at $triggerAt")
+                return
+            }
+            Log.w(TAG, "Exact $which alarm refused; falling back to a window")
+        } else {
+            Log.i(
+                TAG,
+                "No exact-alarm access; scheduling $which as a window. Quiet hours " +
+                    "can start up to ${FALLBACK_WINDOW_MS / 60_000} min late.",
+            )
+        }
+
+        // Also the safety net for the success path: `setWindow` needs no
+        // permission, so it cannot refuse the way `setExactAndAllowWhileIdle`
+        // just did.
+        runCatching {
+            alarmManager.setWindow(
+                AlarmManager.RTC_WAKEUP,
+                triggerAt,
+                FALLBACK_WINDOW_MS,
+                pi,
+            )
+        }.onSuccess {
+            Log.d(TAG, "Scheduled $which window alarm at $triggerAt")
+        }.onFailure {
+            Log.e(TAG, "Could not schedule the $which quiet hours alarm", it)
+        }
     }
 
     private fun cancelAlarms() {
@@ -199,7 +296,7 @@ class QuietHoursService : Service() {
             this,
             requestCode,
             Intent(action).setPackage(packageName),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
     // State management
@@ -260,7 +357,7 @@ class QuietHoursService : Service() {
         val channel = NotificationChannel(
             NOTIFICATION_CHANNEL_ID,
             "Quiet Hours Service",
-            NotificationManager.IMPORTANCE_LOW
+            NotificationManager.IMPORTANCE_LOW,
         ).apply {
             description = "Manages quiet hours for glyph animations"
             setShowBadge(false)
@@ -287,10 +384,15 @@ class QuietHoursService : Service() {
             .build()
     }
 
-    // This re-posts the notification the service already owns as its foreground
-    // notification (started in onStartCommand under the same NOTIFICATION_ID),
-    // and Android exempts foreground-service notifications from
-    // POST_NOTIFICATIONS — so lint's warning does not apply here.
+    // Re-posts the notification the service already owns as its foreground
+    // notification (started in onStartCommand under the same NOTIFICATION_ID).
+    //
+    // The app asks for no notification permission, so on Android 13+ this
+    // notice never reaches the drawer — the system guarantees it a Task
+    // Manager entry and nothing more. That is the accepted trade for never
+    // prompting. The suppression is still needed, because lint asks about
+    // the notify() call itself, and the service refuses to start without
+    // a notification.
     @SuppressLint("NotificationPermission")
     private fun updateNotification() {
         getSystemService(NotificationManager::class.java)
@@ -309,6 +411,6 @@ class QuietHoursService : Service() {
         val hour: Int,
         val minute: Int,
         val requestCode: Int,
-        val action: String
+        val action: String,
     )
 }

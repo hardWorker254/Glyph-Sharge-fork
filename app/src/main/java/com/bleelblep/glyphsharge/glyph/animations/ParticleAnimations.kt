@@ -40,7 +40,7 @@ internal suspend fun GlyphRenderer.runMatrixRainAnimation(profile: DeviceProfile
         for (i in 0 until length) {
             if (!isRunning) return
             val brightness =
-                (GLYPH_MAX_BRIGHTNESS - i * cfg.brightnessDecrement).coerceAtLeast(0)
+                (GLYPH_MAX_BRIGHTNESS - (i * cfg.brightnessDecrement)).coerceAtLeast(0)
             pulse(
                 listOf(channels[start + i]),
                 onMs = cfg.stepDelayMs,
@@ -86,7 +86,7 @@ internal suspend fun GlyphRenderer.runDNAHelixAnimation(profile: DeviceProfile) 
             pulse(
                 listOf(channels[i], channels[(i + half) % size]),
                 onMs = cfg.stepDelayMs,
-                offMs = cfg.offDelayMs
+                offMs = cfg.offDelayMs,
             )
         }
     }

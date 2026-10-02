@@ -943,7 +943,6 @@ data class FeatureSpec(
 object FeatureSpecs {
     val all: List<FeatureSpec>
     fun of(feature: GlyphFeature): FeatureSpec
-    fun allFor(features: Iterable<GlyphFeature>): List<FeatureSpec>
 }
 ```
 
@@ -1796,7 +1795,9 @@ app/src/main/res/
 `FOREGROUND_SERVICE_MEDIA_PROJECTION`, `SYSTEM_ALERT_WINDOW`, `RECEIVE_BOOT_COMPLETED`,
 `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `DISABLE_KEYGUARD`, `TURN_SCREEN_ON`,
 `SCHEDULE_EXACT_ALARM`, `NFC`, `ACCESS_NETWORK_STATE` (VPN Connected — состояние, а не
-сама сеть, и это же читает `glyph.net`), `RECORD_AUDIO`, `READ_MEDIA_AUDIO`.
+сама сеть, и это же читает `glyph.net`), `RECORD_AUDIO`, `READ_MEDIA_AUDIO`,
+`INTERNET` (магазин анимаций — единственное, что приложение качает из сети;
+это обычное разрешение, оно не спрашивается у пользователя в рантайме).
 
 > [!NOTE]
 > Шесть модулей, доступных через `require`, **не добавили ни одного разрешения**. `glyph.net`
@@ -2054,8 +2055,7 @@ no-op, включая `logSessionState` и `logSDKOperation` внутри `Glyph
 - `ChargingAnimationConfig.isEnabled` и `PowerPeekConfig.enableWhenScreenOff`
   записываются, но соответствующих ключей в репозитории **нет** —
   переключатель «только при выключенном экране» в диалоге Power Peek ничего не делает.
-- `ThreeStateFontToggle` и `FontState.getDisplayFont()` не используются.
-- `GlyphControlCard.illustrationRes` принимается, но не используется в теле.
+
 - `QuietHoursSettingsScreen` содержит пустой `LaunchedEffect(Unit)` с одним комментарием,
   поэтому `quietHoursEnabled` может устареть.
 
@@ -2092,10 +2092,17 @@ no-op, включая `logSessionState` и `logSDKOperation` внутри `Glyph
 
 Помимо десяти встроенных анимаций пользователь может написать свои — на **Lua 5.2**,
 которую выполняет чисто-JVM движок [LuaJ](https://github.com/luaj/luaj) 3.0.1
-(`org.luaj:luaj-jse`). Это не плагин и не чужой код из интернета: скрипт целиком
-хранится в `filesDir/glyph_scripts`, выполняется в песочнице и умеет только зажигать
-каналы, ждать, читать состояние устройства через шесть модулей из `require` и писать
-строки в консоль студии.
+(`org.luaj:luaj-jse`). Это не плагин: скрипт целиком хранится в
+`filesDir/glyph_scripts`, выполняется в песочнице и умеет только зажигать каналы,
+ждать, читать состояние устройства через шесть модулей из `require` и писать строки
+в консоль студии.
+
+> [!NOTE]
+> Скрипт не приходит из сети и сам в сеть не ходит: ни формат `.glyphlua`, ни
+> песочница не дают Lua-скрипту ни файловой системы, ни сокета. Единственное, что
+> приложение скачивает из интернета, — это каталог магазина анимаций и выбранный
+> из него файл; оба приходят как обычный текст и сразу попадают в
+> `filesDir/glyph_scripts`. Право `INTERNET` объявлено ровно ради этого.
 
 ### Как попасть в студию
 

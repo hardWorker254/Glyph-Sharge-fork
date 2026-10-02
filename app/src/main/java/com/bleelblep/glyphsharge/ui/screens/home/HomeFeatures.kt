@@ -56,7 +56,7 @@ internal fun LazyListScope.homeFeatureCards(
             onTestAnimation = { viewModel.testFeature(GlyphFeature.CHARGING_ANIMATION) },
             icon = rememberVectorPainter(image = Icons.Default.BatteryChargingFull),
             modifier = Modifier.fillMaxWidth(),
-            iconSize = 32
+            iconSize = 32,
         )
     }
 
@@ -70,7 +70,7 @@ internal fun LazyListScope.homeFeatureCards(
             onTestPowerPeek = { viewModel.testFeature(GlyphFeature.POWER_PEEK) },
             icon = painterResource(id = R.drawable._44),
             modifier = Modifier.fillMaxWidth(),
-            iconSize = 32
+            iconSize = 32,
         )
     }
 
@@ -82,7 +82,7 @@ internal fun LazyListScope.homeFeatureCards(
             onTestPulseLock = { viewModel.testFeature(GlyphFeature.PULSE_LOCK) },
             icon = rememberVectorPainter(image = Icons.Default.Lock),
             modifier = Modifier.fillMaxWidth(),
-            iconSize = 32
+            iconSize = 32,
         )
     }
 
@@ -94,7 +94,7 @@ internal fun LazyListScope.homeFeatureCards(
             onTestScreenOff = { viewModel.testFeature(GlyphFeature.SCREEN_OFF) },
             icon = rememberVectorPainter(image = Icons.Default.PowerSettingsNew),
             modifier = Modifier.fillMaxWidth(),
-            iconSize = 32
+            iconSize = 32,
         )
     }
 
@@ -106,7 +106,7 @@ internal fun LazyListScope.homeFeatureCards(
             onTestNfc = { viewModel.testFeature(GlyphFeature.NFC) },
             icon = rememberVectorPainter(image = Icons.Default.Nfc),
             modifier = Modifier.fillMaxWidth(),
-            iconSize = 32
+            iconSize = 32,
         )
     }
 
@@ -118,7 +118,7 @@ internal fun LazyListScope.homeFeatureCards(
             onTest = { viewModel.testFeature(GlyphFeature.VPN_CONNECTED) },
             icon = rememberVectorPainter(image = Icons.Default.Shield),
             modifier = Modifier.fillMaxWidth(),
-            iconSize = 32
+            iconSize = 32,
         )
     }
 
@@ -130,7 +130,7 @@ internal fun LazyListScope.homeFeatureCards(
             onTestAlert = { viewModel.testFeature(GlyphFeature.LOW_BATTERY) },
             icon = rememberVectorPainter(image = Icons.Default.BatteryAlert),
             modifier = Modifier.fillMaxWidth(),
-            iconSize = 32
+            iconSize = 32,
         )
     }
 
@@ -149,7 +149,7 @@ internal fun LazyListScope.homeFeatureCards(
             onTestAnimation = { viewModel.testFeature(GlyphFeature.MUSIC_VISUALIZER) },
             icon = rememberVectorPainter(image = Icons.Default.LibraryMusic),
             modifier = Modifier.fillMaxWidth(),
-            iconSize = 32
+            iconSize = 32,
         )
     }
 }
@@ -165,35 +165,35 @@ internal fun LazyListScope.homeFeatureCards(
 @Composable
 private fun rememberPowerPeekToggle(
     context: Context,
-    viewModel: HomeViewModel
+    viewModel: HomeViewModel,
 ): (Boolean) -> Unit {
     val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
+        ActivityResultContracts.RequestPermission(),
     ) { granted ->
         if (granted) {
-            viewModel.setFeatureEnabled(GlyphFeature.POWER_PEEK, true)
+            viewModel.setFeatureEnabled(GlyphFeature.POWER_PEEK, enabled = true)
         } else {
             Toast.makeText(
                 context,
                 "Permission denied. PowerPeek cannot run without it.",
-                Toast.LENGTH_LONG
+                Toast.LENGTH_LONG,
             ).show()
             // Put the toggle back where it was.
-            viewModel.setFeatureEnabled(GlyphFeature.POWER_PEEK, false)
+            viewModel.setFeatureEnabled(GlyphFeature.POWER_PEEK, enabled = false)
         }
     }
 
     return { enabled ->
         if (!enabled) {
-            viewModel.setFeatureEnabled(GlyphFeature.POWER_PEEK, false)
+            viewModel.setFeatureEnabled(GlyphFeature.POWER_PEEK, enabled = false)
         } else {
             val alreadyGranted = ContextCompat.checkSelfPermission(
                 context,
-                Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE
+                Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE,
             ) == PackageManager.PERMISSION_GRANTED
 
             if (alreadyGranted) {
-                viewModel.setFeatureEnabled(GlyphFeature.POWER_PEEK, true)
+                viewModel.setFeatureEnabled(GlyphFeature.POWER_PEEK, enabled = true)
             } else {
                 permissionLauncher.launch(Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE)
             }

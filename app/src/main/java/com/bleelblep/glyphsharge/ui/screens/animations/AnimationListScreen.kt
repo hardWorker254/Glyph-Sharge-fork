@@ -1,5 +1,8 @@
 package com.bleelblep.glyphsharge.ui.screens.animations
 import androidx.compose.foundation.clickable
+// The List overload of `items`. Only the `items(count: Int)` member was in
+// scope before, which is the one that cannot take a key.
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -66,6 +70,7 @@ import java.util.Date
  * @param onPickImportFile opens the system file picker to import a `.glyphlua`
  * @param onExportToDownloads writes straight into the public Downloads folder
  * @param onExportToFile writes to a location the user picks
+ * @param onOpenStore opens the animation store
  */
 @Composable
 fun AnimationListScreen(
@@ -78,7 +83,8 @@ fun AnimationListScreen(
     onPickImportFile: () -> Unit,
     onExportToDownloads: (String) -> Unit,
     onExportToFile: (String) -> Unit,
-    modifier: Modifier = Modifier
+    onOpenStore: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
     // The user's haptic strength is a setting, so it is read once per
@@ -93,30 +99,47 @@ fun AnimationListScreen(
         modifier = modifier,
         onBackClick = onBackClick,
         actions = {
-            IconButton(onClick = {
-                HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
-                onPickImportFile()
-            }) {
+            IconButton(
+                onClick = {
+                    HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
+                    onPickImportFile()
+                },
+            ) {
                 Icon(
                     imageVector = Icons.Filled.FileOpen,
-                    contentDescription = stringResource(R.string.studio_import)
+                    contentDescription = stringResource(R.string.studio_import),
                 )
             }
             // With nothing saved yet the empty state already carries the one
             // button that matters, in the middle of the screen. A second way to
             // reach it up here would only compete with it.
             if (animations.isNotEmpty()) {
-                IconButton(onClick = {
-                    HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
-                    onCreate()
-                }) {
+                IconButton(
+                    onClick = {
+                        HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
+                        onCreate()
+                    },
+                ) {
                     Icon(
                         imageVector = Icons.Filled.Add,
-                        contentDescription = stringResource(R.string.studio_new)
+                        contentDescription = stringResource(R.string.studio_new),
                     )
                 }
             }
-        }
+            // Always present, unlike New: the store is the way to get a script
+            // without writing one, which is exactly what an empty studio needs.
+            IconButton(
+                onClick = {
+                    HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
+                    onOpenStore()
+                },
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Storefront,
+                    contentDescription = stringResource(R.string.store_open),
+                )
+            }
+        },
     ) {
         if (animations.isEmpty()) {
             item {
@@ -124,16 +147,18 @@ fun AnimationListScreen(
                     title = stringResource(R.string.studio_empty_title),
                     body = stringResource(R.string.studio_empty_body),
                     accent = accent,
-                    onCreate = {
-                        HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
-                        onCreate()
-                    }
-                )
+                ) {
+                    HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
+                    onCreate()
+                }
             }
         }
 
-        items(animations.size) { index ->
-            val animation = animations[index]
+        // Keyed, because the row keeps `menuOpen` in a `remember` and a
+        // LazyColumn preserves slot state *by index*. Unkeyed, deleting row 3
+        // left its open overflow menu attached to what used to be row 4 — and
+        // "Duplicate" in that stale menu duplicated the wrong script.
+        items(animations, key = { it.id }) { animation ->
             AnimationRow(
                 animation = animation,
                 cardColor = cardColor,
@@ -144,8 +169,9 @@ fun AnimationListScreen(
                 onDelete = { onDelete(animation.id) },
                 onDuplicate = { onDuplicate(animation.id) },
                 onExportToDownloads = { onExportToDownloads(animation.id) },
-                onExportToFile = { onExportToFile(animation.id) }
-            )
+            ) {
+                onExportToFile(animation.id)
+            }
         }
     }
 }
@@ -158,28 +184,39 @@ private fun AnimationRow(
     onDelete: () -> Unit,
     onDuplicate: () -> Unit,
     onExportToDownloads: () -> Unit,
-    onExportToFile: () -> Unit
+    onExportToFile: () -> Unit,
 ) {
-    var menuOpen by remember { mutableStateOf(false) }
+    var menuOpen by remember { mutableStateOf(value = false) }
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = cardColor),
-        onClick = onOpen
+        onClick = onOpen,
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(start = 20.dp, top = 16.dp, end = 8.dp, bottom = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                val charCount = animation.source.length.coerceAtMost(9999)
+                // The real length, not a clamped one.
+                //
+                // This was `coerceAtMost(9999)`, and the clamped value was fed
+                // to `pluralStringResource` as the *quantity* — so a
+                // 12 000-character script reported itself as 9 999, in the
+                // plural form belonging to a number it did not have, on a row
+                // whose only job is to say what is on the phone.
+                //
+                // The clamp bought one character of line width on a line that
+                // already ellipsises. What it cost was a wrong number, which is
+                // not a trade worth making.
+                val charCount = animation.source.length
                 Text(
                     text = animation.name,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
@@ -187,10 +224,10 @@ private fun AnimationRow(
                         R.plurals.studio_row_meta,
                         charCount,
                         charCount,
-                        formatDate(animation.updatedAt)
+                        formatDate(animation.updatedAt),
                     ),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
@@ -198,7 +235,7 @@ private fun AnimationRow(
                 IconButton(onClick = { menuOpen = true }) {
                     Icon(
                         imageVector = Icons.Filled.MoreVert,
-                        contentDescription = stringResource(R.string.studio_row_menu)
+                        contentDescription = stringResource(R.string.studio_row_menu),
                     )
                 }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
@@ -207,35 +244,35 @@ private fun AnimationRow(
                         onClick = {
                             menuOpen = false
                             onOpen()
-                        }
+                        },
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.studio_action_duplicate)) },
                         onClick = {
                             menuOpen = false
                             onDuplicate()
-                        }
+                        },
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.studio_action_export_downloads)) },
                         onClick = {
                             menuOpen = false
                             onExportToDownloads()
-                        }
+                        },
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.studio_action_export_file)) },
                         onClick = {
                             menuOpen = false
                             onExportToFile()
-                        }
+                        },
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.studio_action_delete)) },
                         onClick = {
                             menuOpen = false
                             onDelete()
-                        }
+                        },
                     )
                 }
             }
@@ -248,41 +285,41 @@ private fun EmptyState(
     title: String,
     body: String,
     accent: Color,
-    onCreate: () -> Unit
+    onCreate: () -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
         )
         Text(
             text = body,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.height(8.dp))
         Row(
             modifier = Modifier
                 .clickable(onClick = onCreate)
                 .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 imageVector = Icons.Filled.Add,
                 contentDescription = null,
                 tint = accent,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(20.dp),
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = stringResource(R.string.studio_new),
                 style = MaterialTheme.typography.titleSmall,
-                color = accent
+                color = accent,
             )
         }
     }

@@ -1,6 +1,11 @@
 package com.bleelblep.glyphsharge.ui.screens
 
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.provider.Settings
+import android.util.Log
+import androidx.core.net.toUri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
@@ -15,7 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -41,7 +45,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.CustomAnimationsActivity
+import com.bleelblep.glyphsharge.services.QuietHoursService
 import com.bleelblep.glyphsharge.ui.components.controls.MorphingToggleButton
+import com.bleelblep.glyphsharge.ui.components.controls.SettingsTrailingIcon
 import com.bleelblep.glyphsharge.ui.components.controls.ThreeStateFontMorphingButton
 import com.bleelblep.glyphsharge.ui.components.layout.DraggableSettingsCard
 import com.bleelblep.glyphsharge.ui.components.layout.SettingsScaffold
@@ -79,7 +85,7 @@ fun SettingsScreen(
 
     SettingsScaffold(
         title = stringResource(id = R.string.settings_title),
-        onBackClick = onBackClick
+        onBackClick = onBackClick,
     ) {
         item {
             TypographySettingsCard(
@@ -90,10 +96,10 @@ fun SettingsScreen(
                             currentVariant = fontState.currentVariant,
                             onVariantSelected = { variant ->
                                 fontState.setFontVariant(variant)
-                            }
+                            },
                         )
                     }
-                }
+                },
             )
         }
 
@@ -101,29 +107,28 @@ fun SettingsScreen(
             ThemeSettingsCard(
                 isDarkTheme = themeState.isDarkTheme,
                 onToggleTheme = themeState::toggleTheme,
-                onNavigate = onThemeSettingsClick
+                onNavigate = onThemeSettingsClick,
             )
         }
 
         item {
             QuietHoursSettingsCard(
-                onNavigate = onQuietHoursSettingsClick
+                onNavigate = onQuietHoursSettingsClick,
             )
         }
 
         item {
             LanguageSettingsCard(
-                onNavigate = onLanguageSettingsClick
+                onNavigate = onLanguageSettingsClick,
             )
         }
 
         item {
             CustomAnimationsCard(
                 animationCount = customAnimationCount,
-                onClick = {
-                    context.startActivity(CustomAnimationsActivity.intent(context))
-                }
-            )
+            ) {
+                context.startActivity(CustomAnimationsActivity.intent(context))
+            }
         }
 
         item {
@@ -135,7 +140,7 @@ fun SettingsScreen(
 @Composable
 private fun CustomAnimationsCard(
     animationCount: Int,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     DraggableSettingsCard(
         title = stringResource(id = R.string.settings_card_custom_animations),
@@ -145,23 +150,29 @@ private fun CustomAnimationsCard(
             pluralStringResource(
                 id = R.plurals.settings_card_custom_animations_count,
                 count = animationCount,
-                animationCount
+                animationCount,
             )
         },
         onNavigate = onClick,
-        onClick = onClick
+        onClick = onClick,
+        trailing = {
+            // The one row that had no trailing control at all, which left it the
+            // only card in the list with an empty right edge. No content named,
+            // so the chip draws its own mark.
+            SettingsTrailingIcon()
+        },
     )
 }
 
 @Composable
 private fun TypographySettingsCard(
     onNavigate: () -> Unit,
-    trailing: @Composable () -> Unit
+    trailing: @Composable () -> Unit,
 ) {
     DraggableSettingsCard(
         title = stringResource(id = R.string.settings_card_typography),
         onNavigate = onNavigate,
-        trailing = trailing
+        trailing = trailing,
     )
 }
 
@@ -169,7 +180,7 @@ private fun TypographySettingsCard(
 private fun ThemeSettingsCard(
     isDarkTheme: Boolean,
     onToggleTheme: () -> Unit,
-    onNavigate: () -> Unit
+    onNavigate: () -> Unit,
 ) {
     DraggableSettingsCard(
         title = stringResource(id = R.string.settings_card_theme),
@@ -188,17 +199,18 @@ private fun ThemeSettingsCard(
                 },
                 disabledIcon = {
                     Text(text = "☀️", style = MaterialTheme.typography.titleLarge)
-                }
+                },
             )
-        }
+        },
     )
 }
 
 @Composable
 private fun QuietHoursSettingsCard(
-    onNavigate: () -> Unit
+    onNavigate: () -> Unit,
 ) {
     val settingsRepository = LocalSettingsRepository.current
+    val context = LocalContext.current
     var quietHoursEnabled by remember {
         mutableStateOf(settingsRepository.isQuietHoursEnabled())
     }
@@ -217,31 +229,71 @@ private fun QuietHoursSettingsCard(
                 onCheckedChange = { enabled ->
                     quietHoursEnabled = enabled
                     settingsRepository.saveQuietHoursEnabled(enabled)
+                    // Asked once, and only on the way in. Quiet hours runs either
+                    // way — an exact alarm is a nicety for a do-not-disturb
+                    // window — so this must never block the switch, only make
+                    // the difference visible while the user is already here.
+                    if (enabled && !QuietHoursService.canScheduleExactAlarms(context)) {
+                        requestExactAlarmAccess(context)
+                    }
                 },
                 enabledIcon = {
                     Text(text = "🔇", style = MaterialTheme.typography.titleLarge)
                 },
                 disabledIcon = {
                     Text(text = "💡", style = MaterialTheme.typography.titleLarge)
-                }
+                },
             )
-        }
+        },
     )
+}
+
+/**
+ * Opens the one system screen that grants exact alarms, if it exists.
+ *
+ * The intent is the documented way to ask, and a device that has removed the
+ * screen throws rather than resolving to nothing — so the launch is guarded
+ * instead of being treated as always available. Nothing is shown when it fails:
+ * quiet hours is already on and already scheduled, and a dialog saying "the
+ * request did not work" would be more alarming than the late window it is
+ * describing.
+ */
+private fun requestExactAlarmAccess(context: Context) {
+    runCatching {
+        context.startActivity(
+            Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                data = "package:${context.packageName}".toUri()
+            },
+        )
+    }.onFailure {
+        Log.w("SettingsScreen", "No exact-alarm request screen on this device", it)
+    }
 }
 
 @Composable
 private fun LanguageSettingsCard(
-    onNavigate: () -> Unit
+    onNavigate: () -> Unit,
 ) {
     val settingsRepository = LocalSettingsRepository.current
-    val currentLanguageName = remember {
+    // Through resources, not literals.
+    //
+    // This row is the language picker, so "System Default" written in English
+    // here was a Russian user reading English *inside their own language
+    // settings* — and `language_option_system` had been translated in both
+    // locales the whole time, unused.
+    //
+    // "English" and "Русский" are proper nouns and read the same in every
+    // language, but they go through resources anyway: a language name is
+    // exactly the sort of string that gets a translator to second-guess it,
+    // and having one place to change is worth more than the certainty that
+    // neither will.
+    val currentLanguageName = stringResource(
         when (settingsRepository.getAppLanguageCode()) {
-            "system" -> "System Default"
-            "en" -> "English"
-            "ru" -> "Русский"
-            else -> "System Default"
-        }
-    }
+            "en" -> R.string.language_option_en
+            "ru" -> R.string.language_option_ru
+            else -> R.string.language_option_system
+        },
+    )
 
     DraggableSettingsCard(
         title = stringResource(id = R.string.language_selector_title),
@@ -249,13 +301,15 @@ private fun LanguageSettingsCard(
         subtitleColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.9f),
         onNavigate = onNavigate,
         trailing = {
-            Icon(
-                imageVector = Icons.Default.Language,
-                contentDescription = stringResource(id = R.string.language_selector_desc),
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(28.dp)
-            )
-        }
+            // In the same plate every other row uses, rather than a bare icon
+            // against the card: a row whose trailing control is the only one
+            // without the frame does not read as deliberate. The globe is an
+            // emoji set in `titleLarge` because every other row's mark is —
+            // the same material icon at the same dp reads a size smaller.
+            SettingsTrailingIcon {
+                Text(text = "🌐", style = MaterialTheme.typography.titleLarge)
+            }
+        },
     )
 }
 
@@ -279,7 +333,7 @@ private fun AboutCard(modifier: Modifier = Modifier) {
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(),
-        shape = MaterialTheme.shapes.large
+        shape = MaterialTheme.shapes.large,
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -287,30 +341,29 @@ private fun AboutCard(modifier: Modifier = Modifier) {
                     imageVector = Icons.Default.Settings,
                     contentDescription = null,
                     tint = when (themeState.themeStyle) {
-                        AppThemeStyle.Y2K,
+                        AppThemeStyle.Y2K -> MaterialTheme.colorScheme.primary
                         AppThemeStyle.NEON -> MaterialTheme.colorScheme.primary
                         AppThemeStyle.CLASSIC -> Color(0xFF674FA3)
                         else -> MaterialTheme.colorScheme.primary
                     },
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(24.dp),
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Text(
-                    text = "About",
+                    text = stringResource(id = R.string.settings_card_about),
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "From live battery glyphs to USB-theft alarms, charging history " +
-                    "and unlock light-shows—unlock the full power of the NOTHING glyphs.",
+                text = stringResource(id = R.string.settings_about_description),
                 style = MaterialTheme.typography.bodyMedium,
-                lineHeight = 20.sp
+                lineHeight = 20.sp,
             )
         }
     }
@@ -322,15 +375,15 @@ private fun AboutCard(modifier: Modifier = Modifier) {
 private fun BetaAttributeCard(modifier: Modifier = Modifier) {
     val themeState = LocalThemeState.current
     val context = LocalContext.current
-    var toggled by rememberSaveable { mutableStateOf(false) }
+    var toggled by rememberSaveable { mutableStateOf(value = false) }
 
     // Get version information dynamically
     val versionInfo = remember {
         try {
             val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
             "${packageInfo.versionName} (${packageInfo.longVersionCode})"
-        } catch (e: PackageManager.NameNotFoundException) {
-            "Unknown Version"
+        } catch (_: PackageManager.NameNotFoundException) {
+            context.getString(R.string.settings_about_unknown_version)
         }
     }
 
@@ -341,7 +394,7 @@ private fun BetaAttributeCard(modifier: Modifier = Modifier) {
             .clickable { toggled = !toggled },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = MaterialTheme.shapes.large,
-        elevation = CardDefaults.cardElevation()
+        elevation = CardDefaults.cardElevation(),
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             // Header row with icon and title
@@ -350,20 +403,20 @@ private fun BetaAttributeCard(modifier: Modifier = Modifier) {
                     imageVector = Icons.Default.Info,
                     contentDescription = null,
                     tint = when (themeState.themeStyle) {
-                        AppThemeStyle.Y2K,
+                        AppThemeStyle.Y2K -> MaterialTheme.colorScheme.primary
                         AppThemeStyle.NEON -> MaterialTheme.colorScheme.primary
                         AppThemeStyle.CLASSIC -> Color(0xFF674FA3)
                         else -> MaterialTheme.colorScheme.primary
                     },
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(24.dp),
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Text(
-                    text = "Glyph Sharge",
+                    text = stringResource(id = R.string.app_name),
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
 
@@ -373,7 +426,7 @@ private fun BetaAttributeCard(modifier: Modifier = Modifier) {
             Text(
                 text = "v$versionInfo",
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -381,23 +434,23 @@ private fun BetaAttributeCard(modifier: Modifier = Modifier) {
             // Supporting text that toggles on tap
             AnimatedContent(targetState = toggled, label = "betaToggle") { isAlt ->
                 val body = if (isAlt) {
-                    "Special thanks to beedah for the countless installs and quick beta testing."
+                    stringResource(id = R.string.settings_about_beta_alt)
                 } else {
-                    "🧪 You're using a public release build. Expect occasional quirks and bugs."
+                    stringResource(id = R.string.settings_about_beta_notice)
                 }
                 Text(
                     text = body,
                     style = MaterialTheme.typography.bodyMedium,
-                    lineHeight = 20.sp
+                    lineHeight = 20.sp,
                 )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Requires Android 14+",
+                text = stringResource(id = R.string.settings_about_requires),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f),
             )
         }
     }

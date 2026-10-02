@@ -43,13 +43,6 @@ class ScriptSandboxSecurityTest {
     private fun run(source: String, durationMs: Long = 5_000L): ScriptRunResult =
         LuaScriptEngine(profile, FakeHost()).run(source, durationMs)
 
-    /** What a script managed to reach, for the "harm" half of a probe. */
-    private fun reached(source: String): String {
-        val host = FakeHost()
-        val result = LuaScriptEngine(profile, host).run(source, 5_000L)
-        return "${result.status}:${host.frames}"
-    }
-
     // region Nothing is reachable
 
     /**
@@ -72,7 +65,7 @@ class ScriptSandboxSecurityTest {
               local name = banned[i]
               assert(_G[name] == nil, name .. ' must be nil, got ' .. type(_G[name]))
             end
-            """.trimIndent()
+            """.trimIndent(),
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
@@ -91,7 +84,7 @@ class ScriptSandboxSecurityTest {
               local ok = pcall(require, wanted[i])
               assert(not ok, wanted[i] .. ' must not resolve through require')
             end
-            """.trimIndent()
+            """.trimIndent(),
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
@@ -110,7 +103,7 @@ class ScriptSandboxSecurityTest {
               local ok = pcall(require, bad)
               assert(not ok, 'require accepted a ' .. type(bad))
             end
-            """.trimIndent()
+            """.trimIndent(),
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
@@ -136,7 +129,7 @@ class ScriptSandboxSecurityTest {
             assert(glyph.nosuchkey == nil, 'an unknown key must be nil')
             assert(glyph.host == nil, 'there is no host on the table')
             assert(glyph.session == nil, 'there is no session on the table')
-            """.trimIndent()
+            """.trimIndent(),
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
@@ -180,7 +173,7 @@ class ScriptSandboxSecurityTest {
               end)
             end
             """.trimIndent(),
-            60_000L
+            60_000L,
         )
         val took = System.currentTimeMillis() - started
 
@@ -198,7 +191,7 @@ class ScriptSandboxSecurityTest {
               xpcall(function() while true do end end, handler)
             end
             """.trimIndent(),
-            60_000L
+            60_000L,
         )
 
         assertTrue("xpcall defeated the watchdog", !result.isSuccess)
@@ -249,7 +242,7 @@ class ScriptSandboxSecurityTest {
             false
         } catch (e: Throwable) {
             // Reaching here means the Error left run() uncaught.
-            System.out.println("PROBE: stack overflow escaped run(): ${e::class.java.name}")
+            println("PROBE: stack overflow escaped run(): ${e::class.java.name}")
             true
         }
 
@@ -267,7 +260,7 @@ class ScriptSandboxSecurityTest {
             """
             local t = setmetatable({}, { __index = function() error('boom') end })
             error(t.missing)
-            """.trimIndent()
+            """.trimIndent(),
         )
 
         assertTrue("the run reported success", !result.isSuccess)

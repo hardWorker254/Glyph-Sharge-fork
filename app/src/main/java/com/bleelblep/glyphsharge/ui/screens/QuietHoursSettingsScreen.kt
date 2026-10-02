@@ -1,21 +1,16 @@
 package com.bleelblep.glyphsharge.ui.screens
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -26,15 +21,10 @@ import android.content.Context
 import android.text.format.DateFormat
 import java.util.Locale
 
-import com.bleelblep.glyphsharge.ui.components.*
 import com.bleelblep.glyphsharge.ui.components.layout.SettingsScaffold
 import com.bleelblep.glyphsharge.ui.theme.LocalSettingsRepository
 import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
-import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
-import java.util.Calendar
-import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.ui.res.stringResource
 import com.bleelblep.glyphsharge.R
 
@@ -81,7 +71,7 @@ fun QuietHoursSettingsScreen(
 
     SettingsScaffold(
         title = stringResource(id = R.string.settings_card_quiet_hours),
-        onBackClick = onBackClick
+        onBackClick = onBackClick,
     ) {
             // Status Header
             item {
@@ -91,20 +81,20 @@ fun QuietHoursSettingsScreen(
                         containerColor = if (quietHoursEnabled) 
                             MaterialTheme.colorScheme.primaryContainer 
                         else 
-                            MaterialTheme.colorScheme.surfaceVariant
+                            MaterialTheme.colorScheme.surfaceVariant,
                     ),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                    shape = MaterialTheme.shapes.large
+                    shape = MaterialTheme.shapes.large,
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(20.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
                             text = if (quietHoursEnabled) "🔇" else "💡",
-                            style = MaterialTheme.typography.titleLarge
+                            style = MaterialTheme.typography.titleLarge,
                         )
                         
                         Spacer(modifier = Modifier.width(12.dp))
@@ -116,7 +106,7 @@ fun QuietHoursSettingsScreen(
                                        else
                                            stringResource(id = R.string.quiet_hours_status_disabled),
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
                             )
                             
                             Text(
@@ -125,7 +115,7 @@ fun QuietHoursSettingsScreen(
                                        else
                                            stringResource(id = R.string.quiet_hours_enable_hint),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
                             )
                         }
                     }
@@ -138,7 +128,7 @@ fun QuietHoursSettingsScreen(
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         // Start Time Card
                         TimeSettingCard(
@@ -150,7 +140,7 @@ fun QuietHoursSettingsScreen(
                                 startMinute = minute
                             },
                             icon = "🌆",
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         )
                         
                         // End Time Card
@@ -163,7 +153,7 @@ fun QuietHoursSettingsScreen(
                                 endMinute = minute
                             },
                             icon = "🌅",
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         )
                     }
                 }
@@ -177,20 +167,20 @@ fun QuietHoursSettingsScreen(
                             containerColor = if (isCurrentlyInQuietHours) 
                                 MaterialTheme.colorScheme.errorContainer 
                             else 
-                                MaterialTheme.colorScheme.surface
+                                MaterialTheme.colorScheme.surface,
                         ),
                         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                        shape = MaterialTheme.shapes.large
+                        shape = MaterialTheme.shapes.large,
                     ) {
                         Column(
-                            modifier = Modifier.padding(20.dp)
+                            modifier = Modifier.padding(20.dp),
                         ) {
                             Row(
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
                                     text = if (isCurrentlyInQuietHours) "🌙" else "☀️",
-                                    style = MaterialTheme.typography.titleLarge
+                                    style = MaterialTheme.typography.titleLarge,
                                 )
 
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -198,7 +188,7 @@ fun QuietHoursSettingsScreen(
                                 Text(
                                     text = stringResource(id = R.string.quiet_hours_current_status),
                                     style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.SemiBold,
                                 )
                             }
 
@@ -210,7 +200,7 @@ fun QuietHoursSettingsScreen(
                                        else
                                            stringResource(id = R.string.quiet_hours_status_inactive),
                                 style = MaterialTheme.typography.bodyMedium,
-                                letterSpacing = 0.5.sp
+                                letterSpacing = 0.5.sp,
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))
@@ -218,7 +208,7 @@ fun QuietHoursSettingsScreen(
                             Text(
                                 text = stringResource(id = R.string.quiet_hours_schedule_label) + "${formatTime(context, startHour, startMinute)} - ${formatTime(context, endHour, endMinute)}",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                             )
                         }
                     }
@@ -229,22 +219,22 @@ fun QuietHoursSettingsScreen(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
                         ),
                         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                        shape = MaterialTheme.shapes.large
+                        shape = MaterialTheme.shapes.large,
                     ) {
                         Column(
-                            modifier = Modifier.padding(20.dp)
+                            modifier = Modifier.padding(20.dp),
                         ) {
                             Row(
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Schedule,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(24.dp),
                                 )
 
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -252,7 +242,7 @@ fun QuietHoursSettingsScreen(
                                 Text(
                                     text = stringResource(id = R.string.quiet_hours_how_it_works),
                                     style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.SemiBold,
                                 )
                             }
 
@@ -261,7 +251,7 @@ fun QuietHoursSettingsScreen(
                             Text(
                                 text = stringResource(id = R.string.quiet_hours_description),
                                 style = MaterialTheme.typography.bodyMedium,
-                                lineHeight = 20.sp
+                                lineHeight = 20.sp,
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))
@@ -269,7 +259,7 @@ fun QuietHoursSettingsScreen(
                             Text(
                                 text = stringResource(id = R.string.quiet_hours_background_note),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
                             )
                         }
                     }
@@ -285,22 +275,22 @@ private fun TimeSettingCard(
     minute: Int,
     onTimeSelected: (Int, Int) -> Unit,
     icon: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     // The user's haptic strength is a setting, so it is read once per
     // composition here and handed to HapticUtils, which cannot fetch it itself.
     val vibrationIntensity = LocalVibrationIntensity.current
-    var showTimePicker by remember { mutableStateOf(false) }
+    var showTimePicker by remember { mutableStateOf(value = false) }
 
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surface,
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        shape = MaterialTheme.shapes.large
+        shape = MaterialTheme.shapes.large,
     ) {
         Row(
             modifier = Modifier
@@ -311,16 +301,16 @@ private fun TimeSettingCard(
                     showTimePicker = true
                 },
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.Center,
             ) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -328,13 +318,13 @@ private fun TimeSettingCard(
                 Text(
                     text = formatTime(context, hour, minute),
                     style = MaterialTheme.typography.bodyLarge,
-                    letterSpacing = 0.5.sp
+                    letterSpacing = 0.5.sp,
                 )
             }
 
             Text(
                 text = icon,
-                style = MaterialTheme.typography.titleLarge
+                style = MaterialTheme.typography.titleLarge,
             )
         }
     }
@@ -348,10 +338,9 @@ private fun TimeSettingCard(
                 onTimeSelected(selectedHour, selectedMinute)
                 showTimePicker = false
             },
-            onDismiss = {
-                showTimePicker = false
-            }
-        )
+            ) {
+            showTimePicker = false
+        }
     }
 }
 
@@ -361,7 +350,7 @@ private fun TimePickerDialog(
     initialHour: Int,
     initialMinute: Int,
     onTimeSelected: (Int, Int) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
@@ -375,7 +364,7 @@ private fun TimePickerDialog(
     val timePickerState = rememberTimePickerState(
         initialHour = initialHour,
         initialMinute = initialMinute,
-        is24Hour = is24Hour
+        is24Hour = is24Hour,
     )
 
     AlertDialog(
@@ -383,26 +372,26 @@ private fun TimePickerDialog(
         title = {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
                     text = stringResource(id = R.string.quiet_hours_picker_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
                 Text(
                     text = stringResource(id = R.string.quiet_hours_picker_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
             }
         },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 TimePicker(
                     state = timePickerState,
@@ -428,15 +417,15 @@ private fun TimePickerDialog(
                             Color(0xFFE8E1F5) // Light purple outline for light theme
                         },
                         timeSelectorSelectedContentColor = Color.White,
-                        timeSelectorUnselectedContentColor = Color(0xFF674FA3) // Purple time text
-                    )
+                        timeSelectorUnselectedContentColor = Color(0xFF674FA3), // Purple time text
+                    ),
                 )
             }
         },
         confirmButton = {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 OutlinedButton(
                     onClick = { 
@@ -445,15 +434,15 @@ private fun TimePickerDialog(
                     },
                     modifier = Modifier.weight(1f).height(48.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurface
+                        contentColor = MaterialTheme.colorScheme.onSurface,
                     ),
                     border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.outline),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
                 ) {
                     Text(
                         text = stringResource(id = R.string.quiet_hours_button_cancel),
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
                     )
                 }
                 
@@ -465,21 +454,21 @@ private fun TimePickerDialog(
                     modifier = Modifier.weight(1f).height(48.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFF674FA3), // GlyphSharge purple
-                        contentColor = Color.White
+                        contentColor = Color.White,
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
                 ) {
                     Text(
                         text = stringResource(id = R.string.quiet_hours_button_confirm),
                         style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
                     )
                 }
             }
         },
         dismissButton = {},
         containerColor = MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(24.dp)
+        shape = RoundedCornerShape(24.dp),
     )
 }
 

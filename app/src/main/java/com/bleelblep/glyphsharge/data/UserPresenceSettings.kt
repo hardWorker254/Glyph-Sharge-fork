@@ -8,13 +8,14 @@ import javax.inject.Singleton
 /**
  * Slice 4: what Glow Gate has learned about this phone's unlock behaviour.
  *
- * A single flag with a single writer ([PulseLockService]), kept on its own
+ * A single flag with a single writer ([com.bleelblep.glyphsharge.services.PulseLockService]),
+ * kept on its own
  * because it is the only setting in the app whose value is *inferred* from
  * observed behaviour rather than chosen by the user.
  */
 @Singleton
 class UserPresenceSettings @Inject constructor(
-    @param:GlyphPrefs private val prefs: SharedPreferences
+    @param:GlyphPrefs private val prefs: SharedPreferences,
 ) {
 
     /**
@@ -31,11 +32,11 @@ class UserPresenceSettings @Inject constructor(
      * to the animation. If a real unlock ever does show up, this flips back and
      * the wait resumes.
      */
-    fun isUserPresentExpected(): Boolean = prefs.getSetting(KEY_USER_PRESENT_EXPECTED, true)
+    fun isUserPresentExpected(): Boolean = prefs.getSetting(KEY_USER_PRESENT_EXPECTED, default = true)
 
-    fun markUserPresentSeen() = prefs.putSetting(KEY_USER_PRESENT_EXPECTED, true)
+    fun markUserPresentSeen() = prefs.putSetting(KEY_USER_PRESENT_EXPECTED, value = true)
 
-    fun markUserPresentMissing() = prefs.putSetting(KEY_USER_PRESENT_EXPECTED, false)
+    fun markUserPresentMissing() = prefs.putSetting(KEY_USER_PRESENT_EXPECTED, value = false)
 
     internal companion object {
         const val KEY_USER_PRESENT_EXPECTED = "user_present_expected"

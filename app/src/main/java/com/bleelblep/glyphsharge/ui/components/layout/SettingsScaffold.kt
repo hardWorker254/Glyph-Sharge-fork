@@ -56,7 +56,7 @@ fun SettingsScaffold(
     onBackClick: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
     containerColor: Color = MaterialTheme.colorScheme.background,
-    content: LazyListScope.() -> Unit
+    content: LazyListScope.() -> Unit,
 ) {
     val haptic = LocalHapticFeedback.current
     // The user's haptic strength is a setting, so it is read once per
@@ -64,7 +64,7 @@ fun SettingsScaffold(
     val vibrationIntensity = LocalVibrationIntensity.current
     val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(
-        rememberTopAppBarState()
+        rememberTopAppBarState(),
     )
     val scrollState = rememberLazyListState()
 
@@ -78,21 +78,23 @@ fun SettingsScaffold(
                     Text(
                         text = title,
                         style = MaterialTheme.typography.headlineLarge.copy(
-                            fontSize = 42.sp
-                        )
+                            fontSize = 42.sp,
+                        ),
                     )
                 },
                 navigationIcon = {
                     if (onBackClick != null) {
-                        IconButton(onClick = {
-                            HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
-                            onBackClick()
-                        }) {
+                        IconButton(
+                            onClick = {
+                                HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
+                                onBackClick()
+                            },
+                        ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = stringResource(
-                                    id = R.string.settings_back_content_description
-                                )
+                                    id = R.string.settings_back_content_description,
+                                ),
                             )
                         }
                     }
@@ -102,12 +104,12 @@ fun SettingsScaffold(
                 windowInsets = WindowInsets.statusBars,
                 colors = TopAppBarDefaults.largeTopAppBarColors(
                     containerColor = Color.Transparent,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface
-                )
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface,
+                ),
             )
         },
         containerColor = containerColor,
-        contentWindowInsets = WindowInsets(0.dp)
+        contentWindowInsets = WindowInsets(0.dp),
     ) { paddingValues ->
         LazyColumn(
             state = scrollState,
@@ -119,11 +121,11 @@ fun SettingsScaffold(
                 end = 16.dp,
                 top = 16.dp,
                 bottom = 16.dp +
-                    WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                    WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding(),
             ),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             userScrollEnabled = true,
-            content = content
+            content = content,
         )
     }
 }

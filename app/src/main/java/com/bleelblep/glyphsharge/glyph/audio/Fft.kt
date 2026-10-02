@@ -55,8 +55,8 @@ internal object Fft {
             for (i in 0 until size) {
                 reverse[i] = reverseBits(i, bitCount)
             }
-            for (k in 0 until size / 2) {
-                val angle = 2.0 * Math.PI * k / size
+            for (k in 0 until (size / 2)) {
+                val angle = (2.0 * Math.PI * k) / size
                 cosines[k] = cos(angle).toFloat()
                 sines[k] = sin(angle).toFloat()
             }
@@ -78,7 +78,7 @@ internal object Fft {
     /** The largest power of two that fits in [length]; the size to transform. */
     fun frameSizeFor(length: Int): Int {
         var size = MIN_SIZE
-        while (size * 2 <= length) size *= 2
+        while ((size * 2) <= length) size *= 2
         return size
     }
 
@@ -100,7 +100,7 @@ internal object Fft {
      * @return magnitudes for bins `0`..`size / 2`
      */
     fun magnitudeSpectrum(input: FloatArray, size: Int = frameSizeFor(input.size)): FloatArray {
-        require(size >= MIN_SIZE && size and (size - 1) == 0) {
+        require((size >= MIN_SIZE) && ((size and (size - 1)) == 0)) {
             "FFT size must be a power of two of at least $MIN_SIZE, was $size"
         }
 
@@ -113,7 +113,7 @@ internal object Fft {
         val usable = minOf(size, input.size)
         val denominator = (usable - 1).coerceAtLeast(1)
         for (i in 0 until usable) {
-            val window = 0.5 * (1.0 - cos(2.0 * Math.PI * i / denominator))
+            val window = 0.5 * (1.0 - cos((2.0 * Math.PI * i) / denominator))
             real[plan.reverse[i]] = (input[i] * window).toFloat()
         }
 
@@ -124,14 +124,14 @@ internal object Fft {
             var block = 0
             while (block < size) {
                 var k = 0
-                for (j in block until block + half) {
+                for (j in block until (block + half)) {
                     val partner = j + half
                     val c = plan.cosines[k]
                     val s = plan.sines[k]
 
                     // (a + bi) * e^(-2*pi*i*k/n) == (ac + bs) + i(bc - as)
-                    val tRe = real[partner] * c + imaginary[partner] * s
-                    val tIm = imaginary[partner] * c - real[partner] * s
+                    val tRe = (real[partner] * c) + (imaginary[partner] * s)
+                    val tIm = (imaginary[partner] * c) - (real[partner] * s)
 
                     real[partner] = real[j] - tRe
                     imaginary[partner] = imaginary[j] - tIm
@@ -149,7 +149,7 @@ internal object Fft {
         val magnitudes = FloatArray(bins)
         val scale = 2f / size
         for (i in 0 until bins) {
-            magnitudes[i] = sqrt(real[i] * real[i] + imaginary[i] * imaginary[i]) * scale
+            magnitudes[i] = sqrt((real[i] * real[i]) + (imaginary[i] * imaginary[i])) * scale
         }
         return magnitudes
     }

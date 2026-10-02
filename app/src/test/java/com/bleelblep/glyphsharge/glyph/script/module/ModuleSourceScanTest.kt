@@ -29,7 +29,7 @@ class ModuleSourceScanTest {
     fun `reports an unknown module`() {
         assertEquals(
             listOf("glyph.nett"),
-            ModuleSourceScan.missingModules("local t = require(\"glyph.nett\")")
+            ModuleSourceScan.missingModules("local t = require(\"glyph.nett\")"),
         )
     }
 
@@ -99,7 +99,7 @@ class ModuleSourceScanTest {
             "require: no module 'glyph.nett' " +
                 "(available: glyph.battery, glyph.log, glyph.net, glyph.sensor, " +
                 "glyph.time, glyph.util)",
-            problem.message
+            problem.message,
         )
     }
 

@@ -22,9 +22,9 @@ internal class SyntheticTrack {
         val t = seq / 30f
         for (i in bands.indices) {
             val x = i / (bands.size - 1f)
-            val sweep = 0.5f + 0.5f * sin(TWO_PI * (x * 1.5f - t * 0.7f))
-            val kick = exp(-((x - (t * 0.35f % 1f)) * (x - (t * 0.35f % 1f))) / 0.01f)
-            bands[i] = (0.15f + 0.6f * sweep * sweep + 0.45f * kick).coerceIn(0f, 1f)
+            val sweep = 0.5f + (0.5f * sin(TWO_PI * ((x * 1.5f) - (t * 0.7f))))
+            val kick = exp(-(((x - ((t * 0.35f) % 1f)) * (x - ((t * 0.35f) % 1f))) / 0.01f))
+            bands[i] = ((0.15f + (0.6f * sweep * sweep)) + (0.45f * kick)).coerceIn(0f, 1f)
         }
         seq++
         return AudioFrame(
@@ -34,8 +34,7 @@ internal class SyntheticTrack {
             mid = AudioAnalysis.midOf(bands),
             treble = AudioAnalysis.trebleOf(bands),
             rms = 0.55f,
-            beat = seq % 30 == 0L,
-            timestampMs = 0L
+            beat = (seq % 30) == 0L,
         )
     }
 

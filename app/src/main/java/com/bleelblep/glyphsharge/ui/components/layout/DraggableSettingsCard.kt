@@ -75,7 +75,7 @@ fun DraggableSettingsCard(
     subtitleColor: Color = Color.Unspecified,
     onNavigate: (() -> Unit)? = null,
     onClick: (() -> Unit)? = null,
-    trailing: (@Composable () -> Unit)? = null
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val haptic = LocalHapticFeedback.current
     // The user's haptic strength is a setting, so it is read once per
@@ -86,7 +86,7 @@ fun DraggableSettingsCard(
     val density = LocalDensity.current
 
     var offsetX by remember { mutableFloatStateOf(0f) }
-    var thresholdMet by remember { mutableStateOf(false) }
+    var thresholdMet by remember { mutableStateOf(value = false) }
 
     // Half the screen width is the distance required to trigger navigation.
     val dragThreshold = remember(configuration.screenWidthDp, density) {
@@ -101,21 +101,20 @@ fun DraggableSettingsCard(
         } else {
             spring(
                 dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessLow
+                stiffness = Spring.StiffnessLow,
             )
         },
         label = "draggableCardOffset",
-        finishedListener = { finalValue ->
-            // Navigate only once the card is back at rest in its original spot.
-            if (thresholdMet && finalValue == 0f) {
-                thresholdMet = false
-                if (onNavigate != null) {
-                    HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
-                    onNavigate()
-                }
+    ) { finalValue ->
+        // Navigate only once the card is back at rest in its original spot.
+        if ((thresholdMet) && (finalValue == 0f)) {
+            thresholdMet = false
+            if (onNavigate != null) {
+                HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
+                onNavigate()
             }
         }
-    )
+    }
 
     val dragProgress = (abs(animatedOffsetX) / dragThreshold).coerceIn(0f, 1f)
 
@@ -123,16 +122,16 @@ fun DraggableSettingsCard(
         targetValue = lerp(
             MaterialTheme.colorScheme.surface,
             MaterialTheme.colorScheme.primaryContainer,
-            dragProgress
+            dragProgress,
         ),
         animationSpec = tween(300),
-        label = "draggableCardColor"
+        label = "draggableCardColor",
     )
 
     val animatedElevation by animateDpAsState(
-        targetValue = (1 + dragProgress * 8).dp,
+        targetValue = (1 + (dragProgress * 8)).dp,
         animationSpec = tween(300),
-        label = "draggableCardElevation"
+        label = "draggableCardElevation",
     )
 
     val dragModifier = if (onNavigate == null) {
@@ -148,7 +147,7 @@ fun DraggableSettingsCard(
                     onDragEnd = {
                         thresholdMet = abs(offsetX) >= dragThreshold
                         offsetX = 0f
-                    }
+                    },
                 ) { _, dragAmount ->
                     offsetX += dragAmount.x
                 }
@@ -163,23 +162,23 @@ fun DraggableSettingsCard(
             .then(dragModifier),
         colors = CardDefaults.cardColors(containerColor = containerColor),
         elevation = CardDefaults.cardElevation(defaultElevation = animatedElevation),
-        shape = MaterialTheme.shapes.large
+        shape = MaterialTheme.shapes.large,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(20.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.Center,
             ) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
                 )
 
                 if (subtitle != null) {
@@ -189,7 +188,7 @@ fun DraggableSettingsCard(
                         text = subtitle,
                         style = MaterialTheme.typography.bodyMedium,
                         letterSpacing = 0.5.sp,
-                        color = subtitleColor
+                        color = subtitleColor,
                     )
                 }
             }

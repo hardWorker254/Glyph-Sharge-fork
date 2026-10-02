@@ -37,7 +37,7 @@ data class NetworkSnapshot(
     /** `true` when the user should be billed for the bytes, however they arrive. */
     val metered: Boolean,
     /** `true` when the active network is a VPN. */
-    val vpn: Boolean
+    val vpn: Boolean,
 ) {
     companion object {
         /**
@@ -53,7 +53,7 @@ data class NetworkSnapshot(
             connected = false,
             wifi = false,
             metered = false,
-            vpn = false
+            vpn = false,
         )
     }
 }

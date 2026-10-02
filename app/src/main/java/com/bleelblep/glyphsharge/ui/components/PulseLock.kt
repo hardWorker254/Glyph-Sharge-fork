@@ -16,8 +16,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.DialogProperties
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.ui.components.dialogs.FeatureConfirmationFlow
 import com.bleelblep.glyphsharge.ui.theme.*
@@ -52,9 +50,9 @@ fun PulseLockConfirmationDialog(
             PulseLockEnableDialog(
                 onConfirm = { onConfirm() },
                 onDisable = onDisable,
-                onDismiss = onDismissSettings
+                onDismiss = onDismissSettings,
             )
-        }
+        },
     )
 }
 
@@ -64,7 +62,7 @@ fun PulseLockEnableDialog(
     onConfirm: (PulseLockConfig) -> Unit,
     onDismiss: () -> Unit,
     onDisable: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     // The store comes from the composition; the card has none to pass on.
     val settingsRepository = LocalSettingsRepository.current
@@ -76,9 +74,7 @@ fun PulseLockEnableDialog(
     val scope = rememberCoroutineScope()
 
     val currentlyEnabled = remember { settingsRepository.isPulseLockEnabled() }
-    var isSaving by remember { mutableStateOf(false) }
-
-    // Built-ins plus whatever the studio currently holds, so a script saved
+// Built-ins plus whatever the studio currently holds, so a script saved
     // while this dialog is open shows up in the chip row.
     val animationOptions = rememberAnimationOptions()
 
@@ -86,8 +82,8 @@ fun PulseLockEnableDialog(
         mutableStateOf(
             GlyphAnimations.getById(
                 settingsRepository.getPulseLockAnimationId(),
-                animationOptions
-            )
+                animationOptions,
+            ),
         )
     }
     var durationSeconds by remember {
@@ -108,37 +104,37 @@ fun PulseLockEnableDialog(
                     text = stringResource(R.string.pulse_lock_configure_title),
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
                 Text(
                     text = stringResource(R.string.pulse_lock_configure_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
                 )
             }
         },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = cardColor),
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(16.dp),
                 ) {
                     Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
                             text = stringResource(R.string.pulse_lock_animation_title),
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
                         )
 
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp)
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
                             animationOptions.forEach { anim ->
                                 FilterChip(
@@ -150,8 +146,8 @@ fun PulseLockEnableDialog(
                                     label = { Text(anim.displayName) },
                                     colors = FilterChipDefaults.filterChipColors(
                                         selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    ),
                                 )
                             }
                         }
@@ -164,7 +160,7 @@ fun PulseLockEnableDialog(
                                         when {
                                         selectedAnimation.isCustom ->
                                             glyphAnimationManager.playCustomAnimation(
-                                                selectedAnimation.id
+                                                selectedAnimation.id,
                                             )
 
                                         else -> when (selectedAnimation.id) {
@@ -183,12 +179,12 @@ fun PulseLockEnableDialog(
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = secBtnColors,
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(12.dp),
                         ) {
                             Text(
                                 text = stringResource(R.string.pulse_lock_animation_test) + selectedAnimation.displayName,
                                 style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.SemiBold,
                             )
                         }
                     }
@@ -201,13 +197,13 @@ fun PulseLockEnableDialog(
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(containerColor = cardColor),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(16.dp),
                     ) {
                         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
                                     text = stringResource(R.string.pulse_lock_duration_title),
@@ -215,21 +211,24 @@ fun PulseLockEnableDialog(
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.weight(1f),
                                     maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                                    overflow = TextOverflow.Ellipsis,
                                 )
-                                ThemedValueBadge("${durationSeconds.toInt()}" + stringResource(id = R.string.glyph_seconds))
+                                ThemedValueBadge(durationSeconds.toInt().toString() + stringResource(id = R.string.glyph_seconds))
                             }
 
                             Slider(
                                 value = durationSeconds,
-                                onValueChange = {
+                                // No haptic per pixel: a drag reports a value for every pixel of travel,
+                                // so firing on each one buzzes continuously under the thumb and buries the
+                                // one that should land at the end. One buzz, at the end.
+                                onValueChange = { durationSeconds = it },
+                                onValueChangeFinished = {
                                     HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
-                                    durationSeconds = it
                                 },
                                 valueRange = 1f..10f,
                                 steps = 8,
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = SliderDefaults.colors(thumbColor = accent)
+                                colors = SliderDefaults.colors(thumbColor = accent),
                             )
 
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -243,11 +242,9 @@ fun PulseLockEnableDialog(
         },
         confirmButton = {
             FeatureSaveButtons(
-                isSaving = isSaving,
                 isCurrentlyEnabled = currentlyEnabled,
                 enableLabel = stringResource(R.string.pulse_lock_button_enable),
                 onSave = {
-                    isSaving = true
                     settingsRepository.savePulseLockAnimationId(selectedAnimation.id)
                     settingsRepository.savePulseLockDuration((durationSeconds * 1000).toLong())
                     onConfirm(PulseLockConfig(selectedAnimation.id, (durationSeconds * 1000).toLong()))
@@ -256,12 +253,12 @@ fun PulseLockEnableDialog(
                     onDisable()
                     onDismiss()
                 },
-                onCancel = onDismiss
+                onCancel = onDismiss,
             )
         },
         dismissButton = {},
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(24.dp),
-        modifier = modifier
+        modifier = modifier,
     )
 }

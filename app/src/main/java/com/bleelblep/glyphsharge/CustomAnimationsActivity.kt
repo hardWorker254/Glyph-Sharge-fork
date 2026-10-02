@@ -15,21 +15,28 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.lifecycleScope
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.glyph.GlyphManager
 import com.bleelblep.glyphsharge.glyph.script.ScriptFileFormat
 import com.bleelblep.glyphsharge.ui.screens.animations.AnimationEditorScreen
 import com.bleelblep.glyphsharge.ui.screens.animations.AnimationListScreen
+import com.bleelblep.glyphsharge.ui.screens.animations.ScriptStoreScreen
 import com.bleelblep.glyphsharge.ui.screens.applyLocale
 import com.bleelblep.glyphsharge.ui.theme.FontState
 import com.bleelblep.glyphsharge.ui.theme.GlyphZenTheme
@@ -37,8 +44,8 @@ import com.bleelblep.glyphsharge.ui.theme.LocalSettingsRepository
 import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import com.bleelblep.glyphsharge.ui.theme.ThemeState
 import com.bleelblep.glyphsharge.ui.viewmodel.AnimationStudioViewModel
+import com.bleelblep.glyphsharge.ui.viewmodel.ScriptStoreViewModel
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -60,6 +67,11 @@ class CustomAnimationsActivity : ComponentActivity() {
     @Inject lateinit var settingsRepository: SettingsRepository
 
     private val viewModel: AnimationStudioViewModel by viewModels()
+
+    private val storeViewModel: ScriptStoreViewModel by viewModels()
+
+    /** Whether the store is on screen, so back leaves it before the studio. */
+    private var storeOpen by mutableStateOf(value = false)
 
     private lateinit var importLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var exportLauncher: ActivityResultLauncher<String>
@@ -96,15 +108,26 @@ class CustomAnimationsActivity : ComponentActivity() {
         setContent {
             GlyphZenTheme(themeState = themeState, fontState = fontState) {
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
-                val message by viewModel.messages.collectAsStateWithLifecycle()
                 val context = LocalContext.current
 
-                LaunchedEffect(message) {
-                    message?.let {
-                        Toast
-                            .makeText(context, it, Toast.LENGTH_SHORT)
-                            .show()
-                        viewModel.consumeMessage()
+                // Collected as a flow, not as state, because these are events.
+                // They used to be a `StateFlow<String?>` plus a `consumeMessage()`
+                // called from inside the effect, which meant a message published
+                // between `Toast.show()` and that call was overwritten with
+                // `null` and never seen. A channel delivers every message, and
+                // has nothing to acknowledge.
+                //
+                // The two are collected separately on purpose: an install, a
+                // test and a refusal are three different sentences, and folding
+                // them into one channel would lose which of the three happened.
+                LaunchedEffect(Unit) {
+                    viewModel.messages.collect {
+                        Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+                    }
+                }
+                LaunchedEffect(Unit) {
+                    storeViewModel.messages.collect {
+                        Toast.makeText(context, it, Toast.LENGTH_LONG).show()
                     }
                 }
 
@@ -117,25 +140,89 @@ class CustomAnimationsActivity : ComponentActivity() {
                 ) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.background
+                        color = MaterialTheme.colorScheme.background,
                     ) {
-                        if (state.isEditorOpen) {
-                            BackHandler { viewModel.closeEditor() }
+                    when {
+                        state.isEditorOpen -> {
+                            // One route out of the editor, for both the system
+                            // back gesture and the toolbar arrow.
+                            //
+                            // Both used to call `closeEditor()` directly, which
+                            // discards `name` and `source` and resets
+                            // `isDirty` — so a script half-written and then
+                            // lost to a back press was indistinguishable from
+                            // one that had never been typed. `isDirty` was
+                            // already computed and drawn as a dot on the row;
+                            // this is the thing that dot was for.
+                            //
+                            // Saveable, so rotating with the question on screen
+                            // does not lose the question.
+                            var askToDiscard by rememberSaveable { mutableStateOf(value = false) }
+                            val leaveEditor = {
+                                if (state.isDirty) askToDiscard = true else viewModel.closeEditor()
+                            }
+
+                            BackHandler { leaveEditor() }
+
+                            if (askToDiscard) {
+                                AlertDialog(
+                                    onDismissRequest = { askToDiscard = false },
+                                    title = { Text(stringResource(R.string.studio_discard_title)) },
+                                    text = { Text(stringResource(R.string.studio_discard_body)) },
+                                    confirmButton = {
+                                        TextButton(
+                                            onClick = {
+                                                askToDiscard = false
+                                                viewModel.closeEditor()
+                                            },
+                                        ) { Text(stringResource(R.string.studio_discard_confirm)) }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = { askToDiscard = false }) {
+                                            Text(stringResource(R.string.studio_discard_cancel))
+                                        }
+                                    },
+                                )
+                            }
+
                             AnimationEditorScreen(
                                 name = state.name,
                                 source = state.source,
                                 console = state.console,
                                 isDirty = state.isDirty,
                                 isRunning = state.isRunning,
-                                onBackClick = { viewModel.closeEditor() },
+                                onBackClick = { leaveEditor() },
                                 onNameChange = viewModel::updateName,
                                 onSourceChange = viewModel::updateSource,
                                 onSave = viewModel::save,
                                 onCheck = viewModel::check,
                                 onRunGlyph = { viewModel.runOnGlyph() },
-                                onStop = viewModel::stop
+                                onStop = viewModel::stop,
                             )
-                        } else {
+                        }
+
+                        // Its own branch rather than a route inside the list:
+                        // the store is a screen in this Activity's back stack,
+                        // not a state of the studio's.
+                        storeOpen -> {
+                            BackHandler { storeOpen = false }
+                            val storeState by storeViewModel.uiState.collectAsStateWithLifecycle()
+                            ScriptStoreScreen(
+                                items = storeState.items,
+                                loadState = storeState.loadState,
+                                downloading = storeState.downloading,
+                                testing = storeState.testing,
+                                installed = storeState.installed,
+                                outdated = storeState.outdated,
+                                onBackClick = { storeOpen = false },
+                                onRefresh = storeViewModel::refresh,
+                                onInstall = storeViewModel::install,
+                                onTest = storeViewModel::test,
+                                isSupported = storeViewModel::isSupported,
+                            )
+                        }
+
+                        else -> {
                             AnimationListScreen(
                                 animations = state.animations,
                                 onBackClick = { finish() },
@@ -147,10 +234,12 @@ class CustomAnimationsActivity : ComponentActivity() {
                                 onDuplicate = viewModel::duplicate,
                                 onPickImportFile = { importLauncher.launch(IMPORT_MIME_TYPES) },
                                 onExportToDownloads = viewModel::exportToDownloads,
-                                onExportToFile = { id -> promptExport(id) }
+                                onExportToFile = { id -> promptExport(id) },
+                                onOpenStore = { storeOpen = true },
                             )
                         }
                     }
+                }
                 }
             }
         }
@@ -203,22 +292,24 @@ class CustomAnimationsActivity : ComponentActivity() {
 
     private fun registerLaunchers() {
         importLauncher = registerForActivityResult(
-            ActivityResultContracts.OpenDocument()
+            ActivityResultContracts.OpenDocument(),
         ) { uri -> uri?.let { viewModel.importFrom(it) } }
 
         exportLauncher = registerForActivityResult(
-            ActivityResultContracts.CreateDocument(ScriptFileFormat.MIME_TYPE)
+            ActivityResultContracts.CreateDocument(ScriptFileFormat.MIME_TYPE),
         ) { uri: Uri? ->
             val id = pendingExportId
             pendingExportId = null
-            if (uri != null && id != null) viewModel.exportTo(uri, id)
+            id?.let { animId ->
+                uri?.let { viewModel.exportTo(it, animId) }
+            }
         }
     }
 
     private fun promptExport(id: String) {
         val name = viewModel.uiState.value.animations.firstOrNull { it.id == id }?.name ?: "animation"
         pendingExportId = id
-        exportLauncher.launch("${name}.${ScriptFileFormat.EXTENSION}")
+        exportLauncher.launch("$name.${ScriptFileFormat.EXTENSION}")
     }
 
     private fun configureWindow() {
@@ -248,7 +339,7 @@ class CustomAnimationsActivity : ComponentActivity() {
         private val IMPORT_MIME_TYPES = arrayOf(
             "text/plain",
             "application/octet-stream",
-            "*/*"
+            "*/*",
         )
 
         /** The entry point used by the settings card. */

@@ -52,15 +52,15 @@ fun themeSecondaryButtonColors(): androidx.compose.material3.ButtonColors {
     return when (t.themeStyle) {
         AppThemeStyle.AMOLED -> ButtonDefaults.buttonColors(
             containerColor = Color(0xFF2D2D2D),
-            contentColor = Color.White
+            contentColor = Color.White,
         )
         AppThemeStyle.CLASSIC -> ButtonDefaults.buttonColors(
             containerColor = Color(0xFFE8E1F5),
-            contentColor = Color(0xFF674FA3)
+            contentColor = Color(0xFF674FA3),
         )
         else -> ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

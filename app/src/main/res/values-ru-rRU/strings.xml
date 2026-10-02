@@ -132,9 +132,20 @@
     <string name="nfc_glyph_note_title">Примечание</string>
     <string name="nfc_glyph_note_description">• NFC должен быть включён в настройках системы\n• Работает с Google Pay, сканированием меток и др.\n• Обнаружение платежей HCE — автоматическое\n• Обнаружение меток требует, чтобы приложение было на переднем плане</string>
     <string name="nfc_glyph_button_enable">Включить</string>
+    <string name="nfc_not_available">NFC недоступен на этом устройстве</string>
+    <string name="nfc_enable_in_settings">Сначала включите NFC в настройках системы</string>
 
     <!-- Common toasts -->
     <string name="toast_service_required">Сначала включите сервис Glyph</string>
+    <string name="toast_testing_power_peek">Тест: Power Peek</string>
+    <string name="toast_testing_charging_animation">Тест: анимации зарядки</string>
+    <string name="toast_testing_pulse_lock">Тест: Glow Gate</string>
+    <string name="toast_testing_screen_off">Тест: выключения экрана</string>
+    <string name="toast_testing_nfc">Тест: NFC Glyph</string>
+    <string name="toast_testing_low_battery_alert">Тест: низкого заряда</string>
+    <string name="toast_testing_vpn_connected">Тест: подключения VPN</string>
+    <string name="toast_testing_music_visualizer">Тест: музыкальной визуализации</string>
+    <string name="toast_testing_generic">Тест: %1$s</string>
 
     <!-- Common -->
     <string name="action_cancel">Отмена</string>
@@ -147,6 +158,8 @@
     <string name="glyph_service_stop">Сервис выключен</string>
     <string name="glyph_service_fstart">Не удалось включить</string>
     <string name="glyph_service_fstop">Не удалось выключить</string>
+    <string name="glyph_service_already_enabled">Сервис глифов уже включен</string>
+    <string name="glyph_service_already_disabled">Сервис глифов уже выключен</string>
     <string name="glyph_seconds">с</string>
 
     <!-- Плитки быстрых настроек -->
@@ -228,21 +241,146 @@
   <string name="studio_msg_downloads_failed">Не удалось записать в «Загрузки».</string>
   <string name="studio_msg_missing">Такой анимации больше нет.</string>
   <string name="studio_msg_unknown_error">неизвестная ошибка</string>
+  <string name="studio_msg_nothing_to_save">Нет открытого скрипта для сохранения.</string>
+
+  <string name="studio_discard_title">Отменить несохранённые изменения?</string>
+  <string name="studio_discard_body">В этом скрипте есть несохранённые изменения. Если уйти сейчас, они пропадут.</string>
+  <string name="studio_discard_confirm">Отменить</string>
+  <string name="studio_discard_cancel">Продолжить</string>
+
+  <string name="home_section_features">Функции</string>
+  <string name="home_glyph_lights">СВЕТ Glyph</string>
+
+  <string name="log_export_done">Логи записаны.</string>
+  <string name="log_export_empty">Пока нечего экспортировать.</string>
+  <string name="log_export_failed">Не удалось записать логи в это место.</string>
   <string name="studio_default_name">Моя анимация</string>
   <string name="studio_untitled">Без названия</string>
   <string name="studio_default_import_name">Импортированная</string>
   <string name="studio_copy_suffix">копия</string>
   <string name="studio_starter_script">-- Волна по длинной полосе C.\n-- Весь файл и есть анимация: пишите на Lua.\n-- Проигрывается один раз и заканчивается, когда кончится код.\n-- Попробуйте заменить 600 или оба числа внутри util.lerp.\n\nlocal util = require(\"glyph.util\")\n\nlocal strip = glyph.ch.c\nlocal n = #strip\n\n-- Полоса C — это 4 сегмента на Phone (1) и 24 на Phone (2a), поэтому шаг\n-- считается от её длины: один проход занимает примерно одинаковое время на\n-- любом телефоне. Фиксированные 60 мс ползли бы по маленькому и сливались бы\n-- на большом.\nlocal step = math.max(25, math.floor(600 / n))\n\n-- util.lerp даёт каждому сегменту свою яркость, поэтому у волны есть голова\n-- и хвост, а не все сегменты горят одинаково.\nfor i = 1, n do\n  glyph.set({ strip[i] }, util.lerp(1000, glyph.MAX, i / n), step)\nend\n\n-- Гасим всю полосу по одному сегменту.\nfor i = n, 1, -1 do\n  glyph.set({ strip[i] }, util.lerp(1000, glyph.MAX, i / n), step)\nend</string>
   <string name="studio_lua_unknown_group">неизвестная группа каналов «%1$s»</string>
-  <string name="studio_lua_bad_channels">ожидался список каналов, номер канала или название группы</string>
+
+  <!-- Памятка по Glyph API в редакторе.
+
+       Массивов с сигнатурами (`studio_api_calls`, `studio_module_calls`) здесь
+       НЕТ намеренно. Сигнатура — это идентификатор, и у неё должно быть ровно
+       одно определение: если бы она переводилась, локаль могла бы переименовать
+       `glyph.set`, и памятка учила бы несуществующему имени. Переводится только
+       текст. Длины двух английских массивов и двух русских проверяет тест
+       `ApiReferenceResourcesTest` — иначе пропущенная строка перевода молча
+       показала бы английский текст. -->
+  <string-array name="studio_api_descriptions">
+    <item>Зажечь каналы и оставить их включёнными</item>
+    <item>Зажечь все каналы</item>
+    <item>Погасить полосу</item>
+    <item>Подождать, прерываемо</item>
+    <item>Включить, погасить всё, затем пауза</item>
+    <item>Мигание всей полосы</item>
+    <item>Последовательный проход</item>
+    <item>Бегущая волна с хвостом</item>
+    <item>Проход наружу и обратно</item>
+    <item>«Луб-даб»</item>
+    <item>Заполнить C-полосу как при зарядке</item>
+    <item>Группы каналов этого телефона</item>
+    <item>Вся полоса, вне C, порядок спирали</item>
+    <item>Сегменты пульса</item>
+    <item>Тот же список, по имени</item>
+    <item>4000 — максимум яркости канала</item>
+    <item>Этот телефон, например PHONE3A</item>
+    <item>Живые значения, перечитываются при каждом обращении</item>
+    <item>Ложь, когда анимация остановлена</item>
+    <item>Прошедшие миллисекунды и нарисованные кадры</item>
+    <item>Старое имя для elapsed(); один WARN, потом тишина</item>
+    <item>Случайность — зафиксируйте через seed(n)</item>
+    <item>Один и тот же узор каждый запуск</item>
+    <item>linear, in, out, inout, bounce, wave, pulse</item>
+    <item>Закончить раньше</item>
+    <item>Пишет в эту консоль</item>
+    <item>Показывать скрипт только визуализатору</item>
+    <item>Состояние захвата и громкость 0..1</item>
+    <item>Энергия каждой трети спектра</item>
+    <item>Истина на единственном кадре, где найден ритм</item>
+    <item>n значений в 0..1 из 32 полос</item>
+  </string-array>
+
+  <string-array name="studio_module_descriptions">
+    <item>Как читается вызов require: привяжите к локальной переменной</item>
+    <item>Настенные часы, живые: час, минута, minuteOfDay, isNight</item>
+    <item>Заряд, живой: проценты, зарядка, level() сегментов</item>
+    <item>Сеть, живая: connected, wifi, metered, vpn</item>
+    <item>Движение, живое: x, y, z, magnitude, shaken</item>
+    <item>Эта консоль: info, warn и error — последний останавливает прогон</item>
+    <item>Чистая арифметика: clamp, lerp, mapRange, shuffle</item>
+  </string-array>
+
+  <string name="studio_reference_modules_note">require разрешает ровно эти шесть имён и больше ничего. Нет require(&quot;os&quot;) и нет способа прочитать файл — это песочница, и сделана она намеренно. Все три уровня лежат в модуле: сам по себе glyph.log — обычная функция.</string>
+
+  <!-- Магазин анимаций. Надпись о неподдерживаемой анимации заменяет обе
+       кнопки, а не гасит их: серая кнопка на приглушённой карточке читается
+       как «нажми, вдруг включится», а нажимать тут нечего. -->
+  <string name="store_title">Магазин анимаций</string>
+  <string name="store_open">Магазин</string>
+  <string name="store_action_install">Установить</string>
+  <!-- Уже не кнопка: анимация лежит на телефоне, нажимать нечего. Зелёная
+       потому, что это ответ, а не приглашение. Но если каталог опубликовал
+       более новую версию, ответ меняется на кнопку. -->
+  <string name="store_action_installed">Установлено</string>
+  <string name="store_action_update">Обновить</string>
+  <string name="store_action_test">Тест на глифе</string>
+  <string name="store_unsupported_label">Не поддерживается</string>
+  <string name="store_unsupported_devices">Работает на %1$s</string>
+  <string name="store_empty_title">Магазин пуст</string>
+  <string name="store_empty_body">В каталог пока ничего не опубликовано. Загляните позже.</string>
+  <string name="store_loading">Загружаем каталог…</string>
+  <string name="store_retry">Повторить</string>
+  <string name="store_offline_note">Показана сохранённая копия — магазин недоступен.</string>
+  <string name="store_refresh">Обновить</string>
+  <string name="store_by_author">от %1$s</string>
+  <string name="store_msg_installed">«%1$s» установлена</string>
+  <string name="store_msg_updated">«%1$s» обновлена</string>
+  <string name="store_msg_tested">«%1$s» проиграна</string>
+  <string name="store_msg_failed">Не удалось установить анимацию</string>
+  <string name="store_msg_update_failed">Не удалось обновить анимацию</string>
+  <string name="store_msg_license">Лицензия: %1$s</string>
+
   <string name="pulse_lock_notification_channel">Сервис Glow Gate</string>
   <string name="pulse_lock_notification_title">✨ Glow Gate активен</string>
   <string name="pulse_lock_notification_text">При разблокировке будет показана выбранная анимация.</string>
+
+  <!-- Имена каналов уведомлений: их нельзя поменять после создания канала,
+       поэтому это единственная строка, которую перевод может исправить. -->
+  <string name="nfc_glyph_channel">Сервис NFC-анимаций</string>
+  <string name="nfc_glyph_notif_title">✨ NFC-анимация активна</string>
+  <string name="nfc_glyph_notif_text">Коснитесь терминала или считайте NFC-метку, чтобы запустить анимацию.</string>
+
+  <string name="power_peek_channel">Сервис Power Peek</string>
+  <string name="power_peek_notif_title">🔋 Power Peek активен</string>
+  <string name="power_peek_notif_text">Покачайте телефон вдоль стола, чтобы проверить заряд.</string>
+
+  <string name="low_battery_channel">Сервис оповещения о низком заряде</string>
+  <string name="low_battery_notif_title">🔋 Оповещение о заряде активно</string>
+  <string name="low_battery_notif_text">Следит за уровнем заряда.</string>
+
+  <string name="screen_off_channel">Сервис анимаций при выключении экрана</string>
+  <string name="screen_off_notif_title">✨ Анимация при выключении экрана активна</string>
+  <string name="screen_off_notif_text">Выключение экрана запустит выбранную анимацию.</string>
+
+  <string name="charging_animation_channel">Сервис анимации зарядки</string>
+  <string name="charging_animation_notif_title">⚡ Анимация зарядки активна</string>
+  <string name="charging_animation_notif_text">Следит за подключением и отключением зарядки.</string>
+  <string name="charging_animation_channel_description">Показывает анимацию Glyph при подключении или отключении зарядки.</string>
+
+  <string name="vpn_connected_channel">Сервис анимации VPN</string>
+  <string name="vpn_connected_notif_title">🛡️ Анимация VPN активна</string>
+  <string name="vpn_connected_notif_text">Подключение к VPN запустит выбранную анимацию.</string>
     <string name="settings_card_about">О программе</string>
+    <string name="settings_about_description">От анимации заряда батареи до сигнализации при краже USB, истории зарядок и световых шоу при разблокировке — откройте все возможности Glyph от NOTHING.</string>
     <string name="settings_about_version">v%1$s (%2$d)</string>
     <string name="settings_about_beta_notice">🧪 Вы используете публичную сборку. Возможны ошибки и нестабильная работа.</string>
     <string name="settings_about_beta_alt">Отдельная благодарность beedah за многочисленные установки и быстрое тестирование бета-версий.</string>
     <string name="settings_about_requires">Требуется Android 14+</string>
+    <string name="settings_about_unknown_version">Неизвестная версия</string>
     <string name="settings_theme_status_light">Светлая тема</string>
     <string name="settings_theme_status_dark">Тёмная тема</string>
     <string name="settings_quiet_hours_status_on">Glyph-анимации будут отключены в заданное время</string>
@@ -257,6 +395,31 @@
     <string name="font_settings_section_size">Размер шрифта</string>
     <string name="font_settings_section_preview">Предпросмотр</string>
     <string name="font_settings_button_reset">Сбросить размеры</string>
+    <string name="font_settings_family_subtitle">Выберите подходящий стиль шрифтов</string>
+    <string name="font_settings_family_ntype_title">NType Headline</string>
+    <string name="font_settings_family_ntype_desc">Современный дисплейный шрифт Nothing</string>
+    <string name="font_settings_family_ndot_title">NDot 57 Caps</string>
+    <string name="font_settings_family_ndot_desc">Характерный шрифт, только заглавные</string>
+    <string name="font_settings_family_system_title">Системный шрифт</string>
+    <string name="font_settings_family_system_desc">Шрифт по умолчанию на вашем устройстве</string>
+    <string name="font_settings_family_selected">Шрифт выбран</string>
+    <string name="font_settings_card_sizes_title">Размеры шрифтов</string>
+    <string name="font_settings_button_reset_all">Сбросить всё</string>
+    <string name="font_settings_size_display_label">Крупный текст</string>
+    <string name="font_settings_size_display_desc">Крупные заголовки и акцентный текст</string>
+    <string name="font_settings_size_title_label">Заголовки</string>
+    <string name="font_settings_size_title_desc">Заголовки разделов и подзаголовки</string>
+    <string name="font_settings_size_body_label">Основной текст</string>
+    <string name="font_settings_size_body_desc">Основное содержимое и абзацы</string>
+    <string name="font_settings_size_label_label">Метки</string>
+    <string name="font_settings_size_label_desc">Мелкий текст и метки</string>
+    <string name="font_settings_preview_display">Заголовок</string>
+    <string name="font_settings_preview_headline">Подзаголовок</string>
+    <string name="font_settings_preview_label">Метка • Настройки применены</string>
+    <string name="font_settings_preview_body">Это основной текст: он показывает, как будет выглядеть ваше содержимое с текущими настройками шрифтов. Так видны читаемость и стиль.</string>
+    <string name="font_settings_preview_current">Текущие настройки</string>
+    <string name="font_settings_preview_font">Шрифт: %1$s</string>
+    <string name="font_settings_preview_custom_sizing"> • Применены свои размеры</string>
 
     <!-- Quiet Hours Settings Screen -->
     <string name="quiet_hours_title">Тихие часы</string>
@@ -300,11 +463,6 @@
     <string name="theme_style_expressive_desc">Выразительные формы и цвета Material 3</string>
     <string name="theme_button_reset">Сбросить тему</string>
     <string name="theme_reset_desc">Восстановить оригинальную тему Classic со светлым режимом для возврата к стандартному виду.</string>
-    <string name="theme_section_additional">Дополнительно</string>
-    <string name="theme_option_color_scheme">Цветовая схема</string>
-    <string name="theme_option_color_scheme_desc">Расширенные настройки цвета для опытных пользователей</string>
-    <string name="theme_option_accent_colors">Акцентные цвета</string>
-    <string name="theme_option_accent_colors_desc">Точная настройка акцентных и выделенных цветов во всём приложении</string>
 
     <!-- Language Selector -->
     <string name="language_selector_title">Язык</string>
@@ -329,12 +487,6 @@
     <string name="music_viz_configure_subtitle">Настройте визуализацию</string>
     <string name="music_viz_mode_title">Визуализация</string>
     <string name="music_viz_mode_preview">Предпросмотр</string>
-    <string name="music_viz_mode_bars">Столбики</string>
-    <string name="music_viz_mode_wave">Волна</string>
-    <string name="music_viz_mode_mirror">Зеркало</string>
-    <string name="music_viz_mode_beat">Бит</string>
-    <string name="music_viz_mode_matrix">Матрица</string>
-    <string name="music_viz_mode_vortex">Вихрь</string>
     <string name="music_viz_sensitivity_title">Чувствительность</string>
     <string name="music_viz_sensitivity_min">Тихо</string>
     <string name="music_viz_sensitivity_max">Громко</string>

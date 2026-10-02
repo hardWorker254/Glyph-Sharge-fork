@@ -1,16 +1,12 @@
 package com.bleelblep.glyphsharge.services
 
 import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.os.IBinder
-import android.os.PowerManager
 import android.util.Log
+import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.bleelblep.glyphsharge.R
@@ -19,15 +15,11 @@ import com.bleelblep.glyphsharge.glyph.GlyphFeature
 import com.bleelblep.glyphsharge.glyph.GlyphFeatureCoordinator
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class ChargingAnimationService : Service() {
+class ChargingAnimationService : FeatureService() {
 
     companion object {
         private const val TAG = "ChargingAnimService"
@@ -51,15 +43,6 @@ class ChargingAnimationService : Service() {
     @Inject lateinit var glyphAnimationManager: GlyphAnimationManager
     @Inject lateinit var featureCoordinator: GlyphFeatureCoordinator
 
-    private val serviceJob = Job()
-    private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
-
-    private val animationJob = SupervisorJob()
-    private val animationScope = CoroutineScope(Dispatchers.Main + animationJob)
-
-    private lateinit var wakeLock: PowerManager.WakeLock
-    private lateinit var powerManager: PowerManager
-
     private val powerConnectionReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
@@ -75,54 +58,45 @@ class ChargingAnimationService : Service() {
         }
     }
 
-    override fun onCreate() {
-        super.onCreate()
-        createNotificationChannel()
+    // Identity
 
-        powerManager = getSystemService(POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(
-            PowerManager.PARTIAL_WAKE_LOCK,
-            "GlyphSharge:ChargingAnimation"
-        )
+    override val isRunnable: Boolean
+        get() = spec.isRunnable(settingsRepository)
 
+    override val startAction: String get() = ACTION_START
+    override val stopAction: String get() = ACTION_STOP
+    override val channelId: String get() = NOTIF_CHANNEL_ID
+    override val notificationId: Int get() = NOTIF_ID
+
+    @get:StringRes
+    override val channelNameRes: Int get() = R.string.charging_animation_channel
+
+    @get:StringRes
+    override val channelDescriptionRes: Int get() = R.string.charging_animation_channel_description
+
+    override val wakeLockTag: String get() = "GlyphSharge:ChargingAnimation"
+
+    override val tag: String get() = TAG
+
+    // Lifecycle
+
+    override fun onFeatureCreated() {
+        super.onFeatureCreated()
         registerPowerReceiver()
     }
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIF_ID, buildNotification())
-
-        if (intent?.action == ACTION_STOP) {
-            shutDown()
-            return START_NOT_STICKY
-        }
-
-        if (!spec.isRunnable(settingsRepository)) {
-            shutDown()
-            return START_NOT_STICKY
-        }
-
-        return START_STICKY
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        try {
-            unregisterReceiver(powerConnectionReceiver)
-        } catch (e: Exception) {
-            Log.e(TAG, "Receiver not registered", e)
-        }
-        stopForegroundCompat()
-        serviceJob.cancel()
-    }
-
-    override fun onBind(intent: Intent?): IBinder? = null
-
-    override fun onTaskRemoved(rootIntent: Intent?) {
-        super.onTaskRemoved(rootIntent)
-        if (!spec.isRunnable(settingsRepository)) return
-
-        val restart = Intent(this, ChargingAnimationService::class.java).apply { action = ACTION_START }
-        startForegroundService(restart)
+    override fun onFeatureDestroying() {
+        // Guarded by the base class's own `runCatching` convention: `onCreate`
+        // can fail before the registration completes, and an unguarded
+        // `unregisterReceiver` throws out of `onDestroy`, which is an uncaught
+        // crash rather than a cleanup failure.
+        //
+        // The animation scope and the WakeLock are the base's to cancel, in that
+        // order: `animationJob` used to be a root job that `serviceJob.cancel()`
+        // never reached, so an animation kept drawing after the service that
+        // started it was gone, still holding the strip and a strong reference
+        // to a destroyed Service.
+        runCatching { unregisterReceiver(powerConnectionReceiver) }
     }
 
     private fun registerPowerReceiver() {
@@ -134,7 +108,7 @@ class ChargingAnimationService : Service() {
             this,
             powerConnectionReceiver,
             filter,
-            ContextCompat.RECEIVER_EXPORTED
+            ContextCompat.RECEIVER_EXPORTED,
         )
     }
 
@@ -156,8 +130,8 @@ class ChargingAnimationService : Service() {
                     onRelease = {
                         try {
                             if (wakeLock.isHeld) wakeLock.release()
-                        } catch (e: Exception) {}
-                    }
+                        } catch (_: Exception) {}
+                    },
                 ) {
                     val duration = settingsRepository.getChargingAnimationDuration()
 
@@ -170,7 +144,7 @@ class ChargingAnimationService : Service() {
 
                     glyphAnimationManager.runCapped(duration) {
                         glyphAnimationManager.playChargingAnimationAnimation(
-                            this@ChargingAnimationService
+                            this@ChargingAnimationService,
                         )
                     }
                 }
@@ -180,31 +154,16 @@ class ChargingAnimationService : Service() {
         }
     }
 
-    private fun createNotificationChannel() {
-        val channel = NotificationChannel(
-            NOTIF_CHANNEL_ID,
-            "Charging Animation Service",
-            NotificationManager.IMPORTANCE_LOW
-        )
-        channel.description = "Shows Glyph animation when charger is connected or disconnected"
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-    }
+    // Notification
 
-    private fun buildNotification(): Notification =
+    override fun buildNotification(): Notification =
+        buildNotification(getString(R.string.charging_animation_notif_text))
+
+    override fun buildNotification(text: String): Notification =
         NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
-            .setContentTitle("⚡ Charging Animation Active")
-            .setContentText("Listening for charger connection/disconnection.")
+            .setContentTitle(getString(R.string.charging_animation_notif_title))
+            .setContentText(text)
             .setSmallIcon(R.drawable._44)
             .setOngoing(true)
             .build()
-
-    private fun shutDown() {
-        stopForegroundCompat()
-        stopSelf()
-    }
-
-    @Suppress("DEPRECATION")
-    private fun stopForegroundCompat() {
-        stopForeground(STOP_FOREGROUND_REMOVE)
-    }
 }

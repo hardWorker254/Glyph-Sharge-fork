@@ -37,7 +37,7 @@ class GlyphSensorModuleTest {
         y = -3.25f,
         z = 1.5f,
         magnitude = 18.9f,
-        shaken = true
+        shaken = true,
     )
 
     /** A phone face-up on a desk, and the `STILL` shape it should look like. */
@@ -46,7 +46,7 @@ class GlyphSensorModuleTest {
         y = -0.2f,
         z = 9.8f,
         magnitude = 9.82f,
-        shaken = false
+        shaken = false,
     )
 
     /**
@@ -80,7 +80,7 @@ class GlyphSensorModuleTest {
             """
             local sensor = require("glyph.sensor")
             ${source.trimIndent()}
-            """.trimIndent()
+            """.trimIndent(),
         )
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
     }
@@ -93,12 +93,14 @@ class GlyphSensorModuleTest {
         // bound as a function is truthy rather than usable — so a getter that
         // was never called would not break this script, it would quietly
         // produce nonsense.
-        at(resting, """
+        at(
+            resting, """
             assert(type(sensor.x) == 'number', 'x must be a number')
             assert(type(sensor.y) == 'number', 'y must be a number')
             assert(type(sensor.z) == 'number', 'z must be a number')
             assert(type(sensor.magnitude) == 'number', 'magnitude must be a number')
-        """)
+        """,
+        )
     }
 
     @Test
@@ -106,29 +108,35 @@ class GlyphSensorModuleTest {
         // `if sensor.shaken then` is the idiom the field exists for, and a
         // number is truthy for every reading including a phone lying still —
         // so the type is the behaviour here, not a detail of it.
-        at(resting, """
+        at(
+            resting, """
             assert(type(sensor.shaken) == 'boolean', 'shaken must be a boolean')
             assert(sensor.shaken == false, 'and a resting phone is not a shake')
-        """)
+        """,
+        )
     }
 
     @Test
     fun `a shake reaches the script unchanged`() {
-        at(shaken, """
+        at(
+            shaken, """
             assert(sensor.shaken == true, 'the phone was shaken')
             assert(math.abs(sensor.x - 18.5) < 0.001, 'x must survive the trip')
             assert(math.abs(sensor.y + 3.25) < 0.001, 'y is negative, and must stay so')
             assert(math.abs(sensor.z - 1.5) < 0.001, 'z must survive the trip')
             assert(math.abs(sensor.magnitude - 18.9) < 0.001, 'so must the magnitude')
-        """)
+        """,
+        )
     }
 
     @Test
     fun `a resting phone reads as not shaken`() {
-        at(resting, """
+        at(
+            resting, """
             assert(sensor.shaken == false, 'gravity alone is not a shake')
             assert(math.abs(sensor.z - 9.8) < 0.001, 'a face-up phone reads about 1g on z')
-        """)
+        """,
+        )
     }
 
     @Test
@@ -136,11 +144,13 @@ class GlyphSensorModuleTest {
         // A phone with no accelerometer, or one whose listener could not be
         // registered, must read as a still phone rather than as a nil field a
         // script has to guard every use of.
-        at(SensorSnapshot.STILL, """
+        at(
+            SensorSnapshot.STILL, """
             assert(sensor.shaken == false, 'no reading is not a shake')
             assert(sensor.x == 0 and sensor.y == 0 and sensor.z == 0, 'and no reading is zero')
             assert(sensor.magnitude == 0, 'with a zero magnitude')
-        """)
+        """,
+        )
     }
 
     // endregion
@@ -163,7 +173,7 @@ class GlyphSensorModuleTest {
             sensor = {
                 reads++
                 if (reads < 3) SensorSnapshot.STILL else shaken
-            }
+            },
         )
 
         val result = engine.run(
@@ -175,7 +185,7 @@ class GlyphSensorModuleTest {
             assert(first == false, 'the first read is still')
             assert(second == false, 'so is the second')
             assert(third == true, 'and the third must ask again')
-            """.trimIndent()
+            """.trimIndent(),
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
@@ -185,10 +195,12 @@ class GlyphSensorModuleTest {
     fun `require returns the same table within a run`() {
         // A module built per access would make the obvious `sensor.magnitude`
         // in a draw loop allocate a table every frame.
-        at(resting, """
+        at(
+            resting, """
             local again = require("glyph.sensor")
             assert(again == sensor, 'a second require must be the same table')
-        """)
+        """,
+        )
     }
 
     // endregion
@@ -206,7 +218,7 @@ class GlyphSensorModuleTest {
             profile = testProfile(),
             host = FakeHost(),
             sensor = { resting },
-            sensorControl = control
+            sensorControl = control,
         )
 
         val result = engine.run(
@@ -217,14 +229,14 @@ class GlyphSensorModuleTest {
             local z = sensor.z
             local m = sensor.magnitude
             local s = sensor.shaken
-            """.trimIndent()
+            """.trimIndent(),
         )
 
         assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
         assertEquals(
             "five field reads must take one reference, not five",
             1,
-            control.starts
+            control.starts,
         )
     }
 
@@ -235,7 +247,7 @@ class GlyphSensorModuleTest {
             profile = testProfile(),
             host = FakeHost(),
             sensor = { resting },
-            sensorControl = control
+            sensorControl = control,
         )
 
         val result = engine.run("local sensor = require(\"glyph.sensor\")")
@@ -244,7 +256,7 @@ class GlyphSensorModuleTest {
         assertEquals(
             "a script that only names the module must not open the sensor",
             0,
-            control.starts
+            control.starts,
         )
     }
 
@@ -258,7 +270,7 @@ class GlyphSensorModuleTest {
             profile = testProfile(),
             host = FakeHost(),
             sensor = { resting },
-            sensorControl = control
+            sensorControl = control,
         )
 
         val result = engine.run(
@@ -266,7 +278,7 @@ class GlyphSensorModuleTest {
             local sensor = require("glyph.sensor")
             local reading = sensor.magnitude
             glyph.exit()
-            """.trimIndent()
+            """.trimIndent(),
         )
 
         assertEquals(ScriptStatus.COMPLETED, result.status)
@@ -274,7 +286,7 @@ class GlyphSensorModuleTest {
         assertEquals(
             "an ended run must release the sensor exactly once",
             1,
-            control.stops
+            control.stops,
         )
     }
 
@@ -289,7 +301,7 @@ class GlyphSensorModuleTest {
             profile = testProfile(),
             host = FakeHost(),
             sensor = { resting },
-            sensorControl = control
+            sensorControl = control,
         )
 
         val result = engine.run(
@@ -301,7 +313,7 @@ class GlyphSensorModuleTest {
               n = n + 1
             end
             """.trimIndent(),
-            maxDurationMs = 50L
+            maxDurationMs = 50L,
         )
 
         assertEquals(ScriptStatus.TIMED_OUT, result.status)
@@ -309,7 +321,7 @@ class GlyphSensorModuleTest {
         assertEquals(
             "an aborted run must release the sensor too",
             1,
-            control.stops
+            control.stops,
         )
     }
 
@@ -326,7 +338,7 @@ class GlyphSensorModuleTest {
             maxDurationMs = 0L,
             nowMs = { 0L },
             sensor = { SensorSnapshot.STILL },
-            sensorControl = control
+            sensorControl = control,
         )
 
         session.startSensor()
@@ -337,7 +349,7 @@ class GlyphSensorModuleTest {
         assertEquals(
             "two closes must release the one reference the run took",
             1,
-            control.stops
+            control.stops,
         )
     }
 
@@ -356,7 +368,7 @@ class GlyphSensorModuleTest {
             maxDurationMs = 0L,
             nowMs = { 0L },
             sensor = { SensorSnapshot.STILL },
-            sensorControl = control
+            sensorControl = control,
         )
 
         session.close()
@@ -366,7 +378,7 @@ class GlyphSensorModuleTest {
         assertEquals(
             "a run that never started the sensor must not release anyone's",
             0,
-            control.stops
+            control.stops,
         )
     }
 
@@ -379,7 +391,7 @@ class GlyphSensorModuleTest {
             maxDurationMs = 0L,
             nowMs = { 0L },
             sensor = { shaken },
-            sensorControl = control
+            sensorControl = control,
         )
 
         assertEquals(shaken, session.sensorSnapshot())
@@ -399,7 +411,7 @@ class GlyphSensorModuleTest {
             profile = testProfile(),
             host = FakeHost(),
             maxDurationMs = 0L,
-            nowMs = { 0L }
+            nowMs = { 0L },
         )
 
         session.startSensor()

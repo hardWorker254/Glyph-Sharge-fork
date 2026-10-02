@@ -8,6 +8,7 @@ import android.provider.MediaStore
 import android.util.Log
 import androidx.core.content.edit
 import com.bleelblep.glyphsharge.R
+import com.bleelblep.glyphsharge.glyph.device.DeviceType
 import com.bleelblep.glyphsharge.glyph.script.ScriptAnimation
 import com.bleelblep.glyphsharge.glyph.script.ScriptFileFormat
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -19,6 +20,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,7 +38,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class CustomAnimationRepository @Inject constructor(
-    @param:ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context,
 ) {
     companion object {
         private const val TAG = "CustomAnimations"
@@ -44,6 +46,9 @@ class CustomAnimationRepository @Inject constructor(
         const val KEY_INDEX = "index"
         const val SCRIPT_DIR = "glyph_scripts"
         const val FILE_SUFFIX = ".glyphlua"
+
+        /** Index key holding the models each script claims to work on. */
+        private const val KEY_DEVICES = "devices"
     }
 
     /**
@@ -100,7 +105,7 @@ class CustomAnimationRepository @Inject constructor(
     fun draft(template: String = starterScript()): ScriptAnimation = ScriptAnimation(
         id = ScriptAnimation.newId(),
         name = uniqueName(context.getString(R.string.studio_default_name)),
-        source = template
+        source = template,
     )
 
     fun save(animation: ScriptAnimation): ScriptAnimation {
@@ -110,10 +115,6 @@ class CustomAnimationRepository @Inject constructor(
         return stamped
     }
 
-    fun rename(id: String, name: String): ScriptAnimation? {
-        val existing = getById(id) ?: return null
-        return save(existing.copy(name = uniqueName(name, exceptId = existing.id)))
-    }
     fun delete(id: String) {
         scriptFile(id).delete()
         publish(_animations.value.filterNot { it.id == id })
@@ -124,7 +125,7 @@ class CustomAnimationRepository @Inject constructor(
         val original = getById(id) ?: return null
         val copy = original.copy(
             id = ScriptAnimation.newId(),
-            name = uniqueName("${original.name} ${context.getString(R.string.studio_copy_suffix)}")
+            name = uniqueName("${original.name} ${context.getString(R.string.studio_copy_suffix)}"),
         )
         return save(copy)
     }
@@ -144,9 +145,44 @@ class CustomAnimationRepository @Inject constructor(
             val parsed = ScriptFileFormat.decode(text, fallbackName)
             val imported = parsed.copy(
                 id = ScriptAnimation.newId(),
-                name = uniqueName(parsed.name)
+                name = uniqueName(parsed.name),
             )
             save(imported)
+        }
+
+    /**
+     * Replaces the source of an animation already on the phone, in place.
+     *
+     * **The id, the name and the creation date are kept; everything else is
+     * the new file's.** An update is the same animation in a newer version, so
+     * it has to land on the same script: a second file under a fresh id would
+     * leave the user holding two copies with no way to tell which one their
+     * features point at — and, because [importFrom] runs every name through
+     * [uniqueName], the leftover would be called `Wave (2)` while the one in
+     * use stayed stale.
+     *
+     * The name is kept rather than taken from the file for the same reason: it
+     * is the user's script, and the store's card is only ever offered when the
+     * name still matches what the catalogue publishes.
+     *
+     * The models are *not* kept. Those come from the new file, because the
+     * author is the one saying which phones this version works on and a release
+     * that added a model should say so rather than inherit the old claim.
+     *
+     * @throws IllegalArgumentException when no such script is on the phone
+     */
+    suspend fun updateFrom(id: String, text: String): ScriptAnimation =
+        withContext(Dispatchers.IO) {
+            val existing = getById(id)
+                ?: throw IllegalArgumentException("No animation with the id $id is stored.")
+            val parsed = ScriptFileFormat.decode(text, existing.name)
+            save(
+                parsed.copy(
+                    id = existing.id,
+                    name = existing.name,
+                    createdAt = existing.createdAt,
+                ),
+            )
         }
 
     /** Reads a file the user picked. */
@@ -191,7 +227,7 @@ class CustomAnimationRepository @Inject constructor(
                 }
             }
 
-            if (written.isFailure || written.getOrNull() == null) {
+            if (written.isFailure || (written.getOrNull() == null)) {
                 resolver.delete(uri, null, null)
                 return@withContext null
             }
@@ -201,7 +237,7 @@ class CustomAnimationRepository @Inject constructor(
                 uri,
                 ContentValues().apply { put(MediaStore.Downloads.IS_PENDING, 0) },
                 null,
-                null
+                null,
             )
             uri
         }
@@ -233,9 +269,31 @@ class CustomAnimationRepository @Inject constructor(
                 name = item.optString("name", "Untitled"),
                 source = item.optString("source"),
                 createdAt = item.optLong("createdAt", System.currentTimeMillis()),
-                updatedAt = item.optLong("updatedAt", System.currentTimeMillis())
+                updatedAt = item.optLong("updatedAt", System.currentTimeMillis()),
+                // Absent from every index written before the field existed,
+                // which reads as every model — the same answer the file header
+                // gives for a script that never declared one.
+                devices = decodeIndexDevices(item.optJSONArray(KEY_DEVICES)),
             )
         }
+    }
+
+    /**
+     * Models named in the index, or every model when none are named.
+     *
+     * Duplicates [ScriptFileFormat.decode]'s rule on purpose: the file is the
+     * authority and the index is a copy, so a value the file would refuse has
+     * to be refused here too. Reading the two differently would let an index
+     * claim a narrower set of models than the script it points at.
+     */
+    private fun decodeIndexDevices(array: JSONArray?): Set<DeviceType> {
+        val named = (0 until (array?.length() ?: 0)).asSequence().mapNotNull { index ->
+            val name = array?.optString(index)?.trim()?.uppercase(Locale.ROOT).orEmpty()
+            if (name.isBlank()) return@mapNotNull null
+            DeviceType.entries.firstOrNull { it.name == name }
+        }.toSet()
+
+        return named.ifEmpty { ScriptAnimation.ALL_DEVICES }
     }
 
     private fun writeIndex(list: List<ScriptAnimation>) {
@@ -248,7 +306,17 @@ class CustomAnimationRepository @Inject constructor(
                     put("source", animation.source)
                     put("createdAt", animation.createdAt)
                     put("updatedAt", animation.updatedAt)
-                }
+                    // Enum declaration order, so the index of one script is
+                    // byte-for-byte stable and can be diffed between releases.
+                    put(
+                        KEY_DEVICES,
+                        JSONArray().apply {
+                            DeviceType.entries
+                                .filter { it in animation.devices }
+                                .forEach { put(it.name) }
+                        },
+                    )
+                },
             )
         }
         prefs.edit { putString(KEY_INDEX, array.toString()) }
@@ -258,6 +326,7 @@ class CustomAnimationRepository @Inject constructor(
     private fun uniqueName(requested: String, exceptId: String? = null): String {
         val base = requested.trim().ifEmpty { context.getString(R.string.studio_untitled) }
         val taken = _animations.value
+            .asSequence()
             .filter { it.id != exceptId }
             .map { it.name.lowercase() }
             .toSet()

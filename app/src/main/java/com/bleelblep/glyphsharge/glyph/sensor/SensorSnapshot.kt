@@ -60,7 +60,7 @@ data class SensorSnapshot(
      */
     val magnitude: Float,
     /** `true` when [magnitude] has risen past the shake threshold. */
-    val shaken: Boolean
+    val shaken: Boolean,
 ) {
     companion object {
         /**
@@ -77,7 +77,7 @@ data class SensorSnapshot(
             y = 0f,
             z = 0f,
             magnitude = 0f,
-            shaken = false
+            shaken = false,
         )
     }
 }
