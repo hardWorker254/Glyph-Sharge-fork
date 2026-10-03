@@ -9,7 +9,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.bleelblep.glyphsharge.ui.screens.FontSettingsScreen
 import com.bleelblep.glyphsharge.ui.screens.LanguageSettingsScreen
-import com.bleelblep.glyphsharge.ui.screens.QuietHoursSettingsScreen
 import com.bleelblep.glyphsharge.ui.screens.SettingsScreen
 import com.bleelblep.glyphsharge.ui.screens.ThemeSettingsScreen
 import com.bleelblep.glyphsharge.ui.screens.home.HomeScreen
@@ -63,9 +62,6 @@ fun GlyphNavHost(
                 onBackClick = { navController.popBackStack() },
                 onThemeSettingsClick = { navController.navigate(Routes.THEME_SETTINGS) },
                 onFontSettingsClick = { navController.navigate(Routes.FONT_SETTINGS) },
-                onQuietHoursSettingsClick = {
-                    navController.navigate(Routes.QUIET_HOURS_SETTINGS)
-                },
             ) {
                 navController.navigate(Routes.LANGUAGE_SETTINGS)
             }
@@ -79,12 +75,6 @@ fun GlyphNavHost(
             FontSettingsScreen(
                 fontState = LocalFontState.current,
             ) {
-                navController.popBackStack()
-            }
-        }
-
-        composable(Routes.QUIET_HOURS_SETTINGS) {
-            QuietHoursSettingsScreen {
                 navController.popBackStack()
             }
         }

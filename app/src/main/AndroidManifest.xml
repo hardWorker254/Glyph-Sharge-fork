@@ -8,7 +8,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.NFC" />
 
     <!-- Fetching the animation store's index and the scripts it offers. This
@@ -183,15 +182,6 @@
             android:foregroundServiceType="specialUse" >
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="This service plays a charging animation and battery bar on the glyph interface while the device is charging." />
-        </service>
-
-        <service
-            android:name=".services.QuietHoursService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="specialUse" >
-            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="This service manages quiet hours by automatically disabling glyph animations during specified time periods." />
         </service>
 
         <!-- VPN Connected: Android has no broadcast for a VPN coming up, so

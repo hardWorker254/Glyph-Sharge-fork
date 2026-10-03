@@ -93,14 +93,6 @@ class BootCompletedReceiver : BroadcastReceiver() {
         Log.d(TAG, "Music Visualizer is on – needs the app opened for consent")
     }
         }
-
-        // Quiet Hours has no Glyph dependency
-        if (settingsRepository.isQuietHoursEnabled()) {
-            Log.d(TAG, "Tier 2 – QuietHours")
-            context.startForegroundServiceCompat(QuietHoursService::class.java) {
-                action = QuietHoursService.ACTION_START_QUIET_HOURS
-            }
-        }
     }
 
     companion object {

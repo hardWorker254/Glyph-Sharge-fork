@@ -39,7 +39,7 @@ It gives full control over the LEDs: charge indication, notifications, security,
 | 🔒 Security | Pulse Lock (animation on unlock), Screen Off (animation on lock) |
 | 📡 Integration | NFC glyphs on payment events, a glyph animation when a VPN connects |
 | 🎨 Personalization | 6 theme styles, Nothing fonts (NType Headline, NDot 55 Caps), scalable text sizes, your own glyph animations written in Lua |
-| ⚙️ System | Quiet hours, boot persistence, logging |
+| ⚙️ System | Boot persistence, logging |
 | ⚡ Quick Access | Two tiles in the shade: the master Glyph service and the music visualiser |
 
 ### Supported Devices
@@ -245,7 +245,7 @@ app/src/main/java/com/bleelblep/glyphsharge/
 │   ├── SettingsPrefs.kt        # reified get/put over SharedPreferences
 │   ├── ThemeSettings.kt / FontSettings.kt / GlyphServiceSettings.kt
 │   ├── FeatureSettings.kt      # The eight features' switches, ids and durations
-│   ├── QuietHoursSettings.kt / LanguageSettings.kt / UserPresenceSettings.kt
+│   ├── LanguageSettings.kt / UserPresenceSettings.kt
 │   ├── SettingsMigrations.kt   # First-run defaults and the version steps
 │   ├── SettingsDiagnostics.kt  # dumpAllSettings()
 │   └── CustomAnimationRepository.kt # Script files + index, export through MediaStore
@@ -259,7 +259,6 @@ app/src/main/java/com/bleelblep/glyphsharge/
 │   ├── ScreenOffGlyphService.kt
 │   ├── NfcGlyphService.kt
 │   ├── LowBatteryAlertService.kt
-│   ├── QuietHoursService.kt
 │   ├── VpnConnectedService.kt
 │   ├── MusicVisualizerService.kt
 │   └── GlyphServiceSwitch.kt    # The master switch, one place for the app and the tile
@@ -611,7 +610,6 @@ constants and defaults:
 | `FontSettings` | `FontVariant`, the custom-fonts switch, the four size scales |
 | `GlyphServiceSettings` | the master switch, vibration intensity, the shake steps |
 | `FeatureSettings` | the eight features' switches, animation ids, durations, thresholds |
-| `QuietHoursSettings` | the window and `isCurrentlyInQuietHours()` |
 | `LanguageSettings` | the `language` code |
 | `UserPresenceSettings` | the unlock bookkeeping Pulse Lock reads |
 | `SettingsMigrations` | first-run defaults, the version steps, the legacy vibration fixup |
@@ -658,7 +656,6 @@ keep that guarantee structural.
 | Music visualiser | `saveMusicVizEnabled` / `isMusicVizEnabled`, `…AnimationId`, `…Sensitivity`, `…ScreenOffOnly` |
 | VPN Connected | `saveVpnConnectedEnabled` / `isVpnConnectedEnabled`, `…AnimationId`, `…Duration` |
 | User presence | `isUserPresentExpected`, `markUserPresentSeen`, `markUserPresentMissing` |
-| Quiet hours | `saveQuietHoursEnabled` / `isQuietHoursEnabled`, `saveQuietHoursStartHour/Minute`, `saveQuietHoursEndHour/Minute`, `isCurrentlyInQuietHours()` |
 | Language | `getAppLanguageCode` / `saveAppLanguageCode` |
 | Debug | `dumpAllSettings()` (writes to Logcat only when `Log.isLoggable`) |
 
@@ -732,7 +729,6 @@ Phone (1) and blurred on the Phone (2a).
 | `ScreenOffGlyphService` | Animation on screen lock | `ACTION_SCREEN_OFF` |
 | `NfcGlyphService` | Animation on NFC event | NFC Intent via the Activity |
 | `LowBatteryAlertService` | Low battery notification | `ACTION_BATTERY_CHANGED` |
-| `QuietHoursService` | Silence during a scheduled window | `AlarmManager` |
 | `MusicVisualizerService` | Spectrum visualisation of whatever is playing | `Visualizer` + `AudioManager` |
 | `VpnConnectedService` | Animation when a VPN connects | A `NetworkCallback` on `TRANSPORT_VPN` — not a broadcast |
 
@@ -872,8 +868,7 @@ class MyService : Service() {
 >    no property, because it renders nothing and only keeps the process alive.
 > 3. **Guard every trigger through `spec.isRunnable(settingsRepository)`** — the feature's own
 >    flag and the master `getGlyphServiceEnabled()` answered together, so `onStartCommand`,
->    `onTaskRemoved` and the event handler cannot pass one and fail another — plus quiet hours
->    `isCurrentlyInQuietHours()` where it applies.
+>    `onTaskRemoved` and the event handler cannot pass one and fail another.
 > 4. **Always `runCatching { release() }`** around WakeLock and `unregisterReceiver` — both
 >    throw if the resource was never acquired.
 > 5. **Take the strip only through `featureCoordinator.withStrip { }`**, never by calling
@@ -891,7 +886,6 @@ class MyService : Service() {
 private fun triggerMyFeature() {
     animationScope.launch {
         if (!spec.isRunnable(settingsRepository)) return@launch
-        if (settingsRepository.isCurrentlyInQuietHours()) return@launch
         try {
             val played = featureCoordinator.withStrip(
                 owner = GlyphFeature.MY_FEATURE,
@@ -970,8 +964,6 @@ up automatically — there is nothing to register separately.
 2. **Tier 2** — the seven features in order: PowerPeek, LowBattery, PulseLock, ScreenOff, NFC,
    Charging Animation, VPN Connected. Each guarded by its own flag **and** by the shared
    `glyphOn`.
-3. **Quiet hours** — last, independent of the glyphs.
-
 > [!NOTE]
 > The music visualiser is deliberately **not** in tier 2: it captures other apps' audio
 > through a `MediaProjection` token, and a token cannot be obtained from the background — only
@@ -1107,7 +1099,6 @@ class ProgressOnPickupService : Service() {
     private fun triggerProgressBar() {
         animationScope.launch {
             if (!spec.isRunnable(settingsRepository)) return@launch
-            if (settingsRepository.isCurrentlyInQuietHours()) return@launch
 
             try {
                 val played = featureCoordinator.withStrip(
@@ -1533,10 +1524,9 @@ each of the 15 Material 3 slots is multiplied by its category factor. `SYSTEM` d
 | Screen | File | Signature |
 |--------|------|-----------|
 | Home | `screens/home/HomeScreen.kt` | `HomeScreen(onOpenSettings, modifier, viewModel = hiltViewModel())` |
-| Settings | `screens/SettingsScreen.kt` | `SettingsScreen(onBackClick, onThemeSettingsClick, onFontSettingsClick, onQuietHoursSettingsClick, onLanguageSettingsClick)` |
+| Settings | `screens/SettingsScreen.kt` | `SettingsScreen(onBackClick, onThemeSettingsClick, onFontSettingsClick, onLanguageSettingsClick)` |
 | Theme | `screens/ThemeSettingsScreen.kt` | `ThemeSettingsScreen(onBackClick, modifier)` |
 | Fonts | `screens/FontSettingsScreen.kt` | `FontSettingsScreen(fontState, onNavigateBack, modifier)` |
-| Quiet hours | `screens/QuietHoursSettingsScreen.kt` | `QuietHoursSettingsScreen(onBackClick)` |
 | Language | `screens/LanguageSettingsScreen.kt` | `LanguageSettingsScreen(onBackClick, onLanguageChanged, modifier)` |
 | Animation list | `screens/animations/AnimationListScreen.kt` | The user's scripts: open, create, duplicate, delete, import, two exports |
 | Animation editor | `screens/animations/AnimationEditorScreen.kt` | Name, code field, Check / Glyph buttons, console, a collapsible `glyph` cheat sheet |
@@ -1652,7 +1642,6 @@ object Routes {
     const val SETTINGS = "settings"
     const val THEME_SETTINGS = "theme_settings"
     const val FONT_SETTINGS = "font_settings"
-    const val QUIET_HOURS_SETTINGS = "quiet_hours_settings"
     const val LANGUAGE_SETTINGS = "language_settings"
 }
 ```
@@ -1795,7 +1784,7 @@ because that is a separate Activity with its own context.
 `FOREGROUND_SERVICE_SPECIAL_USE`, `FOREGROUND_SERVICE_DATA_SYNC`,
 `FOREGROUND_SERVICE_MEDIA_PROJECTION`, `SYSTEM_ALERT_WINDOW`, `RECEIVE_BOOT_COMPLETED`,
 `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `DISABLE_KEYGUARD`, `TURN_SCREEN_ON`,
-`SCHEDULE_EXACT_ALARM`, `NFC`, `ACCESS_NETWORK_STATE` (VPN Connected — the state, not
+`NFC`, `ACCESS_NETWORK_STATE` (VPN Connected — the state, not
 the network, and also what `glyph.net` reads), `RECORD_AUDIO`, `READ_MEDIA_AUDIO`,
 `INTERNET` (the animation store — the only thing the app downloads; an ordinary
 permission, not requested at runtime).
@@ -1953,7 +1942,6 @@ shipped build.
 | Issue | Where | Consequence |
 |-------|-------|-------------|
 | **Empty stubs in `MainActivity`** | `startPersistentGlyphService()`, `maybeRestoreSession()`, `writeLogToUri()` | `GlyphForegroundService` **does not start** on a normal app launch — only after reboot |
-| Quiet hours has no `GlyphFeature` | `MainActivity.startQuietHoursService()` | It is started with a bare `Intent` because it is deliberately outside the feature registry — every `GlyphFeature` value goes through the controller |
 
 ### Logging
 
@@ -2057,9 +2045,6 @@ The places where the code behaves in a non-obvious way:
 - `ChargingAnimationConfig.isEnabled` and `PowerPeekConfig.enableWhenScreenOff` are written
   but have **no matching repository keys** — the "only when screen is off" switch in the
   Power Peek dialog does nothing.
-
-- `QuietHoursSettingsScreen` contains an empty `LaunchedEffect(Unit)` with only a comment,
-  so `quietHoursEnabled` can go stale.
 
 ### Manifest
 

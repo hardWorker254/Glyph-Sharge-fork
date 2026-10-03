@@ -85,7 +85,7 @@ class MusicVisualizerService : FeatureService() {
         /** How long to wait for the strip when another feature is holding it. */
         const val ACQUIRE_TIMEOUT_MS = 300L
 
-        /** How often the loop re-checks music, quiet hours and the screen state. */
+        /** How often the loop re-checks music and the screen state. */
         const val IDLE_POLL_MS = 500L
 
         /** How long a `PARTIAL_WakeLock` is held for one slice. */
@@ -277,13 +277,9 @@ class MusicVisualizerService : FeatureService() {
 
     /**
      * Every reason to stop, in one place so the loop and the slice agree.
-     *
-     * Quiet hours count for the same reason as in the other services: a
-     * visualiser is exactly what a quiet-hours schedule is meant to silence.
      */
     private fun shouldStop(): Boolean =
-        !spec.isRunnable(settingsRepository) ||
-            settingsRepository.isCurrentlyInQuietHours()
+        !spec.isRunnable(settingsRepository)
 
     @Suppress("DEPRECATION")
     private fun screenAllowsVisualization(): Boolean {

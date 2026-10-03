@@ -82,7 +82,6 @@ Whether you're checking charge levels or activating security features, Glyph Sha
 - Both tiles live-update: a switch moved in the app reaches the shade without opening it first
 
 ### ⚙️ Advanced Controls
-- Quiet Hours mode for scheduled silence
 - Custom glyph patterns and animations
 - Boot-on-start service persistence
 - Comprehensive logging system
@@ -180,7 +179,6 @@ app/
 │   │   │   ├── LowBatteryAlertService.kt
 │   │   │   ├── PowerPeekService.kt
 │   │   │   ├── PulseLockService.kt
-│   │   │   ├── QuietHoursService.kt
 │   │   │   ├── ScreenOffGlyphService.kt
 │   │   │   ├── VpnConnectedService.kt
 │   │   │   ├── MusicVisualizerService.kt
@@ -215,7 +213,6 @@ app/
 │   │   │   ├── FontSettings.kt
 │   │   │   ├── GlyphServiceSettings.kt
 │   │   │   ├── FeatureSettings.kt
-│   │   │   ├── QuietHoursSettings.kt
 │   │   │   ├── LanguageSettings.kt
 │   │   │   ├── UserPresenceSettings.kt
 │   │   │   ├── SettingsMigrations.kt
@@ -336,7 +333,6 @@ Official Nothing fonts with dynamic scaling:
 | `PowerPeekService` | Shake-to-check battery feature |
 | `PulseLockService` | Heart rate security lock |
 | `ScreenOffGlyphService` | Notifications with screen off |
-| `QuietHoursService` | Scheduled silent mode |
 | `MusicVisualizerService` | Spectrum visualisation of whatever is playing |
 | `VpnConnectedService` | Plays the chosen animation when a VPN connects |
 | `GlyphServiceTileService` | Quick Settings tile: the master Glyph switch |

@@ -10,7 +10,7 @@ import javax.inject.Singleton
  * Facade over the settings slices.
  *
  * The real settings now live in [ThemeSettings], [FontSettings],
- * [GlyphServiceSettings], [FeatureSettings], [QuietHoursSettings],
+ * [GlyphServiceSettings], [FeatureSettings],
  * [LanguageSettings] and [UserPresenceSettings], each owning its own keys. This
  * class owns none of them: every method below is a one-line forward, and there
  * is not a single preference key, default or `SharedPreferences` call left
@@ -42,7 +42,6 @@ class SettingsRepository @Inject constructor(
     private val fonts: FontSettings,
     private val glyphService: GlyphServiceSettings,
     private val features: FeatureSettings,
-    private val quietHours: QuietHoursSettings,
     private val language: LanguageSettings,
     private val userPresence: UserPresenceSettings,
     @Suppress("unused") private val migrations: SettingsMigrations,
@@ -215,30 +214,6 @@ class SettingsRepository @Inject constructor(
         features.saveMusicVizScreenOffOnly(onlyWhenScreenOff)
 
     fun getMusicVizScreenOffOnly(): Boolean = features.getMusicVizScreenOffOnly()
-
-    // Quiet Hours
-
-    fun saveQuietHoursEnabled(enabled: Boolean) = quietHours.saveQuietHoursEnabled(enabled)
-
-    fun isQuietHoursEnabled(): Boolean = quietHours.isQuietHoursEnabled()
-
-    fun saveQuietHoursStartHour(hour: Int) = quietHours.saveQuietHoursStartHour(hour)
-
-    fun getQuietHoursStartHour(): Int = quietHours.getQuietHoursStartHour()
-
-    fun saveQuietHoursStartMinute(minute: Int) = quietHours.saveQuietHoursStartMinute(minute)
-
-    fun getQuietHoursStartMinute(): Int = quietHours.getQuietHoursStartMinute()
-
-    fun saveQuietHoursEndHour(hour: Int) = quietHours.saveQuietHoursEndHour(hour)
-
-    fun getQuietHoursEndHour(): Int = quietHours.getQuietHoursEndHour()
-
-    fun saveQuietHoursEndMinute(minute: Int) = quietHours.saveQuietHoursEndMinute(minute)
-
-    fun getQuietHoursEndMinute(): Int = quietHours.getQuietHoursEndMinute()
-
-    fun isCurrentlyInQuietHours(): Boolean = quietHours.isCurrentlyInQuietHours()
 
     // Language Settings
 

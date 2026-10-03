@@ -175,7 +175,6 @@
     <string name="settings_back_content_description">Назад</string>
     <string name="settings_card_typography">Шрифты</string>
     <string name="settings_card_theme">Тема</string>
-    <string name="settings_card_quiet_hours">Тихие часы</string>
     <string name="settings_section_app_info">О приложении</string>
 
   <!-- Animation Studio -->
@@ -383,8 +382,6 @@
     <string name="settings_about_unknown_version">Неизвестная версия</string>
     <string name="settings_theme_status_light">Светлая тема</string>
     <string name="settings_theme_status_dark">Тёмная тема</string>
-    <string name="settings_quiet_hours_status_on">Glyph-анимации будут отключены в заданное время</string>
-    <string name="settings_quiet_hours_status_off">Настройте нужное время</string>
 
     <!-- Font Settings Screen -->
     <string name="font_settings_title">Шрифты</string>
@@ -420,26 +417,6 @@
     <string name="font_settings_preview_current">Текущие настройки</string>
     <string name="font_settings_preview_font">Шрифт: %1$s</string>
     <string name="font_settings_preview_custom_sizing"> • Применены свои размеры</string>
-
-    <!-- Quiet Hours Settings Screen -->
-    <string name="quiet_hours_title">Тихие часы</string>
-    <string name="quiet_hours_status_enabled">Тихие часы включены</string>
-    <string name="quiet_hours_status_disabled">Тихие часы выключены</string>
-    <string name="quiet_hours_configure_text">Настройте расписание тихих часов ниже</string>
-    <string name="quiet_hours_enable_hint">Включите тихие часы в основных настройках</string>
-    <string name="quiet_hours_label_start">Начало</string>
-    <string name="quiet_hours_label_end">Конец</string>
-    <string name="quiet_hours_current_status">Текущий статус</string>
-    <string name="quiet_hours_status_active">Сейчас действуют тихие часы — анимации Glyph отключены</string>
-    <string name="quiet_hours_status_inactive">Вне тихих часов — анимации Glyph включены</string>
-    <string name="quiet_hours_schedule_label">Тихие часы:</string>
-    <string name="quiet_hours_how_it_works">Как это работает</string>
-    <string name="quiet_hours_description">Во время тихих часов все анимации Glyph автоматически отключаются. Это включает:\n\n• Анимации PowerPeek\n• Эффекты Glow Gate\n• Уведомления о низком заряде\n• Оповещения Glyph Guard\n• Анимации зарядки</string>
-    <string name="quiet_hours_background_note">Сервис работает в фоновом режиме и автоматически включит Glyph, когда тихие часы закончатся.</string>
-    <string name="quiet_hours_picker_title">Выберите время</string>
-    <string name="quiet_hours_picker_subtitle">Укажите время для тихих часов</string>
-    <string name="quiet_hours_button_cancel">Отмена</string>
-    <string name="quiet_hours_button_confirm">Установить</string>
 
     <!-- Theme Settings Screen -->
     <string name="theme_settings_title">Тема</string>

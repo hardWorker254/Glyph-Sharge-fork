@@ -79,7 +79,6 @@ class SettingsRepository @Inject constructor(
     private val fonts: FontSettings,
     private val glyphService: GlyphServiceSettings,
     private val features: FeatureSettings,
-    private val quietHours: QuietHoursSettings,
     private val language: LanguageSettings,
     private val userPresence: UserPresenceSettings,
     @Suppress("unused") private val migrations: SettingsMigrations,
@@ -103,8 +102,7 @@ MainActivity
         ├── SettingsScreen           # settings
         ├── ThemeSettingsScreen      # theme_settings
         ├── FontSettingsScreen       # font_settings
-        ├── LanguageSettingsScreen   # language_settings
-        └── QuietHoursSettingsScreen # quiet_hours_settings
+        └── LanguageSettingsScreen   # language_settings
 
 CustomAnimationsActivity          # студия анимаций на Lua, вне NavHost
     └── BackHandler              # свой стек: список ↔ редактор
@@ -214,7 +212,6 @@ services/
 ├── LowBatteryAlertService.kt
 ├── PowerPeekService.kt
 ├── PulseLockService.kt
-├── QuietHoursService.kt
 ├── ScreenOffGlyphService.kt
 ├── VpnConnectedService.kt
 └── MusicVisualizerService.kt
@@ -243,7 +240,6 @@ data/
 ├── FontSettings.kt          # Вариант шрифта и размеры по категориям
 ├── GlyphServiceSettings.kt  # Главный переключатель глифов, вибрация, язык устройства
 ├── FeatureSettings.kt       # Вкл/выкл, анимация и длительность каждой фичи
-├── QuietHoursSettings.kt    # Расписание тихих часов
 ├── LanguageSettings.kt      # Язык приложения
 ├── UserPresenceSettings.kt  # Данные о присутствии пользователя
 ├── SettingsMigrations.kt    # Переносы старых настроек
@@ -454,7 +450,6 @@ suspend fun <T> runCapped(capMs: Long, onTimeout: () -> Unit = {}, block: suspen
 | LowBatteryAlertService | Мониторинг батареи | Broadcast Receiver |
 | PowerPeekService | Встряхивание для проверки | Sensor-based |
 | PulseLockService | Анимации при включении | Bound |
-| QuietHoursService | Тихие часы | Scheduled |
 | ScreenOffGlyphService | Анимации при выключении | Bound |
 | VpnConnectedService | Анимация при подключении VPN | NetworkCallback на TRANSPORT_VPN |
 | MusicVisualizerService | Визуализатор музыки | Foreground (MediaProjection) |

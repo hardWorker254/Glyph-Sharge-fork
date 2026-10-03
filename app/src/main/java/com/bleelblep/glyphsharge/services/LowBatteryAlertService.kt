@@ -141,10 +141,6 @@ class LowBatteryAlertService : FeatureService() {
 
     // Alert sequence
     private suspend fun playLowBatterySequence() {
-        if (settingsRepository.isCurrentlyInQuietHours()) {
-            Log.d(TAG, "Alert blocked by quiet hours")
-            return
-        }
         try {
             // `preempt` stays false: this feature skips on a busy strip rather
             // than interrupting whoever holds it, and the default timeout is

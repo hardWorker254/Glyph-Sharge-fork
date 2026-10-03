@@ -22,7 +22,6 @@ class SettingsDiagnostics @Inject constructor(
     private val fonts: FontSettings,
     private val glyphService: GlyphServiceSettings,
     private val features: FeatureSettings,
-    private val quietHours: QuietHoursSettings,
 ) {
 
     fun dumpAllSettings() {
@@ -43,9 +42,6 @@ class SettingsDiagnostics @Inject constructor(
             NFC Feature enabled: ${features.isNfcFeatureEnabled()}
             NFC Animation ID: ${features.getNfcAnimationId()}
             NFC Animation Duration: ${features.getNfcAnimationDuration()}ms
-            Quiet Hours enabled: ${quietHours.isQuietHoursEnabled()}
-            Quiet Hours start: ${quietHours.getQuietHoursStartHour()}:${quietHours.getQuietHoursStartMinute()}
-            Quiet Hours end: ${quietHours.getQuietHoursEndHour()}:${quietHours.getQuietHoursEndMinute()}
             ===================
         """.trimIndent()
         Log.d(TAG, dump)

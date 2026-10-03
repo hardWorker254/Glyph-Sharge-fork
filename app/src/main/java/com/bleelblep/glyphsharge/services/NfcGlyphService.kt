@@ -212,11 +212,6 @@ class NfcGlyphService : FeatureService() {
                 return@launch
             }
 
-            if (settingsRepository.isCurrentlyInQuietHours()) {
-                Log.d(TAG, "Quiet hours active – skipping NFC animation ($eventLabel)")
-                return@launch
-            }
-
             try {
                 // `preempt` stays false: this feature skips on a busy strip rather
                 // than interrupting whoever holds it, and the default timeout is

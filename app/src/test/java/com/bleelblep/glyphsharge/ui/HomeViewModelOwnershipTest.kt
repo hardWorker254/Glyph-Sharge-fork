@@ -1,16 +1,8 @@
 package com.bleelblep.glyphsharge.ui
 
-import android.content.Context
-import android.content.ContextWrapper
-import androidx.test.core.app.ApplicationProvider
-import com.bleelblep.glyphsharge.services.QuietHoursService
 import com.bleelblep.glyphsharge.ui.viewmodel.HomeViewModel
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 import java.io.File
 import javax.inject.Inject
 
@@ -97,40 +89,5 @@ class HomeViewModelOwnershipTest {
                 "manager nothing else is using",
             "LocalHomeViewModel.current" in codeOf("ui/components/GlyphDependencies.kt"),
         )
-    }
-}
-
-/**
- * The exact-alarm guard that came with quiet hours.
- *
- * `setExactAndAllowWhileIdle` throws `SecurityException` without the
- * "Alarms & reminders" grant, which since Android 14 is off by default. It was
- * called unguarded on the main thread out of `onStartCommand`, so the process
- * died when the user switched quiet hours on, and again on every reboot with it
- * enabled.
- *
- * What is asserted here is the question the settings toggle now asks before
- * sending the user to the system screen: it has to be answerable, and the
- * answer has to be "no" when nothing has been granted — which is the ordinary
- * state on a device that has never been to that settings page.
- */
-@RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
-class QuietHoursExactAlarmAccessTest {
-
-    @Test
-    fun `reports no exact-alarm access instead of throwing`() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-
-        assertFalse(QuietHoursService.canScheduleExactAlarms(context))
-    }
-
-    @Test
-    fun `is answerable on a context with no alarm service`() {
-        // `getSystemService` returns null rather than throwing where there is
-        // no AlarmManager, so the question must not assume it is there.
-        val noServices = object : ContextWrapper(null as Context?) {}
-
-        assertFalse(QuietHoursService.canScheduleExactAlarms(noServices))
     }
 }

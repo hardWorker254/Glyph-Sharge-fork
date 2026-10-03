@@ -23,7 +23,7 @@
     <string name="vpn_connected_button_test">Test VPN Connected</string>
     <string name="vpn_connected_dialog_subtitle">Light up when the VPN connects</string>
     <string name="vpn_connected_how_it_works_title">How it works:</string>
-    <string name="vpn_connected_how_it_works_description">• Triggers once when a VPN connection is established.\n• Plays your selected animation.\n• Nothing plays if a VPN is already up when the feature starts.\n• Automatically suppressed during Quiet Hours.</string>
+    <string name="vpn_connected_how_it_works_description">• Triggers once when a VPN connection is established.\n• Plays your selected animation.\n• Nothing plays if a VPN is already up when the feature starts.</string>
     <string name="vpn_connected_configure_title">Configure</string>
     <string name="vpn_connected_configure_subtitle">Customize VPN Connected behavior</string>
     <string name="vpn_connected_animation_title">Select Animation</string>
@@ -102,7 +102,7 @@
     <string name="screen_off_button_test">Test Screen Off</string>
     <string name="screen_off_dialog_subtitle">Light up when locking</string>
     <string name="screen_off_how_it_works_title">How it works:</string>
-    <string name="screen_off_how_it_works_description">• Triggers every time the screen turns off.\n• Plays your selected animation.\n• Automatically suppressed during Quiet Hours.</string>
+    <string name="screen_off_how_it_works_description">• Triggers every time the screen turns off.\n• Plays your selected animation.</string>
     <string name="screen_off_configure_title">Configure</string>
     <string name="screen_off_configure_subtitle">Customize Screen Off behavior</string>
     <string name="screen_off_animation_title">Select Animation</string>
@@ -118,7 +118,7 @@
     <string name="nfc_glyph_description">Animate glyphs on NFC events</string>
     <string name="nfc_glyph_toast">Please enable the Glyph service first</string>
     <string name="nfc_glyph_how_it_works_title">How it works:</string>
-    <string name="nfc_glyph_how_it_works_description">• Triggers when you tap to pay (Google Pay, etc.)\n• Triggers when an NFC tag is scanned\n• Plays a chosen glyph animation\n• Respects Quiet Hours if enabled</string>
+    <string name="nfc_glyph_how_it_works_description">• Triggers when you tap to pay (Google Pay, etc.)\n• Triggers when an NFC tag is scanned\n• Plays a chosen glyph animation</string>
     <string name="nfc_glyph_configure_title">Configure</string>
     <string name="nfc_glyph_configure_subtitle">Customize NFC glyph animation</string>
     <string name="nfc_glyph_button_test">Test NFC Glyph</string>
@@ -178,7 +178,6 @@
     <string name="settings_back_content_description">Back</string>
     <string name="settings_card_typography">Typography</string>
     <string name="settings_card_theme">Theme</string>
-    <string name="settings_card_quiet_hours">Quiet Hours</string>
     <string name="settings_section_app_info">App Information</string>
     <string name="settings_card_about">About</string>
     <string name="settings_about_description">From live battery glyphs to USB-theft alarms, charging history and unlock light-shows—unlock the full power of the NOTHING glyphs.</string>
@@ -443,8 +442,6 @@
     <string name="settings_about_unknown_version">Unknown Version</string>
     <string name="settings_theme_status_light">Light Mode</string>
     <string name="settings_theme_status_dark">Dark Mode</string>
-    <string name="settings_quiet_hours_status_on">Glyphs will be quiet during set hours</string>
-    <string name="settings_quiet_hours_status_off">Choose your Glyph lights schedule</string>
 
     <!-- Font Settings Screen -->
     <string name="font_settings_title">Typography</string>
@@ -482,26 +479,6 @@
     <string name="font_settings_preview_current">Current Settings</string>
     <string name="font_settings_preview_font">Font: %1$s</string>
     <string name="font_settings_preview_custom_sizing"> • Custom sizing applied</string>
-
-    <!-- Quiet Hours Settings Screen -->
-    <string name="quiet_hours_title">Quiet Hours</string>
-    <string name="quiet_hours_status_enabled">Quiet Hours Enabled</string>
-    <string name="quiet_hours_status_disabled">Quiet Hours Disabled</string>
-    <string name="quiet_hours_configure_text">Configure your quiet hours schedule below</string>
-    <string name="quiet_hours_enable_hint">Enable quiet hours from the main Settings screen</string>
-    <string name="quiet_hours_label_start">Start Time</string>
-    <string name="quiet_hours_label_end">End Time</string>
-    <string name="quiet_hours_current_status">Current Status</string>
-    <string name="quiet_hours_status_active">Quiet hours are currently active - glyph animations are disabled</string>
-    <string name="quiet_hours_status_inactive">Outside quiet hours - glyph animations are enabled</string>
-    <string name="quiet_hours_schedule_label">Quiet hours:</string>
-    <string name="quiet_hours_how_it_works">How it works</string>
-    <string name="quiet_hours_description">During quiet hours, all glyph animations will be automatically disabled. This includes:\n\n• PowerPeek animations\n• Glow Gate effects\n• Low battery alerts\n• Glyph Guard alerts\n• Charging animations</string>
-    <string name="quiet_hours_background_note">The service runs in the background and will automatically re-enable glyphs when quiet hours end.</string>
-    <string name="quiet_hours_picker_title">Select Time</string>
-    <string name="quiet_hours_picker_subtitle">Choose your quiet hours time</string>
-    <string name="quiet_hours_button_cancel">Cancel</string>
-    <string name="quiet_hours_button_confirm">Set Time</string>
 
     <!-- Theme Settings Screen -->
     <string name="theme_settings_title">Theme</string>

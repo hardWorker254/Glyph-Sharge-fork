@@ -219,8 +219,6 @@ class PowerPeekService : FeatureService(), SensorEventListener {
         animationScope.launch {
             if (!spec.isRunnable(settingsRepository)) return@launch
 
-            if (settingsRepository.isCurrentlyInQuietHours()) return@launch
-
             try {
                 // `preempt` stays false: this feature skips on a busy strip rather
                 // than interrupting whoever holds it, and the default timeout is

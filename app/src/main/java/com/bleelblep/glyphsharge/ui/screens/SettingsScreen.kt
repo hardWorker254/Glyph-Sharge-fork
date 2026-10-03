@@ -1,11 +1,6 @@
 package com.bleelblep.glyphsharge.ui.screens
 
-import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.provider.Settings
-import android.util.Log
-import androidx.core.net.toUri
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
@@ -45,7 +40,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.CustomAnimationsActivity
-import com.bleelblep.glyphsharge.services.QuietHoursService
 import com.bleelblep.glyphsharge.ui.components.controls.MorphingToggleButton
 import com.bleelblep.glyphsharge.ui.components.controls.SettingsTrailingIcon
 import com.bleelblep.glyphsharge.ui.components.controls.ThreeStateFontMorphingButton
@@ -70,7 +64,6 @@ fun SettingsScreen(
     onBackClick: () -> Unit,
     onThemeSettingsClick: () -> Unit = {},
     onFontSettingsClick: () -> Unit = {},
-    onQuietHoursSettingsClick: () -> Unit = {},
     onLanguageSettingsClick: () -> Unit = {},
 ) {
     val fontState = LocalFontState.current
@@ -108,12 +101,6 @@ fun SettingsScreen(
                 isDarkTheme = themeState.isDarkTheme,
                 onToggleTheme = themeState::toggleTheme,
                 onNavigate = onThemeSettingsClick,
-            )
-        }
-
-        item {
-            QuietHoursSettingsCard(
-                onNavigate = onQuietHoursSettingsClick,
             )
         }
 
@@ -203,71 +190,6 @@ private fun ThemeSettingsCard(
             )
         },
     )
-}
-
-@Composable
-private fun QuietHoursSettingsCard(
-    onNavigate: () -> Unit,
-) {
-    val settingsRepository = LocalSettingsRepository.current
-    val context = LocalContext.current
-    var quietHoursEnabled by remember {
-        mutableStateOf(settingsRepository.isQuietHoursEnabled())
-    }
-
-    DraggableSettingsCard(
-        title = stringResource(id = R.string.settings_card_quiet_hours),
-        subtitle = if (quietHoursEnabled) {
-            stringResource(id = R.string.settings_quiet_hours_status_on)
-        } else {
-            stringResource(id = R.string.settings_quiet_hours_status_off)
-        },
-        onNavigate = onNavigate,
-        trailing = {
-            MorphingToggleButton(
-                checked = quietHoursEnabled,
-                onCheckedChange = { enabled ->
-                    quietHoursEnabled = enabled
-                    settingsRepository.saveQuietHoursEnabled(enabled)
-                    // Asked once, and only on the way in. Quiet hours runs either
-                    // way — an exact alarm is a nicety for a do-not-disturb
-                    // window — so this must never block the switch, only make
-                    // the difference visible while the user is already here.
-                    if (enabled && !QuietHoursService.canScheduleExactAlarms(context)) {
-                        requestExactAlarmAccess(context)
-                    }
-                },
-                enabledIcon = {
-                    Text(text = "🔇", style = MaterialTheme.typography.titleLarge)
-                },
-                disabledIcon = {
-                    Text(text = "💡", style = MaterialTheme.typography.titleLarge)
-                },
-            )
-        },
-    )
-}
-
-/**
- * Opens the one system screen that grants exact alarms, if it exists.
- *
- * The intent is the documented way to ask, and a device that has removed the
- * screen throws rather than resolving to nothing — so the launch is guarded
- * instead of being treated as always available. Nothing is shown when it fails:
- * quiet hours is already on and already scheduled, and a dialog saying "the
- * request did not work" would be more alarming than the late window it is
- * describing.
- */
-private fun requestExactAlarmAccess(context: Context) {
-    runCatching {
-        context.startActivity(
-            Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
-                data = "package:${context.packageName}".toUri()
-            },
-        )
-    }.onFailure {
-        Log.w("SettingsScreen", "No exact-alarm request screen on this device", it)
-    }
 }
 
 @Composable

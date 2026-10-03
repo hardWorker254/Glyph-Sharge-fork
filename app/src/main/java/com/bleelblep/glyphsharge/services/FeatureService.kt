@@ -51,12 +51,11 @@ import kotlinx.coroutines.cancel
  *
  * ### What is deliberately not here
  *
- * `GlyphForegroundService` and `QuietHoursService` are services too, but they
- * are not *feature* services: neither has a [GlyphFeature], neither reads a
- * feature's preference, and Quiet Hours deliberately stays up while its
- * feature is off. Folding them in here would mean a nullable feature and a
- * conditional gate, which is the shape that let Low Battery drift in the first
- * place.
+ * `GlyphForegroundService` is a service too, but it is not a *feature*
+ * service: it has no [GlyphFeature] and reads no feature's preference — it is
+ * the master session the features depend on. Folding it in here would mean a
+ * nullable feature and a conditional gate, which is the shape that let Low
+ * Battery drift in the first place.
  */
 abstract class FeatureService : Service() {
 

@@ -142,6 +142,5 @@ class FeatureServiceController @Inject constructor(
         // participant with no service has nothing to stop, and asking would throw.
         FeatureSpecs.all.forEach { stop(it.feature) }
         runCatching { context.stopService(Intent(context, GlyphForegroundService::class.java)) }
-        runCatching { context.stopService(Intent(context, QuietHoursService::class.java)) }
     }
 }

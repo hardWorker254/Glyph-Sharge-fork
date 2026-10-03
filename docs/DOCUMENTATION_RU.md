@@ -39,7 +39,7 @@
 | 🔒 Безопасность | Pulse Lock (анимация при разблокировке), Screen Off (анимация при блокировке) |
 | 📡 Интеграция | NFC-глифы по событию оплаты, анимация глифов при подключении VPN |
 | 🎨 Персонализация | 6 стилей тем, шрифты Nothing (NType Headline, NDot 55 Caps), масштабирование размеров текста, собственные анимации глифов на Lua |
-| ⚙️ Система | Тихие часы, автозапуск после загрузки, журналирование |
+| ⚙️ Система | Автозапуск после загрузки, журналирование |
 | ⚡ Быстрый доступ | Две плитки в шторке: главный сервис глифов и музыкальная визуализация |
 
 ### Поддерживаемые устройства
@@ -244,7 +244,7 @@ app/src/main/java/com/bleelblep/glyphsharge/
 │   ├── SettingsPrefs.kt        # Типизированные get/put поверх SharedPreferences
 │   ├── ThemeSettings.kt / FontSettings.kt / GlyphServiceSettings.kt
 │   ├── FeatureSettings.kt      # Переключатели, id и длительности восьми фич
-│   ├── QuietHoursSettings.kt / LanguageSettings.kt / UserPresenceSettings.kt
+│   ├── LanguageSettings.kt / UserPresenceSettings.kt
 │   ├── SettingsMigrations.kt   # Значения по умолчанию и шаги версий
 │   ├── SettingsDiagnostics.kt  # dumpAllSettings()
 │   └── CustomAnimationRepository.kt # Файлы скриптов + индекс, экспорт через MediaStore
@@ -258,7 +258,6 @@ app/src/main/java/com/bleelblep/glyphsharge/
 │   ├── ScreenOffGlyphService.kt
 │   ├── NfcGlyphService.kt
 │   ├── LowBatteryAlertService.kt
-│   ├── QuietHoursService.kt
 │   ├── VpnConnectedService.kt
 │   ├── MusicVisualizerService.kt
 │   └── GlyphServiceSwitch.kt    # Главный переключатель, одно место для приложения и плитки
@@ -607,7 +606,6 @@ fun release(owner: GlyphFeature)
 | `FontSettings` | `FontVariant`, переключатель своих шрифтов, четыре масштаба |
 | `GlyphServiceSettings` | мастер-переключатель, интенсивность вибрации, ступени встряхивания |
 | `FeatureSettings` | переключатели, id анимаций, длительности и пороги восьми фич |
-| `QuietHoursSettings` | окно тишины и `isCurrentlyInQuietHours()` |
 | `LanguageSettings` | код `language` |
 | `UserPresenceSettings` | учёт разблокировок, который читает Pulse Lock |
 | `SettingsMigrations` | значения по умолчанию, шаги версий, починка легаси-вибрации |
@@ -655,7 +653,6 @@ fun release(owner: GlyphFeature)
 | Музыкальная визуализация | `saveMusicVizEnabled` / `isMusicVizEnabled`, `…AnimationId`, `…Sensitivity`, `…ScreenOffOnly` |
 | VPN Connected | `saveVpnConnectedEnabled` / `isVpnConnectedEnabled`, `…AnimationId`, `…Duration` |
 | Присутствие пользователя | `isUserPresentExpected`, `markUserPresentSeen`, `markUserPresentMissing` |
-| Тихие часы | `saveQuietHoursEnabled` / `isQuietHoursEnabled`, `saveQuietHoursStartHour/Minute`, `saveQuietHoursEndHour/Minute`, `isCurrentlyInQuietHours()` |
 | Язык | `getAppLanguageCode` / `saveAppLanguageCode` |
 | Отладка | `dumpAllSettings()` (пишет в Logcat только при `Log.isLoggable`) |
 
@@ -726,7 +723,6 @@ Phone (3a) — поэтому один проход занимает приме�
 | `ScreenOffGlyphService` | Анимация при блокировке экрана | `ACTION_SCREEN_OFF` |
 | `NfcGlyphService` | Анимация по NFC-событию | NFC-Intent через Activity |
 | `LowBatteryAlertService` | Оповещение о низком заряде | `ACTION_BATTERY_CHANGED` |
-| `QuietHoursService` | Тишина в заданный интервал | `AlarmManager` |
 | `MusicVisualizerService` | Спектр того, что сейчас играет | `Visualizer` + `AudioManager` |
 | `VpnConnectedService` | Анимация при подключении VPN | `NetworkCallback` на `TRANSPORT_VPN` — не broadcast |
 
@@ -869,8 +865,7 @@ class MyService : Service() {
 >    держит процесс живым.
 > 3. **Каждый триггер проходит через `spec.isRunnable(settingsRepository)`** — собственный
 >    флаг фичи и мастер `getGlyphServiceEnabled()` отвечают вместе, поэтому `onStartCommand`,
->    `onTaskRemoved` и обработчик события не могут пройти один и не пройти другой, — плюс
->    тихие часы `isCurrentlyInQuietHours()` там, где это нужно.
+>    `onTaskRemoved` и обработчик события не могут пройти один и не пройти другой.
 > 4. **Всегда `runCatching { release() }`** для WakeLock и `unregisterReceiver` — они бросают
 >    исключения, если ресурс не был захвачен.
 > 5. **Полосу брать только через `featureCoordinator.withStrip { }`**, а не вызывать
@@ -889,7 +884,6 @@ class MyService : Service() {
 private fun triggerMyFeature() {
     animationScope.launch {
         if (!spec.isRunnable(settingsRepository)) return@launch
-        if (settingsRepository.isCurrentlyInQuietHours()) return@launch
         try {
             val played = featureCoordinator.withStrip(
                 owner = GlyphFeature.MY_FEATURE,
@@ -967,8 +961,6 @@ object FeatureSpecs {
 1. **Уровень 1** — `GlyphForegroundService`, если включён мастер-переключатель.
 2. **Уровень 2** — семь фич по порядку: PowerPeek, LowBattery, PulseLock, ScreenOff, NFC,
    Charging Animation, VPN Connected. Каждая — под своим флагом **и** под общим `glyphOn`.
-3. **Тихие часы** — в конце, не зависит от глифов.
-
 > [!NOTE]
 > Музыкальная визуализация сознательно **не** входит в уровень 2: она захватывает звук
 > других приложений через токен `MediaProjection`, а токен нельзя получить из фона — только
@@ -1107,7 +1099,6 @@ class ProgressOnPickupService : Service() {
     private fun triggerProgressBar() {
         animationScope.launch {
             if (!spec.isRunnable(settingsRepository)) return@launch
-            if (settingsRepository.isCurrentlyInQuietHours()) return@launch
 
             try {
                 val played = featureCoordinator.withStrip(
@@ -1534,10 +1525,9 @@ data class FontSizeSettings(displayScale, titleScale, bodyScale, labelScale)
 | Экран | Файл | Сигнатура |
 |-------|------|-----------|
 | Главный | `screens/home/HomeScreen.kt` | `HomeScreen(onOpenSettings, modifier, viewModel = hiltViewModel())` |
-| Настройки | `screens/SettingsScreen.kt` | `SettingsScreen(onBackClick, onThemeSettingsClick, onFontSettingsClick, onQuietHoursSettingsClick, onLanguageSettingsClick)` |
+| Настройки | `screens/SettingsScreen.kt` | `SettingsScreen(onBackClick, onThemeSettingsClick, onFontSettingsClick, onLanguageSettingsClick)` |
 | Тема | `screens/ThemeSettingsScreen.kt` | `ThemeSettingsScreen(onBackClick, modifier)` |
 | Шрифты | `screens/FontSettingsScreen.kt` | `FontSettingsScreen(fontState, onNavigateBack, modifier)` |
-| Тихие часы | `screens/QuietHoursSettingsScreen.kt` | `QuietHoursSettingsScreen(onBackClick)` |
 | Язык | `screens/LanguageSettingsScreen.kt` | `LanguageSettingsScreen(onBackClick, onLanguageChanged, modifier)` |
 | Список анимаций | `screens/animations/AnimationListScreen.kt` | Скрипты пользователя: открыть, создать, дублировать, удалить, импорт, два экспорта |
 | Редактор анимации | `screens/animations/AnimationEditorScreen.kt` | Имя, поле кода, кнопки Check / Glyph, консоль, сворачиваемая памятка по `glyph` |
@@ -1653,7 +1643,6 @@ object Routes {
     const val SETTINGS = "settings"
     const val THEME_SETTINGS = "theme_settings"
     const val FONT_SETTINGS = "font_settings"
-    const val QUIET_HOURS_SETTINGS = "quiet_hours_settings"
     const val LANGUAGE_SETTINGS = "language_settings"
 }
 ```
@@ -1794,7 +1783,7 @@ app/src/main/res/
 `FOREGROUND_SERVICE_SPECIAL_USE`, `FOREGROUND_SERVICE_DATA_SYNC`,
 `FOREGROUND_SERVICE_MEDIA_PROJECTION`, `SYSTEM_ALERT_WINDOW`, `RECEIVE_BOOT_COMPLETED`,
 `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `DISABLE_KEYGUARD`, `TURN_SCREEN_ON`,
-`SCHEDULE_EXACT_ALARM`, `NFC`, `ACCESS_NETWORK_STATE` (VPN Connected — состояние, а не
+`NFC`, `ACCESS_NETWORK_STATE` (VPN Connected — состояние, а не
 сама сеть, и это же читает `glyph.net`), `RECORD_AUDIO`, `READ_MEDIA_AUDIO`,
 `INTERNET` (магазин анимаций — единственное, что приложение качает из сети;
 это обычное разрешение, оно не спрашивается у пользователя в рантайме).
@@ -1953,7 +1942,6 @@ testOptions {
 | Проблема | Где | Следствие |
 |----------|-----|-----------|
 | **Пустые стабы в `MainActivity`** | `startPersistentGlyphService()`, `maybeRestoreSession()`, `writeLogToUri()` | `GlyphForegroundService` **не стартует** при обычном запуске приложения — только после перезагрузки |
-| У тихих часов нет `GlyphFeature` | `MainActivity.startQuietHoursService()` | Стартует обычным `Intent`, потому что сознательно вынесен за пределы реестра фич: каждое значение `GlyphFeature` идёт через контроллер |
 
 ### Логирование
 
@@ -2055,9 +2043,6 @@ no-op, включая `logSessionState` и `logSDKOperation` внутри `Glyph
 - `ChargingAnimationConfig.isEnabled` и `PowerPeekConfig.enableWhenScreenOff`
   записываются, но соответствующих ключей в репозитории **нет** —
   переключатель «только при выключенном экране» в диалоге Power Peek ничего не делает.
-
-- `QuietHoursSettingsScreen` содержит пустой `LaunchedEffect(Unit)` с одним комментарием,
-  поэтому `quietHoursEnabled` может устареть.
 
 ### Манифест
 

@@ -100,11 +100,6 @@ class ScreenOffGlyphService : FeatureService() {
                 return@launch
             }
 
-            if (settingsRepository.isCurrentlyInQuietHours()) {
-                Log.d(TAG, "Quiet hours active – skipping sequence")
-                return@launch
-            }
-
             try {
                 // Locking the phone is a thing the user just did, so it interrupts
                 // a leftover animation rather than being skipped by it.

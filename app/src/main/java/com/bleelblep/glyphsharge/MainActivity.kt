@@ -33,7 +33,6 @@ import com.bleelblep.glyphsharge.glyph.GlyphFeature
 import com.bleelblep.glyphsharge.glyph.GlyphManager
 import com.bleelblep.glyphsharge.services.FeatureServiceController
 import com.bleelblep.glyphsharge.services.NfcGlyphService
-import com.bleelblep.glyphsharge.services.QuietHoursService
 import com.bleelblep.glyphsharge.tiles.MusicVisualizerTileService
 import com.bleelblep.glyphsharge.ui.navigation.GlyphNavHost
 import com.bleelblep.glyphsharge.ui.screens.applyLocale
@@ -124,7 +123,6 @@ class MainActivity : ComponentActivity() {
         configureWindow()
         initializeGlyphService()
         startEnabledFeatureServices()
-        startQuietHoursService()
         initializeNfcDispatch()
         setupUI()
         startPersistentGlyphService()
@@ -152,13 +150,28 @@ class MainActivity : ComponentActivity() {
         cancelRunningAnimations()
         if (!settingsRepository.getGlyphServiceEnabled()) {
             glyphAnimationManager.stopAnimations()
-            if (wasServiceEnabled) glyphManager.closeSession()
+            // The system Glyph service can be gone by the time this runs —
+            // the user may have switched the glyphs off through the phone's
+            // own settings — and `closeSession` throws in that case. A
+            // lifecycle callback must never throw, so the failure is only
+            // logged.
+            if (wasServiceEnabled) {
+                runCatching { glyphManager.closeSession() }
+                    .onFailure { Log.w(TAG, "Could not close the Glyph session", it) }
+            }
         }
     }
 
     override fun onResume() {
         super.onResume()
-        if (wasServiceEnabled) glyphManager.openSession()
+        // Same as `onStop`: the session can be refused when the glyphs were
+        // switched off through the phone's own settings, and `openSession`
+        // throws then. `maybeRestoreSession` below re-opens on its own terms,
+        // so a failure here is logged, not propagated.
+        if (wasServiceEnabled) {
+            runCatching { glyphManager.openSession() }
+                .onFailure { Log.w(TAG, "Could not open the Glyph session", it) }
+        }
         maybeRestoreSession()
         enableNfcForegroundDispatch()
         // A feature's own dialog may have changed its preference while the
@@ -228,15 +241,6 @@ class MainActivity : ComponentActivity() {
     /** Starts every feature service the user has switched on. */
     private fun startEnabledFeatureServices() {
         featureServiceController.startAllEnabled()
-    }
-
-    private fun startQuietHoursService() {
-        val intent = Intent(this, QuietHoursService::class.java)
-        if (settingsRepository.isQuietHoursEnabled()) {
-            startForegroundService(intent)
-        } else {
-            stopService(intent)
-        }
     }
 
     // Music capture consent

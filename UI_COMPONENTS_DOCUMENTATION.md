@@ -1509,7 +1509,6 @@ fun SettingsScreen(
     onBackClick: () -> Unit,
     onThemeSettingsClick: () -> Unit = {},
     onFontSettingsClick: () -> Unit = {},
-    onQuietHoursSettingsClick: () -> Unit = {},
     onLanguageSettingsClick: () -> Unit = {},
 ) {
     val fontState = LocalFontState.current
@@ -1914,7 +1913,7 @@ app/src/main/java/com/bleelblep/glyphsharge/
     │   └── Routes.kt (17 lines) - Route constants
     ├── screens/
     │   ├── SettingsScreen.kt, ThemeSettingsScreen.kt, FontSettingsScreen.kt,
-    │   │   QuietHoursSettingsScreen.kt, LanguageSettingsScreen.kt
+    │   │   LanguageSettingsScreen.kt
     │   ├── animations/AnimationListScreen.kt (289 lines) - Saved scripts
     │   ├── animations/AnimationEditorScreen.kt (424 lines) - Code, console, API reference
     │   └── home/HomeScreen.kt, home/HomeFeatures.kt (284 lines)

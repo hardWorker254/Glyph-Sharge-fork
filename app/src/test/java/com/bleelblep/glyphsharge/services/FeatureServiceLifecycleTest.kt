@@ -248,7 +248,6 @@ class FeatureServiceLifecycleTest {
             "WAKE_LOCK",
             "INTERNET",
             "ACCESS_NETWORK_STATE",
-            "SCHEDULE_EXACT_ALARM",
             "NFC",
         )
 
@@ -265,37 +264,4 @@ class FeatureServiceLifecycleTest {
         )
     }
 
-    @Test
-    fun `exact alarms are guarded`() {
-        // The crash: SecurityException out of onStartCommand on the main thread,
-        // whenever quiet hours was switched on and on every reboot with it
-        // enabled, because SCHEDULE_EXACT_ALARM is not granted at install
-        // since Android 14.
-        //
-        // The assertion is on the whole decision, not on the absence of one
-        // call: an exact alarm inside a runCatching with a setWindow fallback
-        // is correct, and a bare one is not.
-        val code = codeOf(File(servicesDir, "QuietHoursService.kt"))
-        val setAlarm = code.substringAfter("private fun setAlarm(")
-            .substringBefore("\n    private fun cancelAlarms")
-
-        assertTrue(
-            "the exact path must be behind a canScheduleExactAlarms() check",
-            setAlarm.contains("canScheduleExactAlarms()"),
-        )
-        assertTrue(
-            "the exact call itself must be wrapped, since a grant can be revoked " +
-                "between the check and the call",
-            (setAlarm.contains("runCatching {")) && (setAlarm.contains("setExactAndAllowWhileIdle(")),
-        )
-        assertTrue(
-            "there must be a permission-free fallback, or quiet hours silently stops " +
-                "being scheduled on a device without the grant",
-            setAlarm.contains("setWindow("),
-        )
-        assertFalse(
-            "setExactAndAllowWhileIdle must not be called anywhere but the guarded path",
-            code.substringBefore("private fun setAlarm(").contains("setExactAndAllowWhileIdle("),
-        )
-    }
 }

@@ -100,7 +100,6 @@ app/
 │   │   │   ├── LowBatteryAlertService.kt
 │   │   │   ├── PowerPeekService.kt
 │   │   │   ├── PulseLockService.kt
-│   │   │   ├── QuietHoursService.kt
 │   │   │   ├── ScreenOffGlyphService.kt
 │   │   │   ├── MusicVisualizerService.kt
 │   │   │   └── GlyphServiceSwitch.kt    # Главный переключатель: одно место для приложения и плитки
@@ -125,7 +124,7 @@ app/
 │   │   │
 │   │   ├── data/                  # Настройки: срезы + тонкий фасад
 │   │   │   ├── ThemeSettings.kt, FontSettings.kt, GlyphServiceSettings.kt
-│   │   │   ├── FeatureSettings.kt, QuietHoursSettings.kt, LanguageSettings.kt
+│   │   │   ├── FeatureSettings.kt, LanguageSettings.kt
 │   │   │   ├── UserPresenceSettings.kt
 │   │   │   ├── SettingsMigrations.kt, SettingsDiagnostics.kt
 │   │   │   ├── SettingsPrefs.kt   # Типизированные reified-хелперы чтения/записи
@@ -249,9 +248,6 @@ profile?.c        // центральная C-полоса — основа дл
 
 ### ScreenOffGlyphService
 Сервис для активации глифов при выключенном экране (уведомления, будильники).
-
-### QuietHoursService
-Сервис для режима "Тихие часы" — отключение уведомлений в заданное время.
 
 ### Плитки быстрых настроек
 
@@ -382,9 +378,6 @@ LinearWavyProgressIndicator(
 
 #### LanguageSettingsScreen
 Экран выбора языка приложения.
-
-#### QuietHoursSettingsScreen
-Экран настройки режима "Тихие часы".
 
 ---
 

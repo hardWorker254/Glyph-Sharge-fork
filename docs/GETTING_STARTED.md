@@ -153,7 +153,6 @@ glyphManager.closeSession()
    - Зарядка (Charging Animation)
    - NFC (NfcGlyphService)
    - Power Peek (встряхивание)
-   - Quiet Hours
    - И т.д.
 
 

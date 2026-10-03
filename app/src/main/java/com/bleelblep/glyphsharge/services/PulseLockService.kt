@@ -184,12 +184,6 @@ class PulseLockService : FeatureService() {
                 return@launch
             }
 
-            if (settingsRepository.isCurrentlyInQuietHours()) {
-                Log.d(TAG, "Quiet hours active – skipping sequence")
-                runTrace.record(FEATURE, "skip", "quiet hours")
-                return@launch
-            }
-
             try {
                 // An unlock is something the user just did, so it interrupts
                 // whatever is still playing — usually the screen-off animation,
