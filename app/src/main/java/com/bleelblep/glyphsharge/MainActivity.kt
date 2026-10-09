@@ -119,6 +119,7 @@ class MainActivity : ComponentActivity() {
 
         registerMusicCaptureLaunchers()
         watchMusicCaptureRequests()
+        watchMessages()
 
         configureWindow()
         initializeGlyphService()
@@ -195,6 +196,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         cancelRunningAnimations()
+        // The session listener is a lambda over *this* Activity, and
+        // `GlyphManager` is a `@Singleton` — it outlives every Activity, so a
+        // callback left installed keeps each destroyed one reachable, and calls
+        // `maybeRestoreSession()` on a window that is already gone. Cleared
+        // here, unconditionally: the next Activity installs its own in
+        // `initializeGlyphService()`.
+        glyphManager.onSessionStateChanged = null
         if (!settingsRepository.getGlyphServiceEnabled()) glyphManager.cleanup()
         super.onDestroy()
     }
@@ -300,6 +308,25 @@ class MainActivity : ComponentActivity() {
             // in the channel while this is not running.
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 homeViewModel.musicCaptureRequests.collect { requestMusicCapture() }
+            }
+        }
+    }
+
+    /**
+     * Drains the ViewModel's one-shot strings into a Toast.
+     *
+     * The channel existed and `emit()` filled it, but nothing ever read it:
+     * the feature toggles, the service start/stop lines and the visualiser's
+     * consent answers were all queued and dropped. Same lifecycle rule as the
+     * requests above — a Toast needs a window, so STARTED rather than CREATED,
+     * and messages raised before that stay buffered in the channel.
+     */
+    private fun watchMessages() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                homeViewModel.messages.collect { message ->
+                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }

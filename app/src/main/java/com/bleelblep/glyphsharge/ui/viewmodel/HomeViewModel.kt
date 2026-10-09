@@ -121,6 +121,22 @@ class HomeViewModel @Inject constructor(
         nfcDispatchHook = hook
     }
 
+    /**
+     * The last reference dropped with the screen.
+     *
+     * The hook is a bound method of `MainActivity`, and a hook kept past the
+     * Activity that installed it is a hook calling into a destroyed window —
+     * `enableForegroundDispatch` on a dead Activity is the kind of failure that
+     * only shows up on some device. `onCleared` covers the finishing case; a
+     * configuration change keeps the ViewModel alive, so there the old hook
+     * stands until the new `onCreate` replaces it, which is why installation
+     * happens unconditionally on every create rather than once.
+     */
+    override fun onCleared() {
+        nfcDispatchHook = null
+        super.onCleared()
+    }
+
     private var nfcDispatchHook: ((Boolean) -> Unit)? = null
 
     private val _isNothingPhone = glyphManager.isNothingPhone()
@@ -291,8 +307,9 @@ class HomeViewModel @Inject constructor(
      * fails with "Media projections require a foreground service".
      *
      * The flag is set before the service is asked, so the card matches what is
-     * happening; if the capture then fails, the service says why in its
-     * notification rather than leaving a silent lie on screen.
+     * happening; if the capture then fails, the service logs why and stops
+     * rather than leaving a silent lie on screen — there is no notification to
+     * say it in, because the app never asks for POST_NOTIFICATIONS.
      *
      * @return `true` when the visualiser is now on, which is what lets the
      *   Activity that only opened to ask close itself again.
