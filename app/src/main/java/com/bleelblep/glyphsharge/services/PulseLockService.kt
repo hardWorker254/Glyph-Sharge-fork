@@ -253,12 +253,4 @@ class PulseLockService : FeatureService() {
             .setSmallIcon(R.drawable._44)
             .setOngoing(true)
             .build()
-
-    override fun buildNotification(text: String): Notification =
-        NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
-            .setContentTitle(getString(R.string.pulse_lock_notification_title))
-            .setContentText(text)
-            .setSmallIcon(R.drawable._44)
-            .setOngoing(true)
-            .build()
 }

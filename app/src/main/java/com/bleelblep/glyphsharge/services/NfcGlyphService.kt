@@ -264,12 +264,9 @@ class NfcGlyphService : FeatureService() {
     // Notification
 
     override fun buildNotification(): Notification =
-        buildNotification(getString(R.string.nfc_glyph_notif_text))
-
-    override fun buildNotification(text: String): Notification =
         NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
             .setContentTitle(getString(R.string.nfc_glyph_notif_title))
-            .setContentText(text)
+            .setContentText(getString(R.string.nfc_glyph_notif_text))
             .setSmallIcon(R.drawable._44)
             .setOngoing(true)
             .build()

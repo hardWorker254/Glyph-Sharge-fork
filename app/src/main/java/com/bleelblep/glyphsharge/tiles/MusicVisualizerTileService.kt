@@ -133,7 +133,7 @@ class MusicVisualizerTileService : TileService() {
                 Log.e(TAG, "Music visualiser tile toggle failed", e)
                 Toast.makeText(
                     this@MusicVisualizerTileService,
-                    R.string.music_viz_notif_failed,
+                    R.string.music_viz_toast_failed,
                     Toast.LENGTH_SHORT,
                 ).show()
             } finally {

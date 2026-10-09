@@ -18,7 +18,6 @@ import com.bleelblep.glyphsharge.glyph.audio.AudioAnalyzer
 import com.bleelblep.glyphsharge.glyph.audio.AudioFrame
 import com.bleelblep.glyphsharge.glyph.audio.AudioFrameFeed
 import com.bleelblep.glyphsharge.glyph.audio.CaptureStatus
-import com.bleelblep.glyphsharge.glyph.audio.MusicVisualizationMode
 import com.bleelblep.glyphsharge.glyph.audio.PlaybackAudioSource
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -189,8 +188,8 @@ class MusicVisualizerService : FeatureService() {
      * A `MediaProjection` token can only be obtained from an Activity result,
      * so the Activity asks for consent and hands the token over; by the time
      * this service runs, the choice has already been made. What the service
-     * owns is the reaction to it — drawing while frames arrive, and saying out
-     * loud why it is not when they do not.
+     * owns is the reaction to it — drawing while frames arrive, and logging
+     * why it is not when they do not.
      */
     private fun startWatching() {
         if (watchJob?.isActive == true) return
@@ -224,27 +223,22 @@ class MusicVisualizerService : FeatureService() {
                 source.isSwapping -> delay(IDLE_POLL_MS.milliseconds)
                 !source.isCapturing && !tryLegacyFallback() -> {
                     // No capture, and none will appear on its own: a token
-                    // cannot be fetched from here. Say why, and stop polling.
-                    showNotification(getString(captureProblemText(source.status.value)))
+                    // cannot be fetched from here. The reason goes to the log —
+                    // the app never asks for POST_NOTIFICATIONS, so a
+                    // notification would not be seen anyway — and the loop
+                    // stops, because nothing here will change on its own.
+                    Log.i(TAG, "Capture is not running (${source.status.value}); stopping the watch")
                     return
                 }
-                !screenAllowsVisualization() -> {
-                    showNotification(getString(R.string.music_viz_notif_screen_on))
-                    delay(IDLE_POLL_MS.milliseconds)
-                }
+                !screenAllowsVisualization() -> delay(IDLE_POLL_MS.milliseconds)
                 isMusicPlaying() -> drawInSlices()
-                else -> {
-                    showNotification(getString(R.string.music_viz_notif_waiting))
-                    delay(IDLE_POLL_MS.milliseconds)
-                }
+                else -> delay(IDLE_POLL_MS.milliseconds)
             }
         }
     }
 
     /** Paints until something stops us, handing the strip over between slices. */
     private suspend fun CoroutineScope.drawInSlices() {
-        showNotification(getString(R.string.music_viz_notif_playing, currentModeLabel()))
-
         while (isActive && !shouldStop() && screenAllowsVisualization() && isMusicPlaying()) {
             // A busy strip — `withStrip` returns null without running the block —
             // is treated exactly like a finished slice: either way the visualiser
@@ -307,35 +301,10 @@ class MusicVisualizerService : FeatureService() {
 
     // region Notification
 
-    /**
-     * The message for a capture that is not running.
-     *
-     * Each state asks for something different, so each gets its own words.
-     * [CaptureStatus.FAILED] deliberately does not guess: "could not be
-     * started" is the truth, and a message that claimed to know why would be
-     * wrong at least as often as right.
-     */
-    private fun captureProblemText(status: CaptureStatus): Int = when (status) {
-        CaptureStatus.NO_PERMISSION -> R.string.music_viz_notif_no_permission
-        CaptureStatus.NEEDS_CONSENT -> R.string.music_viz_notif_needs_consent
-        CaptureStatus.TOKEN_REVOKED -> R.string.music_viz_notif_token_revoked
-        else -> R.string.music_viz_notif_failed
-    }
-
-    /** The mode name, or the feature name when a script is selected. */
-    private fun currentModeLabel(): String {
-        val mode = MusicVisualizationMode.of(settingsRepository.getMusicVizAnimationId())
-            ?: return getString(R.string.music_viz_title)
-        return mode.displayName
-    }
-
     override fun buildNotification(): Notification =
-        buildNotification(getString(R.string.music_viz_notif_waiting))
-
-    override fun buildNotification(text: String): Notification =
         NotificationCompat.Builder(this, NOTIF_CHANNEL_ID)
             .setContentTitle(getString(R.string.music_viz_notif_title))
-            .setContentText(text)
+            .setContentText(getString(R.string.music_viz_notif_text))
             .setSmallIcon(R.drawable._44)
             .setOngoing(true)
             .setSilent(true)

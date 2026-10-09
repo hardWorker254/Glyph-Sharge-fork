@@ -473,18 +473,12 @@
     <string name="music_viz_toast">Сначала включите сервис глифов</string>
     <string name="music_viz_permission_denied">Разрешение не выдано. Без него визуализация не услышит звук.</string>
 
-    <!-- Music Visualizer: notification -->
+    <!-- Music Visualizer: уведомление FGS — формальность платформы, приложение
+         не запрашивает POST_NOTIFICATIONS, его никто не видит. Один статичный текст. -->
     <string name="music_viz_channel_name">Музыкальная визуализация</string>
     <string name="music_viz_notif_title">🎵 Музыкальная визуализация включена</string>
-    <string name="music_viz_notif_waiting">Ожидание музыки…</string>
-    <string name="music_viz_notif_playing">Режим: %1$s</string>
-    <string name="music_viz_notif_no_permission">Нет разрешения на микрофон — выдайте его в настройках</string>
-    <string name="music_viz_notif_unsupported">Этот телефон не умеет захватывать звук</string>
-    <string name="music_viz_notif_failed">Не удалось запустить захват звука</string>
-    <string name="music_viz_notif_screen_on">Пауза: ждём, пока выключится экран</string>
-    <string name="music_viz_notif_needs_consent">Ждём подтверждения захвата в приложении</string>
-    <string name="music_viz_notif_token_revoked">Захват остановлен системой — откройте приложение, чтобы продолжить</string>
-    <string name="music_viz_notif_action_allow">Разрешить захват</string>
+    <string name="music_viz_notif_text">Реагирует на играющую музыку</string>
+    <string name="music_viz_toast_failed">Не удалось запустить захват звука</string>
     <string name="music_viz_consent_denied">Захват не подтверждён — визуализации нужно ваше разрешение читать играющую музыку</string>
 
     <!-- Animation studio: script target -->

@@ -109,15 +109,6 @@ abstract class FeatureService : Service() {
     protected open fun bypassesRunGate(intent: Intent?): Boolean = false
 
     /**
-     * The last notification text posted, so an unchanged one is not rebuilt.
-     *
-     * A visualiser that polls whether music is playing every 500 ms would
-     * otherwise rebuild and re-post an identical notification on every poll,
-     * and `startForeground` is a binder call each time.
-     */
-    private var lastNotificationText: String? = null
-
-    /**
      * The channel's name, as a resource.
      *
      * A resource rather than a string because a notification channel's name is
@@ -207,7 +198,7 @@ abstract class FeatureService : Service() {
         if (bypassesRunGate(intent)) return onStartCommandAfterGate(intent)
 
         // A service that starts while its switch is off registers no trigger
-        // and sits there with a notification the user cannot explain.
+        // and just sits there burning a WakeLock for nothing.
         if (!isRunnable) {
             Log.i(tag, "Not runnable; shutting down")
             shutDown()
@@ -266,7 +257,7 @@ abstract class FeatureService : Service() {
      * Restarts the service when the user swipes the app away.
      *
      * Gated, because restarting a service whose feature is off resurrects a
-     * notification and a WakeLock for nothing.
+     * WakeLock for nothing.
      */
     final override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
@@ -289,26 +280,15 @@ abstract class FeatureService : Service() {
     // region Notification
 
     /**
-     * The ongoing notification this feature shows while it waits for its trigger.
+     * The notification [startForeground] requires, and nothing more.
      *
-     * Open because the text is the feature's business; the shape is not.
+     * The app deliberately never asks for `POST_NOTIFICATIONS`, so this
+     * notification is never seen by the user: it exists only because a
+     * foreground service must hand the platform one within five seconds of
+     * being started. There is therefore no per-state text — a notification
+     * whose every word is invisible does not get an API for changing it.
      */
     protected abstract fun buildNotification(): Notification
-
-    /**
-     * Re-posts the notification with new text, leaving the service foregrounded.
-     *
-     * Skipped when the text has not changed: the polling loops above call this
-     * several times a second, and `startForeground` is a binder call each time.
-     */
-    protected fun showNotification(text: String) {
-        if (text == lastNotificationText) return
-        lastNotificationText = text
-        startForegroundCompat(buildNotification(text))
-    }
-
-    /** The notification with the same shape and different text. */
-    protected abstract fun buildNotification(text: String): Notification
 
     private fun createNotificationChannel() {
         val channel = NotificationChannel(

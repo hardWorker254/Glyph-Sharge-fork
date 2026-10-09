@@ -535,18 +535,12 @@
     <string name="music_viz_toast">Please enable the Glyph service first</string>
     <string name="music_viz_permission_denied">Permission denied. The visualiser cannot read the audio without it.</string>
 
-    <!-- Music Visualizer: notification -->
+    <!-- Music Visualizer: the FGS notification is a platform formality — the app
+         never asks for POST_NOTIFICATIONS, so nobody sees it. One static text. -->
     <string name="music_viz_channel_name">Music visualiser</string>
     <string name="music_viz_notif_title">🎵 Music Visualizer Active</string>
-    <string name="music_viz_notif_waiting">Waiting for music…</string>
-    <string name="music_viz_notif_playing">Reacting as %1$s</string>
-    <string name="music_viz_notif_no_permission">The microphone permission is missing — tap Settings to grant it</string>
-    <string name="music_viz_notif_unsupported">This phone cannot capture the audio output</string>
-    <string name="music_viz_notif_failed">The audio capture could not be started</string>
-    <string name="music_viz_notif_screen_on">Paused: waiting for the screen to turn off</string>
-    <string name="music_viz_notif_needs_consent">Waiting for you to confirm the capture in the app</string>
-    <string name="music_viz_notif_token_revoked">Capture was stopped from the system — reopen the app to continue</string>
-    <string name="music_viz_notif_action_allow">Allow capture</string>
+    <string name="music_viz_notif_text">Reacting to the music that is playing</string>
+    <string name="music_viz_toast_failed">The audio capture could not be started</string>
     <string name="music_viz_consent_denied">Capture not confirmed — the visualiser needs your approval to read the music that is playing</string>
 
     <!-- Animation studio: script target -->
