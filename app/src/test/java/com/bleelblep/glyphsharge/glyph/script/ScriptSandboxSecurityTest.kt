@@ -250,6 +250,79 @@ class ScriptSandboxSecurityTest {
     }
 
     /**
+     * …and it must be *reported*, not merely survived.
+     *
+     * This used to be the same assertion as above and nothing more, which
+     * passed while the truth was worse than a crash: the chunk ran on a
+     * `LuaThread`, whose `State.run` catches `Throwable` and stores
+     * `t.getMessage()` — and `StackOverflowError` has no message, so the
+     * coroutine reported success. The engine returned `COMPLETED`, the studio
+     * told the author their runaway script worked, and the only trace was a
+     * logcat line.
+     *
+     * The engine now runs the chunk on the calling thread, so the `Error`
+     * reaches the branch written for it.
+     */
+    @Test
+    fun `deep recursion is reported as a failure`() {
+        val result = run("local f; f = function() return 1 + f() end f()", 5_000L)
+
+        assertEquals(
+            "a stack overflow was reported as ${result.status}: ${result.message}",
+            ScriptStatus.RUNTIME_ERROR,
+            result.status,
+        )
+    }
+
+    /**
+     * The string metatable, which is the one piece of LuaJ state the sandbox
+     * list cannot reach by name.
+     *
+     * `LuaString.s_metatable` is a JVM static shared by every `Globals` in the
+     * process, and `getmetatable("")` hands it to a script as an ordinary
+     * table. One script writing `__index = nil` there did not merely break its
+     * own strings — it broke them for the studio, the store preview and every
+     * later animation, for as long as the process lived. Nothing in
+     * `BANNED_GLOBALS` could stop it, because it is not a global.
+     *
+     * The engine installs a per-sandbox copy behind a `__metatable` lock, and
+     * this checks both halves of that: the lock, and that string methods still
+     * resolve through the copy.
+     */
+    @Test
+    fun `the shared string metatable cannot be reached or poisoned`() {
+        // String methods still work — the copy has to serve `("x"):upper()`.
+        val methodsWork = run("""assert(#("abc"):upper() == 3, "string methods are gone")""")
+        assertEquals(methodsWork.message, ScriptStatus.COMPLETED, methodsWork.status)
+
+        // `getmetatable` is locked: it returns the lock value, not the table,
+        // so there is nothing to write through. The write is attempted anyway,
+        // because the assertion that matters is what the attempt *did*.
+        //
+        // It is refused rather than merely harmless: the lock is a string, and
+        // a string's metatable carries no `__newindex`, so the assignment
+        // raises and `pcall` reports `false`. Asserting the refusal pins
+        // luaj's current behaviour; the run below is what would still catch a
+        // regression if a future version changed it to "accepted and
+        // discarded".
+        val locked = run(
+            """
+            local mt = getmetatable("")
+            assert(mt ~= "a table", 'getmetatable("") handed back the real metatable')
+            assert(type(mt) == "string", "the lock must be the string the engine set")
+            local ok = pcall(function() mt.__index = nil end)
+            assert(not ok, "writing through the lock was accepted")
+            """.trimIndent(),
+        )
+        assertEquals(locked.message, ScriptStatus.COMPLETED, locked.status)
+
+        // And the write did not reach the process-wide table: a *fresh* run,
+        // which is a fresh sandbox, still resolves its string methods.
+        val survived = run("""assert(("abc"):upper() == "ABC", "strings died after the probe")""")
+        assertEquals(survived.message, ScriptStatus.COMPLETED, survived.status)
+    }
+
+    /**
      * An error thrown from a metamethod is still an error the engine turns into
      * a result. It is the shape a malicious file most likely takes to probe
      * for a way past the result wrapper.

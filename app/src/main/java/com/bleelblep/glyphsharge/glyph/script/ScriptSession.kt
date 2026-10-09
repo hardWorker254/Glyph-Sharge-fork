@@ -507,10 +507,15 @@ internal class ScriptSession(
     /**
      * Maps whatever ended the run onto a result the studio can show.
      *
-     * @param outcome what `LuaThread.resume` returned: `false, message` when
-     *   the script raised, and a truthy value on a clean finish.
+     * @param elapsedMs how long the run lasted. There is no `outcome`
+     *   parameter any more, and there used to be: the engine handed back what
+     *   `LuaThread.resume` returned, a `false, message` pair when the script
+     *   raised. The chunk now runs on the calling thread, so a raise arrives
+     *   as a thrown `LuaError` and is turned into a result by the engine's own
+     *   `catch` — a second channel for the same fact would only be a second
+     *   place for the two to disagree.
      */
-    fun result(outcome: Varargs?, elapsedMs: Long): ScriptRunResult {
+    fun result(elapsedMs: Long): ScriptRunResult {
         watchdogReason()?.let { reason ->
             return when (abortKind ?: AbortKind.STOPPED) {
                 // A script that ran out of memory is reported as a timeout,
@@ -526,15 +531,11 @@ internal class ScriptSession(
             }
         }
 
-        if (scriptFinished) {
-            return ScriptRunResult(ScriptStatus.COMPLETED, null, frames, elapsedMs, declaredTarget)
-        }
-
-        if ((outcome != null) && outcome.arg1().isboolean() && !outcome.arg1().toboolean()) {
-            val message = outcome.arg(2).tojstring().ifBlank { "unknown Lua error" }
-            return ScriptRunResult(ScriptStatus.RUNTIME_ERROR, message, frames, elapsedMs, declaredTarget)
-        }
-
+        // No branch for "the script raised": a raise is a thrown `LuaError`
+        // and never reaches here. Reaching the end without a watchdog reason
+        // and without an exception means the chunk ran to its last line, so
+        // `scriptFinished` — set only by `glyph.exit()` — is not required for
+        // the run to count as completed.
         return ScriptRunResult(ScriptStatus.COMPLETED, null, frames, elapsedMs, declaredTarget)
     }
 }

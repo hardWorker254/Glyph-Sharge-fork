@@ -9,7 +9,8 @@ import com.bleelblep.glyphsharge.glyph.sensor.SensorSnapshot
 import com.bleelblep.glyphsharge.glyph.script.module.ModuleRegistry
 import com.bleelblep.glyphsharge.glyph.script.module.ModuleSourceScan
 import org.luaj.vm2.Globals
-import org.luaj.vm2.LuaThread
+import org.luaj.vm2.LuaString
+import org.luaj.vm2.LuaTable
 import org.luaj.vm2.LuaValue
 import org.luaj.vm2.lib.DebugLib
 import org.luaj.vm2.lib.jse.JsePlatform
@@ -168,9 +169,13 @@ interface GlyphScriptHost {
  * Raised inside the VM when a script must stop: the user pressed stop, the
  * duration elapsed, or `glyph.exit()` was called.
  *
- * A [Error] rather than an [Exception] on purpose — LuaJ converts it at the
- * `LuaThread.resume` boundary, so a script cannot swallow it with `pcall` and
- * keep burning CPU.
+ * A [Error] rather than an [Exception] on purpose, and the reason is one line
+ * of LuaJ's own `BaseLib.pcall`: it catches `LuaError` and `Exception`, and
+ * nothing else. An `Error` therefore walks straight through a `pcall`, so a
+ * script cannot wrap its spin loop in one and keep burning CPU. No boundary
+ * in `LuaThread` is involved — a note here once claimed it was, and it was
+ * wrong: `LuaThread.State.run` catches `Throwable`, which is the opposite of
+ * protection, and is why the engine now runs the chunk on the calling thread.
  */
 internal class ScriptAbortedError(message: String) : Error(message)
 
@@ -194,6 +199,12 @@ internal class ScriptAbortedError(message: String) : Error(message)
  * | `coroutine` | hook state lives on the thread, so a fresh coroutine would run unchecked |
  * | `collectgarbage` | lets a script stall the VM |
  * | `debug` | a script could call `debug.sethook()` and remove the watchdog |
+ *
+ * One thing is added back, because it was never in that table to begin with:
+ * the string metatable. LuaJ keeps it in a JVM static shared by every
+ * `Globals` in the process, so `getmetatable("")` reached it from *any* script
+ * without touching a single global above. [isolateStringMetatable] replaces it
+ * with a per-sandbox copy behind a `__metatable` lock.
  *
  * `DebugLib` itself *is* loaded, because without it no hook can fire at all.
  * The library is installed, the watchdog hook is attached, and the table is
@@ -251,6 +262,13 @@ class LuaScriptEngine(
 
         /** How often the watchdog runs, in VM instructions. */
         const val INSTRUCTION_INTERVAL = 20_000
+
+        /**
+         * The value `__metatable` carries, so `getmetatable("")` hands a script
+         * this string instead of the real table. Chosen as a string a script
+         * has no use for; the value itself is never read.
+         */
+        const val STRING_METATABLE_LOCK = "glyph.string.protected"
 
         /** Fallback run length when no duration was supplied. */
         const val DEFAULT_DURATION_MS = 5_000L
@@ -323,8 +341,8 @@ class LuaScriptEngine(
         val wrapped = WRAPPER_OPEN + source + "\n" + WRAPPER_CLOSE
         val chunk = try {
             // `Globals.load` compiles and returns the closure without running
-            // it, which is what lets the watchdog hook be attached to the
-            // thread before a single instruction executes.
+            // it, which is what lets the watchdog hook be attached before a
+            // single instruction executes.
             env.globals.load(wrapped, "=glyph-animation")
         } catch (e: Exception) {
             Log.w(TAG, "Script rejected by the parser: ${e.message}")
@@ -335,14 +353,27 @@ class LuaScriptEngine(
             )
         }
 
-        val thread = LuaThread(env.globals, chunk)
-        installWatchdog(thread, current)
+        installWatchdog(env.globals, current)
 
         return try {
-            val outcome = thread.resume(LuaValue.NIL)
-            current.result(outcome, now() - startedAt).withScriptLog(current)
+            // The chunk runs on the calling thread, and the KDoc on
+            // [ScriptAbortedError] used to claim that the `LuaThread.resume`
+            // boundary is what stops `pcall` from swallowing it. It is not:
+            // `pcall` catches `LuaError` and `Exception`, never `Error`, so the
+            // abort was never at risk. What the boundary *did* do was hide
+            // every other `Error`. `LuaThread.State.run` catches `Throwable`
+            // and reports `t.getMessage()` — and a `StackOverflowError` from a
+            // deeply recursive script has no message at all, so the coroutine
+            // reported success. A script that exhausted the stack came back as
+            // `COMPLETED`, and the studio would tell its author it worked.
+            //
+            // Running here instead means the VM's `Error`s reach the `catch`
+            // branches below, which is where they were always meant to be
+            // handled, and it drops a Java thread per run besides.
+            chunk.call()
+            current.result(now() - startedAt).withScriptLog(current)
         } catch (_: ScriptAbortedError) {
-            current.result(null, now() - startedAt).withScriptLog(current)
+            current.result(now() - startedAt).withScriptLog(current)
         } catch (e: Exception) {
             Log.e(TAG, "Script run failed", e)
             ScriptRunResult(
@@ -483,6 +514,8 @@ class LuaScriptEngine(
 
         BANNED_GLOBALS.forEach { globals[it] = LuaValue.NIL }
 
+        isolateStringMetatable(globals)
+
         GlyphLuaApi.install(globals, current)
 
         // Our own `require`, installed over the blank the loop above left: it
@@ -506,23 +539,85 @@ class LuaScriptEngine(
     }
 
     /**
-     * Arms the watchdog on [thread].
+     * Takes the string metatable away from the process.
+     *
+     * LuaJ keeps one metatable for every string in the JVM, in the static field
+     * [LuaString.s_metatable], and `getmetatable("")` hands it straight to a
+     * script as an ordinary table. Nothing in the sandbox list can reach it,
+     * because it is not a global — but it does not have to be.
+     *
+     * Two things go wrong because of that, and both are silent:
+     *
+     *  * The table is **shared by every sandbox in the app**. One script's
+     *    `getmetatable("").__index = nil` does not merely break its own
+     *    strings; it breaks them for the studio, for the store preview and for
+     *    the next animation, for as long as the process lives. A downloaded
+     *    file can therefore vandalise every other script on the phone.
+     *  * It stays reachable after `BANNED_GLOBALS` is applied, so the list
+     *    reads as "nothing mutable is shared" when one thing is.
+     *
+     * The replacement is a snapshot of this globals' own `string` table, so
+     * `("abc"):upper()` keeps working exactly as the standard library intends,
+     * plus a `__metatable` field. That field is the whole defence: `getmetatable`
+     * returns the field's value rather than the table, so the script is handed a
+     * string and never the object, and `setmetatable` refuses to replace a
+     * metatable that carries one. There is no handle left to mutate, and the
+     * live `string` global is a different table from the snapshot, so writing
+     * `string.upper = nil` reaches only the caller's own globals.
+     */
+    private fun isolateStringMetatable(globals: Globals) {
+        // Two tables, and the shape is LuaJ's own — `StringLib` builds exactly
+        // `{ __index = <the string library> }`. The first is a *copy* of this
+        // globals' library: `("x"):upper()` is resolved through `__index`, so
+        // the copy has to hold the same functions for string methods to keep
+        // working. Copying rather than reusing matters because the live
+        // `string` global stays reachable to the script, and a shared table
+        // would mean `string.upper = nil` reached every sandbox in the app.
+        val index = LuaTable()
+        // `standardGlobals` installs the library itself, so this is a table in
+        // practice; the cast is what the compiler needs, and skipping is the
+        // right answer if some future platform build does not install it —
+        // strings would then keep working with no `__index` at all, which is
+        // Lua's own behaviour for a string with no metatable.
+        val library = globals["string"] as? LuaTable
+        if (library != null) {
+            for (key in library.keys()) index[key] = library[key]
+        }
+
+        val metatable = LuaTable()
+        metatable[LuaValue.INDEX] = index
+        // The lock. `getmetatable` returns this field's value instead of the
+        // table, so a script is handed a string and never the object, and
+        // `setmetatable` refuses to replace a metatable that carries one. Both
+        // come from `BaseLib`, and both are why the shared static is now
+        // unreachable rather than merely unlikely to be touched.
+        metatable[LuaValue.METATABLE] = LuaValue.valueOf(STRING_METATABLE_LOCK)
+        LuaString.s_metatable = metatable
+    }
+
+    /**
+     * Arms the watchdog on [globals]' running thread.
      *
      * The hook state is written straight onto the thread rather than through
      * `debug.sethook`, because that table has just been hidden from the script
-     * — and because the VM reads `hookfunc`/`hookcount` from the running
-     * thread's state on every instruction anyway.
+     * — and because the VM reads `hookfunc`/`hookcount` off
+     * `globals.running.state` on every instruction anyway, so that is the only
+     * place the hook can be armed from.
      *
      * The hook throws a [ScriptAbortedError] rather than a Lua error: a Lua
      * error is catchable from inside the script, so `pcall` would swallow it
-     * and the loop would keep running.
+     * and the loop would keep running. [ScriptAbortedError] is an `Error`,
+     * which `pcall` does not catch — `LuaThread.resume` has nothing to do with
+     * it, as `BaseLib.pcall` shows: it handles `LuaError` and `Exception` and
+     * lets every other `Throwable` through.
      */
-    private fun installWatchdog(thread: LuaThread, current: ScriptSession) {
-        thread.state.hookfunc = GlyphLuaApi.luaFunction("watchdog") {
+    private fun installWatchdog(globals: Globals, current: ScriptSession) {
+        val state = globals.running.state
+        state.hookfunc = GlyphLuaApi.luaFunction("watchdog") {
             current.watchdogReason()?.let { throw ScriptAbortedError(it) }
             LuaValue.NIL
         }
-        thread.state.hookcount = INSTRUCTION_INTERVAL
+        state.hookcount = INSTRUCTION_INTERVAL
     }
 
     // endregion
