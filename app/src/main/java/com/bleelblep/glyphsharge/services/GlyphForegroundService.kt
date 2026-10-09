@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.glyph.GlyphFeatureCoordinator
@@ -69,10 +70,16 @@ class GlyphForegroundService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // Self-restart only if the user still has Glyph Service enabled
+        // Self-restart only if the user still has Glyph Service enabled.
+        //
+        // Guarded, and the guard is the whole point: `onDestroy` restarts this
+        // service, and the start can be refused from the background on a
+        // platform that no longer allows it — an exception out of `onDestroy`
+        // is an uncaught crash rather than a cleanup failure.
         if (settingsRepository.getGlyphServiceEnabled()) {
             val intent = Intent(this, GlyphForegroundService::class.java)
-            startForegroundService(intent)
+            runCatching { startForegroundService(intent) }
+                .onFailure { Log.e(TAG, "Self-restart refused", it) }
         }
     }
 
@@ -96,6 +103,7 @@ class GlyphForegroundService : Service() {
             .build()
 
     companion object {
+        private const val TAG            = "GlyphForegroundService"
         private const val NOTIFICATION_ID = 4242
         private const val CHANNEL_ID      = "GlyphForegroundServiceChannel"
     }

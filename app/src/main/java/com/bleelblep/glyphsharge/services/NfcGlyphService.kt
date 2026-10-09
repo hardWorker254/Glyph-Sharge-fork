@@ -199,7 +199,13 @@ class NfcGlyphService : FeatureService() {
             this,
             nfcTransactionReceiver,
             filter,
-            ContextCompat.RECEIVER_NOT_EXPORTED,
+            // EXPORTED, and deliberately so: `ACTION_TRANSACTION_DETECTED` is
+            // sent by the system NFC stack (`com.android.nfc`), which is
+            // another UID. With RECEIVER_NOT_EXPORTED the platform drops that
+            // broadcast before it reaches us, silently — the service would sit
+            // registered and never fire. This is the same reason
+            // ChargingAnimationService registers its charger receiver exported.
+            ContextCompat.RECEIVER_EXPORTED,
         )
     }
 

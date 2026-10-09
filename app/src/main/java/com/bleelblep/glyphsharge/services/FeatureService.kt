@@ -264,9 +264,14 @@ abstract class FeatureService : Service() {
         if (!restartsOnTaskRemoval) return
         if (!isRunnable) return
 
-        startForegroundService(
-            Intent(this, javaClass).apply { action = startAction },
-        )
+        // Guarded, like every other background start in the project: on
+        // Android 12+ this can throw `ForegroundServiceStartNotAllowedException`,
+        // and an exception out of `onTaskRemoved` is an uncaught crash.
+        runCatching {
+            startForegroundService(
+                Intent(this, javaClass).apply { action = startAction },
+            )
+        }.onFailure { Log.e(tag, "Restart after task removal refused", it) }
     }
 
     /** Ends the service. Overridable only to do more before this. */
