@@ -234,6 +234,29 @@ class GlyphAnimationManager @Inject constructor(
     }
 
     /**
+     * Stops a running script and nothing else.
+     *
+     * The studio's Stop button used [stopAnimations], which is wrong for it in
+     * a way its own KDoc names: `stopAll` is the preempting side, and a
+     * *holder's* teardown that goes through it "will take the next owner down
+     * with it". The preview is a holder — [ScriptPlayback.previewScript] takes
+     * the strip with `preempt = false` and [ScriptPlayback.playScript] wraps it
+     * in a lease — so its button could blank a strip it did not hold: a charge
+     * animation, the music visualiser, whatever a feature service had started
+     * in the moment between the preview giving the strip back and the tap.
+     *
+     * What a script actually needs to end is [ScriptRunner.stop]: it sets the
+     * session's external-stop flag, which the watchdog picks up at the next
+     * instruction tick. The lease release and the blanking are already
+     * `playScript`'s `finally`, and they run the moment the coroutine unwinds —
+     * releasing through the lease rather than clearing the holder is exactly
+     * the distinction this method exists to preserve.
+     */
+    fun stopScript() {
+        scriptRunner.stop()
+    }
+
+    /**
      * Runs [block] on a dispatcher of its own, for at most [capMs], and stops it
      * when the cap expires.
      *

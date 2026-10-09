@@ -280,7 +280,12 @@ class AnimationStudioViewModel @Inject constructor(
     private fun stopGlyph() {
         glyphJob?.cancel()
         glyphJob = null
-        glyphAnimationManager.stopAnimations()
+        // Not `stopAnimations()`: the preview is a *holder* of the strip, and
+        // the manager's preempting stop clears the holder outright — which
+        // would stop whatever a feature service had taken the strip for. The
+        // script ends on this call, and `playScript`'s own `finally` releases
+        // the lease and blanks the strip, as a holder's teardown should.
+        glyphAnimationManager.stopScript()
     }
 
     /**
