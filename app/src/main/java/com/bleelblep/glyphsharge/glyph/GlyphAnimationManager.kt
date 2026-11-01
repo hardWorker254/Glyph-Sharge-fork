@@ -2,19 +2,17 @@ package com.bleelblep.glyphsharge.glyph
 
 import android.content.Context
 import android.util.Log
-import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.glyph.animations.AnimationRunner
 import com.bleelblep.glyphsharge.glyph.animations.BuiltInAnimations
 import com.bleelblep.glyphsharge.glyph.audio.MusicVisualisation
 import com.bleelblep.glyphsharge.glyph.audio.MusicVisualizationMode
-import com.bleelblep.glyphsharge.glyph.battery.BatteryStateReader
-import com.bleelblep.glyphsharge.glyph.battery.animateBattery
 import com.bleelblep.glyphsharge.glyph.engine.GlyphRenderer
 import com.bleelblep.glyphsharge.glyph.script.ScriptAnimation
 import com.bleelblep.glyphsharge.glyph.script.ScriptCheckResult
 import com.bleelblep.glyphsharge.glyph.script.ScriptPlayback
 import com.bleelblep.glyphsharge.glyph.script.ScriptRunResult
 import com.bleelblep.glyphsharge.glyph.script.ScriptRunner
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
@@ -53,13 +51,23 @@ import javax.inject.Singleton
 class GlyphAnimationManager @Inject constructor(
     private val glyphManager: GlyphManager,
     private val renderer: GlyphRenderer,
-    private val settingsRepository: SettingsRepository,
     private val scriptRunner: ScriptRunner,
     private val runTrace: RunTrace,
     private val runner: AnimationRunner,
     private val builtIn: BuiltInAnimations,
     private val musicVisualisation: MusicVisualisation,
     private val scriptPlayback: ScriptPlayback,
+    /**
+     * For the locked battery indicator, which samples the battery itself.
+     *
+     * The id-based dispatch has no Context of its own to sample with — a rule
+     * firing arrives as an id and a duration — so the manager carries the
+     * application's. It was here for the two per-feature battery entry points
+     * too, each of which took the caller's Context and read a duration and an
+     * arc selection out of settings; both are gone, since a rule now carries
+     * both and `playAnimationById` is the only way to ask for an animation.
+     */
+    @param:ApplicationContext private val appContext: Context,
 ) {
     private companion object {
         const val TAG = "GlyphAnimationManager"
@@ -94,81 +102,34 @@ class GlyphAnimationManager @Inject constructor(
 
     // region Feature scenarios
 
-    suspend fun playPulseLockAnimation() {
-        if (!isGlyphServiceEnabled()) return
-        playAnimation(
-            settingsRepository.getPulseLockAnimationId(),
-            settingsRepository.getPulseLockDuration(),
-        )
-    }
-
-    suspend fun playLowBatteryAnimation() {
-        if (!isGlyphServiceEnabled()) return
-        playAnimation(
-            settingsRepository.getLowBatteryAnimationId(),
-            settingsRepository.getLowBatteryDuration(),
-        )
-    }
-
-    suspend fun playScreenOffAnimation() {
-        if (!isGlyphServiceEnabled()) return
-        playAnimation(
-            settingsRepository.getScreenOffAnimationId(),
-            settingsRepository.getScreenOffDuration(),
-        )
-    }
-
-    suspend fun playNfcAnimation() {
-        if (!isGlyphServiceEnabled()) return
-        playAnimation(
-            settingsRepository.getNfcAnimationId(),
-            settingsRepository.getNfcAnimationDuration(),
-        )
-    }
-
-    suspend fun playVpnConnectedAnimation() {
-        if (!isGlyphServiceEnabled()) return
-        playAnimation(
-            settingsRepository.getVpnConnectedAnimationId(),
-            settingsRepository.getVpnConnectedDuration(),
-        )
-    }
-
-    suspend fun playPowerPeekAnimation(
-        context: Context,
-        onProgressUpdate: (Float) -> Unit = {},
-    ) = playBatteryBar(
-        context = context,
-        durationMs = settingsRepository.getPowerPeekDuration(),
-        onProgressUpdate = onProgressUpdate,
-    )
-
-    suspend fun playChargingAnimationAnimation(
-        context: Context,
-        onProgressUpdate: (Float) -> Unit = {},
-    ) = playBatteryBar(
-        context = context,
-        durationMs = settingsRepository.getChargingAnimationDuration(),
-        onProgressUpdate = onProgressUpdate,
-    )
-
     /**
-     * Shared by Power Peek and the charging animation, which differ only in
-     * their configured duration. The battery is sampled once, before the
-     * animation starts, so the bar cannot jump if the level changes mid-run.
+     * Plays whichever animation a rule names, by settings id.
+     *
+     * The one entry every rule uses — the host to fire it, and a rule row's ▶ to
+     * test it, which is why the two cannot disagree about what a rule looks like.
+     * The id and duration arrive from a
+     * [com.bleelblep.glyphsharge.rules.GlyphRule], because a rule's animation is
+     * whatever the user picked in the constructor, not a per-feature default.
+     *
+     * Five `playXxx` methods stood here before it, one per feature whose card
+     * owned a Test button: each read one preference pair and played it. A card
+     * is gone for all five, their Test is this same call with the animation their
+     * own rule already carries, and keeping a second way to say the same thing
+     * is how the two drifts apart — a rule edited to animation A while its old
+     * `playXxx` still plays B. The locked battery indicators are the exception
+     * and keep their own entries below: they draw live state and read arcs the
+     * rule does not carry.
+     *
+     * [batteryArcs] is the rule's own choice of arcs, used only by the locked
+     * indicators: every other id ignores it, which is why it is a parameter here
+     * rather than something the rule's animation had to be looked up for.
+     *
+     * Same guard as every entry here: a run with the master Glyph service off
+     * draws nothing.
      */
-    private suspend fun playBatteryBar(
-        context: Context,
-        durationMs: Long,
-        onProgressUpdate: (Float) -> Unit,
-    ) {
-        if (!isGlyphServiceEnabled() || !glyphManager.isNothingPhone()) return
-
-        val state = BatteryStateReader.read(context)
-
-        runner.anim {
-            animateBattery(it, state.percentage, state.isCharging, durationMs, onProgressUpdate)
-        }
+    suspend fun playAnimationById(id: String, durationMs: Long) {
+        if (!isGlyphServiceEnabled()) return
+        playAnimation(id, durationMs)
     }
 
     // endregion

@@ -59,14 +59,14 @@ class SettingsMigrations @Inject constructor(
         if (prefs.getBoolean(KEY_FIRST_RUN_COMPLETED, false)) return
 
         prefs.edit {
-            putBoolean(FeatureSettings.KEY_POWER_PEEK_ENABLED, false)
+            putBoolean(KEY_RETIRED_POWER_PEEK_ENABLED, false)
             putBoolean(GlyphServiceSettings.KEY_GLYPH_SERVICE_ENABLED, false)
-            putBoolean(FeatureSettings.KEY_PULSE_LOCK_ENABLED, false)
-            putBoolean(FeatureSettings.KEY_LOW_BATTERY_ENABLED, false)
-            putBoolean(FeatureSettings.KEY_SCREEN_OFF_ENABLED, false)
-            putBoolean(FeatureSettings.KEY_NFC_FEATURE_ENABLED, false)
-            putBoolean(FeatureSettings.KEY_CHARGING_ANIMATION_ENABLED, false)
-            putBoolean(FeatureSettings.KEY_VPN_CONNECTED_ENABLED, false)
+            putBoolean(KEY_RETIRED_PULSE_LOCK_ENABLED, false)
+            putBoolean(KEY_RETIRED_LOW_BATTERY_ENABLED, false)
+            putBoolean(KEY_RETIRED_SCREEN_OFF_ENABLED, false)
+            putBoolean(KEY_RETIRED_NFC_FEATURE_ENABLED, false)
+            putBoolean(KEY_RETIRED_CHARGING_ANIMATION_ENABLED, false)
+            putBoolean(KEY_RETIRED_VPN_CONNECTED_ENABLED, false)
             putBoolean(FeatureSettings.KEY_MUSIC_VIZ_ENABLED, false)
             putString(
                 FeatureSettings.KEY_MUSIC_VIZ_ANIMATION_ID,
@@ -96,10 +96,10 @@ class SettingsMigrations @Inject constructor(
             // Guarded on purpose: a bare reset here wipes the toggles of every feature at once
             // whenever the version marker is lost or rolled back.
             prefs.edit {
-                if (!prefs.contains(FeatureSettings.KEY_POWER_PEEK_ENABLED)) putBoolean(FeatureSettings.KEY_POWER_PEEK_ENABLED, false)
+                if (!prefs.contains(KEY_RETIRED_POWER_PEEK_ENABLED)) putBoolean(KEY_RETIRED_POWER_PEEK_ENABLED, false)
                 if (!prefs.contains(GlyphServiceSettings.KEY_GLYPH_SERVICE_ENABLED)) putBoolean(GlyphServiceSettings.KEY_GLYPH_SERVICE_ENABLED, false)
-                if (!prefs.contains(FeatureSettings.KEY_PULSE_LOCK_ENABLED)) putBoolean(FeatureSettings.KEY_PULSE_LOCK_ENABLED, false)
-                if (!prefs.contains(FeatureSettings.KEY_LOW_BATTERY_ENABLED)) putBoolean(FeatureSettings.KEY_LOW_BATTERY_ENABLED, false)
+                if (!prefs.contains(KEY_RETIRED_PULSE_LOCK_ENABLED)) putBoolean(KEY_RETIRED_PULSE_LOCK_ENABLED, false)
+                if (!prefs.contains(KEY_RETIRED_LOW_BATTERY_ENABLED)) putBoolean(KEY_RETIRED_LOW_BATTERY_ENABLED, false)
                 if (!prefs.contains(FontSettings.KEY_FONT_VARIANT)) putString(FontSettings.KEY_FONT_VARIANT, FontVariant.HEADLINE.name)
                 if (!prefs.contains(FontSettings.KEY_USE_CUSTOM_FONTS)) putBoolean(FontSettings.KEY_USE_CUSTOM_FONTS, true)
                 if (!prefs.contains(FontSettings.KEY_FONT_SIZE_DISPLAY_SCALE)) putFloat(FontSettings.KEY_FONT_SIZE_DISPLAY_SCALE, 1.0f)
@@ -114,8 +114,8 @@ class SettingsMigrations @Inject constructor(
 
         if (lastMigrated < 110) {
             prefs.edit {
-                if (!prefs.contains(FeatureSettings.KEY_SCREEN_OFF_ENABLED)) {
-                    putBoolean(FeatureSettings.KEY_SCREEN_OFF_ENABLED, false)
+                if (!prefs.contains(KEY_RETIRED_SCREEN_OFF_ENABLED)) {
+                    putBoolean(KEY_RETIRED_SCREEN_OFF_ENABLED, false)
                 }
                 putInt(KEY_LAST_MIGRATED_VERSION, 110)
             }
@@ -125,8 +125,8 @@ class SettingsMigrations @Inject constructor(
         // NFC migration
         if (lastMigrated < 111) {
             prefs.edit {
-                if (!prefs.contains(FeatureSettings.KEY_NFC_FEATURE_ENABLED)) {
-                    putBoolean(FeatureSettings.KEY_NFC_FEATURE_ENABLED, false)
+                if (!prefs.contains(KEY_RETIRED_NFC_FEATURE_ENABLED)) {
+                    putBoolean(KEY_RETIRED_NFC_FEATURE_ENABLED, false)
                 }
                 putInt(KEY_LAST_MIGRATED_VERSION, 111)
             }
@@ -136,8 +136,8 @@ class SettingsMigrations @Inject constructor(
         // Charging migration
         if (lastMigrated < 112) {
             prefs.edit {
-                if (!prefs.contains(FeatureSettings.KEY_CHARGING_ANIMATION_ENABLED)) {
-                    putBoolean(FeatureSettings.KEY_CHARGING_ANIMATION_ENABLED, false)
+                if (!prefs.contains(KEY_RETIRED_CHARGING_ANIMATION_ENABLED)) {
+                    putBoolean(KEY_RETIRED_CHARGING_ANIMATION_ENABLED, false)
                 }
                 putInt(KEY_LAST_MIGRATED_VERSION, 112)
             }
@@ -173,12 +173,48 @@ class SettingsMigrations @Inject constructor(
         // VPN connected migration
         if (lastMigrated < 114) {
             prefs.edit {
-                if (!prefs.contains(FeatureSettings.KEY_VPN_CONNECTED_ENABLED)) {
-                    putBoolean(FeatureSettings.KEY_VPN_CONNECTED_ENABLED, false)
+                if (!prefs.contains(KEY_RETIRED_VPN_CONNECTED_ENABLED)) {
+                    putBoolean(KEY_RETIRED_VPN_CONNECTED_ENABLED, false)
                 }
                 putInt(KEY_LAST_MIGRATED_VERSION, 114)
             }
             Log.i(TAG, "Migration to 114 applied")
+        }
+
+        // The seven features that became rules, and then went away with their
+        // rules: the app now ships the user's own rules and the visualiser, and
+        // the settings those features owned are read by nothing. Removed rather
+        // than left to rot — a preference file is the one place where "the app
+        // does not have this any more" and "the app forgot this" look the same
+        // from the outside.
+        if (lastMigrated < 115) {
+            prefs.edit {
+                remove(KEY_RETIRED_POWER_PEEK_ENABLED)
+                remove(KEY_RETIRED_POWER_PEEK_THRESHOLD)
+                remove(KEY_RETIRED_POWER_PEEK_DURATION)
+                remove(KEY_RETIRED_POWER_PEEK_BATTERY_ARCS)
+                remove(KEY_RETIRED_PULSE_LOCK_ENABLED)
+                remove(KEY_RETIRED_PULSE_LOCK_ANIMATION_ID)
+                remove(KEY_RETIRED_PULSE_LOCK_DURATION)
+                remove(KEY_RETIRED_LOW_BATTERY_ENABLED)
+                remove(KEY_RETIRED_LOW_BATTERY_THRESHOLD)
+                remove(KEY_RETIRED_LOW_BATTERY_ANIMATION_ID)
+                remove(KEY_RETIRED_LOW_BATTERY_DURATION)
+                remove(KEY_RETIRED_SCREEN_OFF_ENABLED)
+                remove(KEY_RETIRED_SCREEN_OFF_ANIMATION_ID)
+                remove(KEY_RETIRED_SCREEN_OFF_DURATION)
+                remove(KEY_RETIRED_NFC_FEATURE_ENABLED)
+                remove(KEY_RETIRED_NFC_ANIMATION_ID)
+                remove(KEY_RETIRED_NFC_ANIMATION_DURATION)
+                remove(KEY_RETIRED_CHARGING_ANIMATION_ENABLED)
+                remove(KEY_RETIRED_CHARGING_ANIMATION_DURATION)
+                remove(KEY_RETIRED_CHARGING_BATTERY_ARCS)
+                remove(KEY_RETIRED_VPN_CONNECTED_ENABLED)
+                remove(KEY_RETIRED_VPN_CONNECTED_ANIMATION_ID)
+                remove(KEY_RETIRED_VPN_CONNECTED_DURATION)
+                putInt(KEY_LAST_MIGRATED_VERSION, 115)
+            }
+            Log.i(TAG, "Migration to 115 applied: the retired features' settings removed")
         }
     }
 
@@ -197,6 +233,36 @@ class SettingsMigrations @Inject constructor(
     }
 
     internal companion object {
+        // The settings the removed features owned, by their stored names.
+        //
+        // They are history now: the seven features became rules, and their
+        // rules went with the user's request for the app to ship its own rules
+        // and nothing else. The names live on because the migration that
+        // removes them has to name them, and a name written down once is a name
+        // that cannot drift.
+        const val KEY_RETIRED_POWER_PEEK_ENABLED = "power_peek_enabled"
+        const val KEY_RETIRED_POWER_PEEK_THRESHOLD = "shake_threshold"
+        const val KEY_RETIRED_POWER_PEEK_DURATION = "display_duration"
+        const val KEY_RETIRED_POWER_PEEK_BATTERY_ARCS = "power_peek_battery_arcs"
+        const val KEY_RETIRED_PULSE_LOCK_ENABLED = "pulse_lock_enabled"
+        const val KEY_RETIRED_PULSE_LOCK_ANIMATION_ID = "pulse_lock_animation_id"
+        const val KEY_RETIRED_PULSE_LOCK_DURATION = "pulse_lock_duration"
+        const val KEY_RETIRED_LOW_BATTERY_ENABLED = "low_battery_enabled"
+        const val KEY_RETIRED_LOW_BATTERY_THRESHOLD = "low_battery_threshold"
+        const val KEY_RETIRED_LOW_BATTERY_ANIMATION_ID = "low_battery_animation_id"
+        const val KEY_RETIRED_LOW_BATTERY_DURATION = "low_battery_duration"
+        const val KEY_RETIRED_SCREEN_OFF_ENABLED = "screen_off_enabled"
+        const val KEY_RETIRED_SCREEN_OFF_ANIMATION_ID = "screen_off_animation_id"
+        const val KEY_RETIRED_SCREEN_OFF_DURATION = "screen_off_duration"
+        const val KEY_RETIRED_NFC_FEATURE_ENABLED = "nfc_feature_enabled"
+        const val KEY_RETIRED_NFC_ANIMATION_ID = "nfc_animation_id"
+        const val KEY_RETIRED_NFC_ANIMATION_DURATION = "nfc_animation_duration"
+        const val KEY_RETIRED_CHARGING_ANIMATION_ENABLED = "charging_animation_enabled"
+        const val KEY_RETIRED_CHARGING_ANIMATION_DURATION = "charging_animation_duration"
+        const val KEY_RETIRED_CHARGING_BATTERY_ARCS = "charging_battery_arcs"
+        const val KEY_RETIRED_VPN_CONNECTED_ENABLED = "vpn_connected_enabled"
+        const val KEY_RETIRED_VPN_CONNECTED_ANIMATION_ID = "vpn_connected_animation_id"
+        const val KEY_RETIRED_VPN_CONNECTED_DURATION = "vpn_connected_duration"
         /**
          * The tag is not a stored value, but it *is* part of what a bug report
          * carries, and re-tagging these lines would make existing log filters

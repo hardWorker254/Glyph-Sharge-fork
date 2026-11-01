@@ -2,6 +2,7 @@ package com.bleelblep.glyphsharge.utils
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.net.Uri
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -15,7 +16,16 @@ import java.util.*
 
 @SuppressLint("StaticFieldLeak")
 object LoggingManager {
-    private var isLoggingEnabled = false
+    /**
+     * Whether the log file is written.
+     *
+     * On, and not behind a switch that nothing sets: the file is the only
+     * diagnostic this app has on a phone where logcat cannot be read, and a
+     * log that is never written is not a log. The writes are event-level — a
+     * session opening, a device registering, a trigger firing — not per frame,
+     * so the cost is a handful of lines per session.
+     */
+    private var isLoggingEnabled = true
     private val logMutex = Mutex()
     @SuppressLint("ConstantLocale")
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
@@ -42,10 +52,21 @@ object LoggingManager {
         createLogFiles()
     }
 
+    /** How many session logs are kept on disk. */
+    private const val MAX_LOG_FILES = 10
+
     private fun createLogFiles() {
         val logsDir = File(context.getExternalFilesDir(null), "logs").apply {
             if (!exists()) mkdirs()
         }
+
+        // One file per launch, so the folder would otherwise grow for as long
+        // as the app is installed. The newest few are what a bug report needs;
+        // the rest is history nobody reads.
+        logsDir.listFiles { file -> file.name.endsWith(".log") }
+            ?.sortedByDescending { it.lastModified() }
+            ?.drop(MAX_LOG_FILES)
+            ?.forEach { it.delete() }
 
         val timestamp = fileDateFormat.format(Date())
         logFile = File(logsDir, "glyphzen_debug_$timestamp.log")
@@ -109,6 +130,47 @@ object LoggingManager {
             }
         } catch (e: Exception) {
             Log.e("LoggingManager", "Error writing to log file: ${e.message}")
+        }
+    }
+
+    /**
+     * How an export ended.
+     *
+     * Three answers, because the user's next move differs: there is nothing to
+     * export, it worked, or the place they chose could not be written.
+     */
+    enum class ExportResult {
+        /** The log was written. */
+        DONE,
+
+        /** There was nothing to write yet. */
+        EMPTY,
+
+        /** The chosen place could not be written. */
+        FAILED,
+    }
+
+    /**
+     * Writes the assembled log to [uri].
+     *
+     * The one way to get the log off the phone: it is a file in the app's own
+     * directory, and the app cannot read logcat on a phone nobody can attach
+     * a shell to. The user picks a place — a file in Downloads, something they
+     * can share from there — and the log goes there.
+     */
+    fun exportTo(uri: Uri): ExportResult {
+        val content = exportLogs()
+        if (content.isBlank()) return ExportResult.EMPTY
+
+        return try {
+            context.contentResolver.openOutputStream(uri)?.use { stream ->
+                stream.write(content.toByteArray())
+                stream.flush()
+            } ?: error("The chosen location could not be opened for writing")
+            ExportResult.DONE
+        } catch (e: Exception) {
+            Log.e("LoggingManager", "Could not write the logs to $uri", e)
+            ExportResult.FAILED
         }
     }
 

@@ -6,6 +6,7 @@ import com.bleelblep.glyphsharge.glyph.GlyphManager
 import com.bleelblep.glyphsharge.glyph.device.DeviceProfile
 import com.bleelblep.glyphsharge.glyph.device.DeviceProfileFactory
 import com.bleelblep.glyphsharge.glyph.engine.GlyphRenderer
+import com.bleelblep.glyphsharge.utils.LoggingManager
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 import javax.inject.Inject
@@ -62,9 +63,15 @@ class AnimationRunner @Inject constructor(
      */
     suspend fun anim(block: suspend GlyphRenderer.(DeviceProfile) -> Unit) {
         if (!isGlyphServiceEnabled()) return
-        if (!glyphManager.isNothingPhone()) return
+        if (!glyphManager.isNothingPhone()) {
+            LoggingManager.log(TAG, "animation skipped: not a Glyph phone")
+            return
+        }
 
-        val device = profile ?: return
+        val device = profile ?: run {
+            LoggingManager.log(TAG, "animation skipped: no device profile")
+            return
+        }
 
         val lease = renderer.start("animation")
         try {

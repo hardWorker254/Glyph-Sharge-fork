@@ -13,7 +13,7 @@
 4. [Glyph Layer](#4-glyph-layer)
 5. [Data Layer](#5-data-layer)
 6. [Services](#6-services)
-7. [**Adding a New Service (Quickstart)**](#7-adding-a-new-service-quickstart)
+7. [**Adding a New Trigger (Quickstart)**](#7-adding-a-new-trigger-quickstart)
 8. [UI Layer](#8-ui-layer)
 9. [Navigation](#9-navigation)
 10. [Music visualiser](#10-music-visualiser)
@@ -35,9 +35,8 @@ It gives full control over the LEDs: charge indication, notifications, security,
 
 | Area | Capabilities |
 |------|--------------|
-| 🔌 Power | Charging animations, battery level display, low-battery alerts, Power Peek (shake to check battery) |
-| 🔒 Security | Pulse Lock (animation on unlock), Screen Off (animation on lock) |
-| 📡 Integration | NFC glyphs on payment events, a glyph animation when a VPN connects |
+| ⚡ Rules | Your own rules: a trigger (unlock, screen, charger, NFC, VPN, shake, low battery) → an animation, yours or from the catalogue |
+| 🎵 Entertainment | The music visualiser: the spectrum of whatever is playing |
 | 🎨 Personalization | 6 theme styles, Nothing fonts (NType Headline, NDot 55 Caps), scalable text sizes, your own glyph animations written in Lua |
 | ⚙️ System | Boot persistence, logging |
 | ⚡ Quick Access | Two tiles in the shade: the master Glyph service and the music visualiser |
@@ -48,12 +47,38 @@ It gives full control over the LEDs: charge indication, notifications, security,
 |--------|-------|--------|
 | Nothing Phone (1) | 20111 | No testers |
 | Nothing Phone (2) | 22111 | No testers |
+| Nothing Phone (2) Global | 22111 (`AIN065`) | Same strip as the (2), registered under its own id |
 | Nothing Phone (2a) | 23111 / 23113 | No testers |
 | Nothing Phone (3a) | 24111 | ✅ Full support |
+| Nothing Phone (3a) Pro | 24111 (`A059P`) | ✅ Full support — same glyph layout as the (3a) |
 
 Device detection happens in [DeviceType](../app/src/main/java/com/bleelblep/glyphsharge/glyph/device/DeviceType.kt)
-via `Common.is20111()` and friends. On an unsupported device the app still
+by comparing `Build.MODEL` against a model string: each `Common.is…` check in the Ketchum
+SDK is that same comparison, only inside the SDK, and ours is readable, testable on a
+laptop, and independent of which phones the packaged SDK knew about. On an unsupported device the app still
 launches, but the glyphs will not work.
+
+> [!NOTE]
+> **The Phone (3a) Pro is a Phone (3a).** It reports `A059P` where the (3a) reports
+> `A059`, and the first contains the second, so the model is recognised as the (3a):
+> the strip layout, the channels, the arcs and the rhythm are the same, and a second
+> `DeviceType` would mean a second copy of the channel tables and a missing branch in
+> every `when (profile.type)` — including the battery bar's per-model accents.
+>
+> What is left is registration: the model strings differ, and only the system service
+> knows which of them it answers to. So [DeviceType.registrationIds] returns a list of
+> candidates and `GlyphManager.registerDevice` walks it, keeping the one that was
+> accepted. The order is not arbitrary and follows two rules:
+>
+>  * a variant **the SDK names** (`A142P` on the 2a Plus, `AIN065` on the Phone (2)
+>    Global) goes first, because the service ships alongside those constants;
+>  * a model string **the SDK does not know** (`A059P` on the (3a) Pro — the jar was
+>    built 2025-03-19, months before it shipped) goes last, because the service may
+>    never have heard of it: `A059` is offered first, and `A059P` only if that was
+>    refused.
+>
+> A refusal is shown to the user: the `glyph_registration_refused` toast names the model
+> and every id that was offered, because this handset has no logcat to pull.
 
 ### Key Project Facts
 
@@ -237,15 +262,15 @@ app/src/main/java/com/bleelblep/glyphsharge/
 │   │   ├── SensorSnapshot.kt   # x / y / z / magnitude / shaken, one sample
 │   │   ├── SensorControl.kt    # What opens and closes the listener for one run
 │   │   └── SensorSource.kt     # The listener itself, and the threshold that counts a shake
-│   └── battery/                # Charging and power-peek bar
+│   └── battery/                # Reading the battery for scripts (glyph.battery)
 │       ├── BatteryState.kt
 │       └── BatteryGlyphAnimator.kt
 ├── data/
 │   ├── SettingsRepository.kt   # Thin façade over the slices below
 │   ├── SettingsPrefs.kt        # reified get/put over SharedPreferences
 │   ├── ThemeSettings.kt / FontSettings.kt / GlyphServiceSettings.kt
-│   ├── FeatureSettings.kt      # The eight features' switches, ids and durations
-│   ├── LanguageSettings.kt / UserPresenceSettings.kt
+│   ├── FeatureSettings.kt      # The visualiser's own settings
+│   ├── LanguageSettings.kt
 │   ├── SettingsMigrations.kt   # First-run defaults and the version steps
 │   ├── SettingsDiagnostics.kt  # dumpAllSettings()
 │   └── CustomAnimationRepository.kt # Script files + index, export through MediaStore
@@ -253,14 +278,9 @@ app/src/main/java/com/bleelblep/glyphsharge/
 │   ├── GlyphForegroundService.kt   # Master service
 │   ├── FeatureServiceController.kt # Starts, stops and reads features
 │   ├── FeatureSpec.kt          # The feature → service → preference registry
-│   ├── ChargingAnimationService.kt
-│   ├── PowerPeekService.kt
-│   ├── PulseLockService.kt
-│   ├── ScreenOffGlyphService.kt
-│   ├── NfcGlyphService.kt
-│   ├── LowBatteryAlertService.kt
-│   ├── VpnConnectedService.kt
-│   ├── MusicVisualizerService.kt
+│   ├── RuleHostService.kt       # The rule host: one service for all seven migrated features
+│   ├── FeatureTriggerPlayer.kt  # "A trigger fired — draw it", the chain they share
+│   ├── MusicVisualizerService.kt # The one bespoke feature: a MediaProjection token
 │   └── GlyphServiceSwitch.kt    # The master switch, one place for the app and the tile
 ├── tiles/                    # Quick Settings tiles (the shade)
 │   ├── GlyphServiceTileService.kt      # Master Glyph service
@@ -270,7 +290,7 @@ app/src/main/java/com/bleelblep/glyphsharge/
 │   └── BootCompletedReceiver.kt
 ├── ui/
 │   ├── components/            # Cards, dialogs, layout
-│   │   ├── FeatureCards.kt    # The 7 feature cards; VpnConnected.kt holds the 8th
+│   │   ├── FeatureCards.kt    # 1 card: Music Visualizer. The other seven are rules
 │   │   ├── GlyphAnimations.kt # The animation catalogue + rememberAnimationOptions()
 │   │   ├── GlyphDependencies.kt # rememberGlyphAnimationManager()
 │   │   ├── cards/             # ContentCard, FeatureCard, WideFeatureCardWithToggle
@@ -338,8 +358,10 @@ not leak into the shared settings navigation graph. A new card in `SettingsScree
 > [!IMPORTANT]
 > **`GlyphFeature` is a single enum**, declared at the end of
 > [GlyphFeatureCoordinator.kt](../app/src/main/java/com/bleelblep/glyphsharge/glyph/GlyphFeatureCoordinator.kt):
-> `PULSE_LOCK`, `POWER_PEEK`, `LOW_BATTERY`, `SCREEN_OFF`, `NFC`, `CHARGING_ANIMATION`,
-> `MUSIC_VISUALIZER`, `VPN_CONNECTED`. The feature list, the service wiring and the UI all
+> `MUSIC_VISUALIZER`, `RULE_HOST`, `PREVIEW`. `MUSIC_VISUALIZER` is the only feature with a
+> card and a service of its own; `RULE_HOST` and `PREVIEW` are not features at all but strip
+> participants (see `FeatureSpecs.NON_FEATURE_PARTICIPANTS`). The feature list, the service
+> wiring and the UI all
 > agree on it, so a feature cannot be switched on without something behind it. See
 > [section 7](#7-adding-a-new-service-quickstart).
 
@@ -419,7 +441,6 @@ may run, and how a caller bounds it:
 | The ten named sequences, one line each | `glyph/animations/BuiltInAnimations` |
 | What actually draws a sequence | `glyph/animations/SequenceAnimations`, `ParticleAnimations`, `AudioAnimations` |
 | The music visualiser and its preview | `glyph/audio/MusicVisualisation` |
-| Charging and the battery bar | `glyph/battery/BatteryGlyphAnimator` |
 | Hosting a user-written Lua animation | `glyph/script/ScriptPlayback` |
 | Executing the Lua itself | `glyph/script/ScriptRunner` |
 
@@ -441,20 +462,21 @@ may run, and how a caller bounds it:
 | `runFireworksAnimation()` | Launches and explosions with fade-out |
 | `runDNAHelixAnimation()` | Two counter-rotating strands |
 
-**Feature scenarios** — wrappers that check settings and call a base animation:
+**Animation entries:**
 
 ```kotlin
-suspend fun playPulseLockAnimation()
-suspend fun playLowBatteryAnimation()
-suspend fun playScreenOffAnimation()
-suspend fun playNfcAnimation()
-suspend fun playPowerPeekAnimation(context: Context, onProgressUpdate: (Float) -> Unit = {})
-suspend fun playChargingAnimationAnimation(context: Context, onProgressUpdate: (Float) -> Unit = {})
+suspend fun playAnimationById(id: String, durationMs: Long)  // the one entry for rules
 suspend fun playMusicVisualizerAnimation()
 suspend fun previewMusicVisualizer(mode: MusicVisualizationMode)
-suspend fun playVpnConnectedAnimation()
 fun stopAnimations()
 ```
+
+There is one entry, and that is not a coincidence: a rule carries its own animation, so both
+the host and a rule row's ▶ call the single `playAnimationById` — "what a rule looks like"
+cannot drift between two ways of saying the same thing. Every per-feature `playXxx` (Screen
+Off, Glow Gate, Power Peek, Low Battery, NFC, Charging, VPN) went with its feature: each read
+one preference pair of its own, and now the features have neither preferences nor cards. The two remaining `playXxxAnimation` calls are the exception — the battery
+indicators draw live state and read arcs the rule does not carry.
 
 **Dispatch by id.** A private `playAnimation(id, durationMs)` first checks whether the id is a
 user one (`ScriptAnimation.isCustomId(id)` → the `custom:` prefix) and, if so, calls
@@ -609,9 +631,8 @@ constants and defaults:
 | `ThemeSettings` | dark theme, `AppThemeStyle` |
 | `FontSettings` | `FontVariant`, the custom-fonts switch, the four size scales |
 | `GlyphServiceSettings` | the master switch, vibration intensity, the shake steps |
-| `FeatureSettings` | the eight features' switches, animation ids, durations, thresholds |
+| `FeatureSettings` | the music visualiser's own settings |
 | `LanguageSettings` | the `language` code |
-| `UserPresenceSettings` | the unlock bookkeeping Pulse Lock reads |
 | `SettingsMigrations` | first-run defaults, the version steps, the legacy vibration fixup |
 | `SettingsDiagnostics` | `dumpAllSettings()` |
 | `SettingsPrefs.kt` | reified `SharedPreferences.getSetting` / `putSetting` helpers |
@@ -647,15 +668,8 @@ keep that guarantee structural.
 | Theme | `saveTheme` / `getTheme`, `saveThemeStyle` / `getThemeStyle` |
 | Font | `saveFontVariant` / `getFontVariant`, `saveUseCustomFonts` / `getUseCustomFonts`, `saveFontSizeSettings` / `getFontSizeSettings`, `clearFontSizeCustomization`, `getFontSizeSettingsForFont` |
 | Master switch | `saveGlyphServiceEnabled` / `getGlyphServiceEnabled` |
-| Power Peek | `savePowerPeekEnabled` / `isPowerPeekEnabled`, `savePowerPeekThreshold` / `getPowerPeekThreshold`, `getShakeIntensityLevel`, `savePowerPeekDuration` / `getPowerPeekDuration`, `saveVibrationIntensity` / `getVibrationIntensity` |
-| Pulse Lock | `savePulseLockEnabled` / `isPulseLockEnabled`, `…AnimationId`, `…Duration` |
-| Low Battery | `saveLowBatteryEnabled` / `isLowBatteryEnabled`, `…Threshold`, `…AnimationId`, `…Duration` |
-| Screen Off | `saveScreenOffFeatureEnabled` / `isScreenOffFeatureEnabled`, `…AnimationId`, `…Duration` |
-| NFC | `saveNfcFeatureEnabled` / `isNfcFeatureEnabled`, `…AnimationId`, `…AnimationDuration` |
-| Charging | `saveChargingAnimationEnabled` / `isChargingAnimationEnabled`, `…Duration` |
+| Vibration | `saveVibrationIntensity` / `getVibrationIntensity`, `getShakeIntensityLevel` |
 | Music visualiser | `saveMusicVizEnabled` / `isMusicVizEnabled`, `…AnimationId`, `…Sensitivity`, `…ScreenOffOnly` |
-| VPN Connected | `saveVpnConnectedEnabled` / `isVpnConnectedEnabled`, `…AnimationId`, `…Duration` |
-| User presence | `isUserPresentExpected`, `markUserPresentSeen`, `markUserPresentMissing` |
 | Language | `getAppLanguageCode` / `saveAppLanguageCode` |
 | Debug | `dumpAllSettings()` (writes to Logcat only when `Log.isLoggable`) |
 
@@ -663,8 +677,9 @@ Public constants: `SHAKE_SOFT=12.0f`, `SHAKE_EASY=15.0f`, `SHAKE_MEDIUM=18.0f`,
 `SHAKE_HARD=22.0f`, `SHAKE_HARDEST=28.0f`.
 
 > [!NOTE]
-> The charging animation has **no** animation-selection setting (`saveChargingAnimationId`
-> does not exist) — it always uses the fixed `playChargingAnimationAnimation`.
+> The features have no settings of their own any more: the seven that became rules carry
+> their animation, their duration and their thresholds themselves. Only the visualiser has
+> anything stored.
 
 ### CustomAnimationRepository
 
@@ -678,7 +693,7 @@ what a preference value should hold, so each one lives in its own file at
 the list without touching the disk.
 
 The list is exposed as a `StateFlow<List<ScriptAnimation>>`: the animation pickers on the
-Pulse Lock, Low Battery, NFC and Screen Off cards are several screens away from the editor,
+The animation picker in the constructor reads it,
 so saving a script has to update the chips everywhere at once.
 
 | Group | Methods |
@@ -723,26 +738,29 @@ Phone (1) and blurred on the Phone (2a).
 | Service | Purpose | Trigger |
 |---------|---------|---------|
 | `GlyphForegroundService` | Persistent notification, keeps the process alive. Owns no LED logic | `FeatureServiceController.stopAll()` |
-| `ChargingAnimationService` | Animation on charger connect/disconnect | `POWER_CONNECTED` / `POWER_DISCONNECTED` |
-| `PowerPeekService` | Battery check by shaking while the screen is off | Accelerometer |
-| `PulseLockService` | Animation on device unlock | `ACTION_USER_PRESENT` |
-| `ScreenOffGlyphService` | Animation on screen lock | `ACTION_SCREEN_OFF` |
-| `NfcGlyphService` | Animation on NFC event | NFC Intent via the Activity |
-| `LowBatteryAlertService` | Low battery notification | `ACTION_BATTERY_CHANGED` |
+| `RuleHostService` | The one service behind seven migrated features: holds the rules and draws what they ask for | The triggers in `triggers/`, subscribed by the host itself |
 | `MusicVisualizerService` | Spectrum visualisation of whatever is playing | `Visualizer` + `AudioManager` |
-| `VpnConnectedService` | Animation when a VPN connects | A `NetworkCallback` on `TRANSPORT_VPN` — not a broadcast |
 
 > [!NOTE]
-> **`VpnConnectedService` is the one trigger that is not a broadcast.** Android broadcasts no
-> "VPN connected" event, so the service registers a `ConnectivityManager.NetworkCallback` for
+> **A feature is the music visualiser now, and nothing else.** The other seven (Charging,
+> Power Peek, Glow Gate, Screen Off, NFC, Low Battery, VPN Connected) became rules, and then
+> went with their preinstalled rules: the app ships the *user's* rules and nothing else.
+> Their services, their cards and their settings are gone; what is left of each is the
+> **trigger** — unlock, screen, charger, NFC, VPN, shake, low battery — that a user builds
+> their own rules from. The visualiser keeps both a card and a service of its own: its
+> `MediaProjection` token can only be obtained by an Activity.
+
+> [!NOTE]
+> **`VpnConnectedTrigger` is the one trigger that is not a broadcast.** Android broadcasts no
+> "VPN connected" event, so the trigger registers a `ConnectivityManager.NetworkCallback` for
 > `NetworkCapabilities.TRANSPORT_VPN` and declares `ACCESS_NETWORK_STATE` — the *state*, not
 > the network itself. `registerNetworkCallback` delivers `onAvailable` immediately for a VPN
 > that is **already** up, which is indistinguishable from a connect the user just made, so the
-> service reads the current state *before* registering and keeps a `wasConnected` latch:
+> trigger reads the current state *before* registering and keeps a `wasConnected` latch:
 > `onAvailable` plays the animation only on a genuine false → true edge, while `onLost` and
 > `onUnavailable` clear the latch so the next `onAvailable` is read as the connect event it is.
-> A VPN that is already up when the service starts therefore leaves the strip dark — the
-> animation belongs to the connect event, not to the service being started.
+> A VPN that is already up when the host starts therefore leaves the strip dark — the
+> animation belongs to the connect event, not to the host being started.
 
 ### Quick Settings Tiles
 
@@ -931,6 +949,7 @@ data class FeatureSpec(
     val isEnabled: (SettingsRepository) -> Boolean,
     val saveEnabled: (SettingsRepository, Boolean) -> Unit,
     @StringRes val serviceOffMessage: Int,
+    @StringRes val titleRes: Int,
 ) {
     fun isRunnable(settings: SettingsRepository): Boolean =
         isEnabled(settings) && settings.getGlyphServiceEnabled()
@@ -938,6 +957,7 @@ data class FeatureSpec(
 
 object FeatureSpecs {
     val all: List<FeatureSpec>
+    val NON_FEATURE_PARTICIPANTS: Set<GlyphFeature>
     fun of(feature: GlyphFeature): FeatureSpec
 }
 ```
@@ -947,7 +967,10 @@ object FeatureSpecs {
 > so the registry stays declarative and the settings layer keeps having no idea that
 > features exist as a group. `FeatureSpecs.init` checks that every `GlyphFeature` entry has
 > a spec and throws otherwise — an entry missing from a `Map` lookup does not compile, and
-> a feature with no spec has no service to start and no preference to read.
+> a feature with no spec has no service to start and no preference to read. `RULE_HOST` and
+> `PREVIEW` are strip participants rather than features: they have neither a service nor a
+> preference, and they are listed in `NON_FEATURE_PARTICIPANTS` explicitly so the check
+> stays honest.
 
 Public API: `readAll()`, `start(feature)`, `stop(feature)`, `apply(feature, enabled)`,
 `startAllEnabled()`, `stopAll()`.
@@ -955,14 +978,25 @@ Public API: `readAll()`, `start(feature)`, `stop(feature)`, `apply(feature, enab
 `startAllEnabled()` and `stopAll()` iterate `GlyphFeature.entries`, so a new feature is picked
 up automatically — there is nothing to register separately.
 
+> [!NOTE]
+> **There are no projections any more.** `FeatureSpec` used to carry `derivedRule` and
+> `applyRule` as well: a feature was projected onto a rule, and an edited rule was written
+> back into the feature's settings. While the app shipped seven preinstalled rules that
+> was needed — the rule lived in the repository while the settings survived a
+> re-projection. The app ships the **user's** rules now, and those have to be all that is
+> stored: a rule carries its own animation, duration and thresholds. The rules left on disk
+> by the previous version were stored under a `feature:` prefix, and the repository purges
+> them on the first read — otherwise they would come back looking exactly like the user's
+> own.
+
 ### BootCompletedReceiver
 
 `@AndroidEntryPoint`, works via `goAsync()` + `Dispatchers.IO`. Restores in two tiers with a
 `TIER2_DELAY_MS = 100L` delay:
 
 1. **Tier 1** — `GlyphForegroundService`, if the master switch is on.
-2. **Tier 2** — the seven features in order: PowerPeek, LowBattery, PulseLock, ScreenOff, NFC,
-   Charging Animation, VPN Connected. Each guarded by its own flag **and** by the shared
+2. **Tier 2** — `RuleHostService`, if any rule is enabled. The host comes up once and
+   executes every rule itself; each is guarded by its own flag **and** by the shared
    `glyphOn`.
 > [!NOTE]
 > The music visualiser is deliberately **not** in tier 2: it captures other apps' audio
@@ -970,448 +1004,105 @@ up automatically — there is nothing to register separately.
 > from an Activity result. A boot-time start would either be refused outright or come up with
 > no capture and sit there showing a dead card, so the app asks the user to open it instead.
 >
-> VPN Connected **is** in tier 2 even when a VPN survived the reboot: the service has to be
-> watching to see the next connect, and it reads the current state before it registers, so a
-> carried-over VPN is classified as "already up" instead of being replayed as a connect the
-> user never made.
+> VPN Connected is an ordinary trigger now, and `VpnConnectedTrigger`'s `wasConnected` latch
+> reads across a reboot the same way it read across a host start: a carried-over VPN is
+> classified as "already up" instead of being replayed as a connect the user never made.
 
 ---
 
-## 7. Adding a New Service (Quickstart)
+## 7. Adding a New Trigger (Quickstart)
 
 > [!TIP]
-> This is the step-by-step procedure for **adding a new feature with its own foreground
-> service**, modelled on `ScreenOffGlyphService` / `LowBatteryAlertService`.
-> Example: a feature that plays a progress bar whenever the phone is picked up.
-> A real, committed example to read the four steps against is the VPN Connected feature —
-> [VpnConnectedService.kt](../app/src/main/java/com/bleelblep/glyphsharge/services/VpnConnectedService.kt)
-> and [VpnConnected.kt](../app/src/main/java/com/bleelblep/glyphsharge/ui/components/VpnConnected.kt)
-> — which additionally shows the one trigger that is **not** a `BroadcastReceiver`.
+> A trigger is an **event** a rule reacts to: unlock, screen, charger, NFC, VPN, shake, low
+> battery. A rule = trigger + animation, and the triggers are what the user picks in the
+> constructor. A new trigger is a new possibility for the user; a new feature is not a thing
+> any more — the app ships the user's own rules.
 
-A feature is four pieces of wiring, and only four: **an enum value, a registry entry, a
-service, and a card.** Everything the feature needs to be *known* — which service backs it,
-which preference holds its switch, what to say when the Glyph service is off — is data in
-one record, so nothing else in the app has to learn that the service exists.
+### What a trigger is
 
-The order is **bottom-up** (enum → registry → service → UI) so the project either compiles at
-every moment or fails with a comprehensible compiler error.
+`TriggerType` is the list of events, `TriggerSource` is a live listener for one of them, and
+`TriggerSources.create` builds the listener for a type. A rule stores `triggerId` — a string
+from `TriggerType.id`; it is a **contract**: it goes into a saved rule and into a script's
+`glyph.on("...")` call, and it has to mean the same thing in every release.
 
-### Change Map
-
-| # | Step | File |
-|---|------|------|
-| 1 | The feature's name | [GlyphFeatureCoordinator.kt](../app/src/main/java/com/bleelblep/glyphsharge/glyph/GlyphFeatureCoordinator.kt) |
-| 2 | Its service, stop action, preference and message | [FeatureSpec.kt](../app/src/main/java/com/bleelblep/glyphsharge/services/FeatureSpec.kt) |
-| 3 | The service itself | **new** `services/…Service.kt` |
-| 4 | The card and its dialog | **new** `ui/components/….kt` |
-
-Alongside those four, the mechanical parts: settings keys, the manifest entry, the strings
-and — if the feature should survive a reboot — one line in the boot receiver.
-
----
-
-### Step 1. Add the value to `GlyphFeature`
-
-`GlyphFeature` is the single enumeration at the end of
-[GlyphFeatureCoordinator.kt](../app/src/main/java/com/bleelblep/glyphsharge/glyph/GlyphFeatureCoordinator.kt),
-and the feature list, the service wiring and the UI all agree on it. Add your value there:
-
-```kotlin
-enum class GlyphFeature {
-    PULSE_LOCK,
-    POWER_PEEK,
-    LOW_BATTERY,
-    SCREEN_OFF,
-    NFC,
-    CHARGING_ANIMATION,
-    MUSIC_VISUALIZER,
-    PROGRESS_ON_PICKUP,          // ← new
-}
-```
-
-> [!NOTE]
-> The order matches `FeatureSpecs.all` so the registry can be read against the enum. There
-> is no second enum to keep in sync, and no `when` anywhere that has to learn the new value
-> by hand — `startAllEnabled()`, `stopAll()` and `readAll()` all iterate
-> `GlyphFeature.entries`.
-
----
-
-### Step 2. Add one `FeatureSpec` entry
-
-In [FeatureSpec.kt](../app/src/main/java/com/bleelblep/glyphsharge/services/FeatureSpec.kt)
-add one record to `FeatureSpecs.all`, next to the others:
-
-```kotlin
-FeatureSpec(
-    feature = GlyphFeature.PROGRESS_ON_PICKUP,
-    serviceClass = ProgressOnPickupService::class.java,
-    stopAction = ProgressOnPickupService.ACTION_STOP,
-    isEnabled = { it.isProgressOnPickupEnabled() },
-    saveEnabled = { repo, enabled -> repo.saveProgressOnPickupEnabled(enabled) },
-    serviceOffMessage = R.string.progress_on_pickup_toast
-)
-```
-
-That is the whole mapping. The two lambdas are how the preference is read and written, and
-`isRunnable(settings)` — the gate every service asks before it acts — comes with the record
-rather than being spelled out again in each service:
-
-```kotlin
-fun isRunnable(settings: SettingsRepository): Boolean =
-    isEnabled(settings) && settings.getGlyphServiceEnabled()
-```
-
-`FeatureSpecs.init` throws at class-load time if the enum has a value this list does not, so
-a half-registered feature fails immediately and loudly instead of at the first start intent.
-`startAllEnabled()`, `stopAll()` and `readAll()` need no edit: they iterate the enum.
+| File | What is in it |
+|------|--------------|
+| `triggers/TriggerType.kt` | the list of events and their labels |
+| `triggers/TriggerSources.kt` | the factory: "how do we hear this event on Android" |
+| `triggers/BroadcastTrigger.kt` | the shared broadcast listener — and where `RECEIVER_EXPORTED` is decided |
+| `triggers/ScreenOnTrigger.kt` | "the screen came on": the broadcast **and** the platform's state |
+| `triggers/InteractiveStateWatcher.kt` | the watcher over `PowerManager.isInteractive()` |
+| `triggers/NfcEventRelay.kt` | handing NFC intents from the Activity to the host |
 
 > [!IMPORTANT]
-> `serviceOffMessage` is the toast this feature already shows when its dialog is opened
-> while the Glyph service is off. It belongs in the record because it is the same kind of
-> fact — one per feature, forgotten independently of the others — and because reusing the
-> wording each feature already has beats adding a second, slightly different message next
-> to it. `HomeViewModel.setFeatureEnabled` reads it straight from the registry.
+> **The "screen on" event cannot rest on one broadcast.** `ACTION_SCREEN_ON` does not
+> always reach a receiver registered by a background process: the rule host is a
+> foreground *service*, not a foreground app, and on the phone this app was written for
+> the broadcast simply never arrived. Nothing said so — the receiver was registered, the
+> rule was attached, and the event never came.
+>
+> So the event has two paths. `ScreenOnTrigger` asks the platform for the **state**
+> (`PowerManager.isInteractive()`): a state can be asked for, a broadcast can only be
+> waited for. The tick is not a poll: while the screen is on the CPU is awake anyway,
+> and while the phone is asleep the tick does not run at all — it runs the moment the
+> device wakes, which is exactly when the screen comes on.
+>
+> The same trick is behind the other trigger: the "unlock" fallback
+> (`UnlockTrigger`) is built on the state as well, not on `ACTION_SCREEN_ON`.
 
----
-
-### Step 3. Write the service
-
-Create `services/ProgressOnPickupService.kt` from the template in
-[section 6](#service-lifecycle-contract), and give it two things that every feature
-service does the same way: **take the strip through `withStrip`, and bound the run through
-`runCapped`.**
+### Step 1. Add a value to `TriggerType`
 
 ```kotlin
-@AndroidEntryPoint
-class ProgressOnPickupService : Service() {
-
-    // This service's own registry entry, which owns the run gate: my switch
-    // and the master Glyph switch, in one answer.
-    private val spec = FeatureSpecs.of(GlyphFeature.PROGRESS_ON_PICKUP)
-
-    @Inject lateinit var settingsRepository: SettingsRepository
-    @Inject lateinit var glyphAnimationManager: GlyphAnimationManager
-    @Inject lateinit var featureCoordinator: GlyphFeatureCoordinator
-
-    // … lifecycle: onCreate, onStartCommand, onDestroy, onBind, onTaskRemoved …
-
-    private fun triggerProgressBar() {
-        animationScope.launch {
-            if (!spec.isRunnable(settingsRepository)) return@launch
-
-            try {
-                val played = featureCoordinator.withStrip(
-                    owner = GlyphFeature.PROGRESS_ON_PICKUP,
-                    // `preempt = true` only for something the user just did
-                    // (an unlock, a lock, a tap): it interrupts the current
-                    // owner instead of losing the strip in 500 ms.
-                    onRelease = { stopForegroundCompat() }
-                ) {
-                    val duration = settingsRepository.getProgressOnPickupDuration()
-
-                    startForeground(NOTIF_ID, buildNotification())
-
-                    glyphAnimationManager.runCapped(
-                        capMs = duration,
-                        onTimeout = { Log.d(TAG, "Duration limit reached") }
-                    ) {
-                        glyphAnimationManager.playProgressOnPickupAnimation()
-                    }
-                }
-                if (played == null) {
-                    Log.d(TAG, "Strip busy by ${featureCoordinator.currentOwner.value} – skipping")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error in progress bar sequence", e)
-            }
-        }
-    }
+enum class TriggerType(val id: String, @StringRes val labelRes: Int) {
+    // …
+    /** The phone was flipped face down. */
+    FACE_DOWN("face_down", R.string.trigger_face_down),
 }
 ```
 
-**Why `withStrip` and not `acquire()`/`release()` by hand.** The strip is one shared
-resource behind a `Mutex`, so a service that returns, throws or is cancelled without
-releasing leaves the *lock* held, not merely the LEDs lit — and `release()` ignores a
-caller that is no longer the owner, so nothing can take it back and every other feature logs
-"strip busy" on every trigger until the process dies. `withStrip` puts the release in a
-`finally`, and returns `null` when the strip was never taken, so the caller can tell "never
-got it" from "held it" without a flag of its own.
+`id` is the contract (above); `labelRes` is what the user reads.
 
-`onRelease` runs from that same `finally`, **after** `release`, so the LEDs are already off —
-the order a service's own teardown (WakeLock, `stopForeground`) expects. It does not run
-when acquisition failed, because then nothing was taken and nothing needs undoing; a service
-that promotes itself to foreground inside the block therefore stays foregrounded on the one
-path where the block never ran.
+### Step 2. Write the listener
 
-**Why `runCapped` and not a hand-rolled watchdog.** It is the same sequence eight services
-used to copy-paste — a drawing coroutine, a timer that cancels and joins it, a
-`stopAnimations()` for whatever the cancellation cannot reach — with the one mistake each
-copy got slightly differently handled. It also joins the animation before returning, which
-is what keeps the strip from being released while frames are still being drawn.
+Implement `TriggerSource`: `attach(onEvent)` starts listening, `detach()` stops. An event
+arrives as `TriggerEvent(type, label)`, where `label` is a short human description
+("payment (AID=…)") so the log can show what actually fired.
 
-Key points for the rest of the service:
-
-- `@AndroidEntryPoint` for injection
-- `ACTION_START` / `ACTION_STOP` in the `companion object` prefixed `com.bleelblep.glyphsharge.`
-- `startForeground()` as the first statement in `onStartCommand`
-- `CoroutineScope(Dispatchers.Main + SupervisorJob())`
-- Register any `BroadcastReceiver` via `ContextCompat.registerReceiver(...)`
-
----
-
-### Step 4. Add the card and its dialog
-
-Create `ui/components/ProgressOnPickup.kt`, modelled on
-[ScreenOff.kt](../app/src/main/java/com/bleelblep/glyphsharge/ui/components/ScreenOff.kt):
-a config data class, a confirmation dialog over `FeatureConfirmationFlow`, and the
-configuration dialog behind it.
-
-**The card takes no settings parameter.** It reads the store from the composition, which is
-what makes a card callable on its own — from a preview, or from anywhere else that just
-wants the card:
+A broadcast is the easy case:
 
 ```kotlin
-@Composable
-fun ProgressOnPickupCard(
-    isEnabled: Boolean,
-    isServiceActive: Boolean,
-    onEnabledChange: (Boolean) -> Unit,
-    onTest: () -> Unit,
-    modifier: Modifier = Modifier,
-    title: String = stringResource(R.string.progress_on_pickup_title),
-    description: String = stringResource(R.string.progress_on_pickup_description),
-    icon: Painter,
-    iconSize: Int = 32,
-) {
-    val context = LocalContext.current
-    var showDialog by remember { mutableStateOf(false) }
-    val toastText = stringResource(R.string.progress_on_pickup_toast)
-
-    WideFeatureCardWithToggle(
-        title = title,
-        description = description,
-        icon = icon,
-        isServiceActive = isServiceActive,
-        isFeatureEnabled = isEnabled,
-        onFeatureToggle = onEnabledChange,
-        onCardClick = {
-            if (isServiceActive) showDialog = true
-            else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
-        },
-        modifier = modifier,
-        iconSize = iconSize
-    )
-
-    if (showDialog && isServiceActive) {
-        ProgressOnPickupConfirmationDialog(
-            onTest = { onTest(); showDialog = false },
-            onEnable = { onEnabledChange(true); showDialog = false },
-            onDisable = { onEnabledChange(false); showDialog = false },
-            onDismiss = { showDialog = false }
-        )
-    }
-}
+TriggerType.FACE_DOWN -> BroadcastTrigger(
+    context = context,
+    type = type,
+    actions = setOf(Intent.ACTION_SCREEN_OFF),
+    exported = false,
+) { "face down" }
 ```
 
-**The configuration dialog reads the store from the composition too:**
+`exported` is a decision, not a decoration: a broadcast from another UID has to be caught
+with `RECEIVER_EXPORTED`, and one the system sends into the app with `RECEIVER_NOT_EXPORTED`,
+or the platform drops it silently.
 
-```kotlin
-@Composable
-fun ProgressOnPickupEnableDialog(
-    onConfirm: (ProgressOnPickupConfig) -> Unit,
-    onDisable: () -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val settingsRepository = LocalSettingsRepository.current
-    val haptic = LocalHapticFeedback.current
-    val vibrationIntensity = LocalVibrationIntensity.current
-    val scope = rememberCoroutineScope()
+### Step 3. Wire it in `TriggerSources.create`
 
-    val currentlyEnabled = remember { settingsRepository.isProgressOnPickupEnabled() }
-    var durationSeconds by remember {
-        mutableFloatStateOf((settingsRepository.getProgressOnPickupDuration() / 1000f))
-    }
+One place answers "how do we hear this event", and neither the rule host nor a script
+subscription has to know how it was done.
 
-    // … AlertDialog: sliders mutate local state, FeatureSaveButtons writes on Save …
+### Step 4. Check it
 
-    // A Test button plays it on the real strip:
-    val glyphAnimationManager = rememberGlyphAnimationManager()
-    scope.launch {
-        runCatching { glyphAnimationManager.playProgressOnPickupAnimation() }
-    }
-}
-```
+- `TriggerType.fromId` has to find the new id — otherwise a rule naming it does nothing, and
+  nothing says so;
+- the new trigger has to appear in `TriggerSources.available(context)`: that is what the form
+  shows as chips.
 
-`rememberGlyphAnimationManager()` in
-[GlyphDependencies.kt](../app/src/main/java/com/bleelblep/glyphsharge/ui/components/GlyphDependencies.kt)
-is the whole answer to "how does a plain Composable reach the manager": it resolves
-`HomeViewModel` through `hiltViewModel()`, which works from inside a dialog exactly as it
-does from a screen, and hands back the same singleton the feature services hold.
+### If a new feature is what you need
 
-**Configuration-dialog recipe** (identical across the features):
-
-1. Read current values **once** into `remember` (or `rememberFloatStateOf` for sliders).
-2. Changes either write straight to the repository **or** only on Save — the codebase
-   currently prefers the former for animation selection and the latter for sliders.
-3. Body: a scrollable `Column` (`heightIn(max = 400.dp)`, `spacedBy(20.dp)`) of `Card`s
-   coloured with `themeCardContainerColor()`, sliders tinted with `themePrimaryActionColor()`,
-   the value shown via `ThemedValueBadge`.
-4. Every slider movement fires `HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)`.
-5. Buttons — `FeatureSaveButtons`.
-
----
-
-### The mechanical parts
-
-None of these is architecture; all of them are needed for the feature to be reachable.
-
-**Settings keys.** The keys and the accessors go in
-[FeatureSettings.kt](../app/src/main/java/com/bleelblep/glyphsharge/data/FeatureSettings.kt)
-(the slice that owns the features), and the façade forwards them from
-[SettingsRepository.kt](../app/src/main/java/com/bleelblep/glyphsharge/data/SettingsRepository.kt)
-so the registry's lambdas have something to call:
-
-```kotlin
-fun saveProgressOnPickupEnabled(enabled: Boolean) = prefs.putSetting(KEY_PROGRESS_ENABLED, enabled)
-
-fun isProgressOnPickupEnabled(): Boolean = prefs.getSetting(KEY_PROGRESS_ENABLED, false)
-
-fun saveProgressOnPickupDuration(durationMs: Long) =
-    prefs.putSetting(KEY_PROGRESS_DURATION, durationMs)
-
-fun getProgressOnPickupDuration(): Long =
-    prefs.getSetting(KEY_PROGRESS_DURATION, DEFAULT_PROGRESS_DURATION)
-```
-
-and in `applyVersionMigrations()` a new step, which is what writes the default for users who
-already have the app installed:
-
-```kotlin
-if (lastMigrated < 115) {
-    prefs.edit {
-        if (!prefs.contains(FeatureSettings.KEY_PROGRESS_ENABLED)) {
-            putBoolean(FeatureSettings.KEY_PROGRESS_ENABLED, false)
-        }
-        putInt(KEY_LAST_MIGRATED_VERSION, 115)
-    }
-}
-```
-
-> [!TIP]
-> The `prefs.contains(...)` guard is mandatory — without it, a user who already enabled
-> the feature loses that setting on update.
-
-> [!IMPORTANT]
-> The version number is *one past the highest step already in the file*, not a constant.
-> `SettingsMigrations` currently ends at 114 (the VPN-connected step), so a feature added
-> today takes 115. Reusing a number that is already taken produces a step that can never
-> run, because the earlier one has already advanced the stored version past it.
-
-**Manifest.** In [AndroidManifest.xml](../app/src/main/AndroidManifest.xml), next to the
-other services:
-
-```xml
-<service
-    android:name=".services.ProgressOnPickupService"
-    android:enabled="true"
-    android:exported="false"
-    android:foregroundServiceType="specialUse">
-    <property
-        android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-        android:value="This service draws a progress bar on the glyph interface when the phone is picked up." />
-</service>
-```
-
-> [!IMPORTANT]
-> The `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` description must **accurately** match the service's
-> purpose. Google Play rejects submissions with inaccurate wording, and this manifest did
-> carry it: `NfcGlyphService` and `ChargingAnimationService` both declared the
-> `LowBatteryAlertService` text verbatim. Both now describe the work they actually do.
-
-Remember any `<uses-permission>` the service needs, and its own
-`<uses-feature>` where a sensor is involved.
-
-**Strings.** Copy an existing block such as `charging_animation_*` in
-[values/strings.xml](../app/src/main/res/values/strings.xml) — title, description, the
-service-off toast the `FeatureSpec` names, the how-it-works pair, the Test and Save labels —
-and add **the same keys** in `res/values-ru-rRU/strings.xml` with translations.
-
-> [!TIP]
-> Localization coverage in this project is complete — 301 strings in `values/` and 301 in
-> `values-ru-rRU/`. Keep parity, or the Russian UI falls back to English.
-
-**Home screen entry.** In
-[HomeFeatures.kt](../app/src/main/java/com/bleelblep/glyphsharge/ui/screens/home/HomeFeatures.kt)
-add an `item {}` to `homeFeatureCards`. That function is pure wiring — a card needs nothing
-but the toggle state and the two callbacks:
-
-```kotlin
-item {
-    ProgressOnPickupCard(
-        isEnabled = uiState.stateOf(GlyphFeature.PROGRESS_ON_PICKUP).isEnabled,
-        isServiceActive = uiState.glyphServiceEnabled,
-        onEnabledChange = { viewModel.setFeatureEnabled(GlyphFeature.PROGRESS_ON_PICKUP, it) },
-        onTest = { viewModel.testFeature(GlyphFeature.PROGRESS_ON_PICKUP) },
-        icon = rememberVectorPainter(image = Icons.Default.DirectionsWalk),
-        modifier = Modifier.fillMaxWidth(),
-        iconSize = 32
-    )
-}
-```
-
-> [!NOTE]
-> Card order on screen is defined right here — this is the only place the list items
-> are enumerated.
-
-**The card's Test button.** `HomeViewModel.testFeature()` is an exhaustive `when` over the
-enum, so the compiler will point at it; add the branch and the `TOAST_BY_FEATURE` entry:
-
-```kotlin
-GlyphFeature.PROGRESS_ON_PICKUP -> glyphAnimationManager.playProgressOnPickupAnimation()
-```
-
-**Boot restoration (optional).** In
-[BootCompletedReceiver.kt](../app/src/main/java/com/bleelblep/glyphsharge/receiver/BootCompletedReceiver.kt),
-inside `startServicesInOrder`, in the tier-2 block:
-
-```kotlin
-if (glyphOn && settingsRepository.isProgressOnPickupEnabled()) {
-    Log.d(TAG, "Tier 2 – ProgressOnPickup")
-    context.startForegroundServiceCompat(ProgressOnPickupService::class.java)
-}
-```
-
----
-
-### Pre-Build Checklist
-
-- [ ] Value added to the single `GlyphFeature` enum
-- [ ] One `FeatureSpec` entry — service class, stop action, both preference lambdas, message
-- [ ] Service takes the strip through `withStrip` and bounds the run through `runCapped`
-- [ ] `startForeground()` at the top of `onStartCommand`
-- [ ] `runCatching` around `wakeLock.release()` and `unregisterReceiver`
-- [ ] Service declared in the manifest with `specialUse` + `PROPERTY_SPECIAL_USE_FGS_SUBTYPE`
-- [ ] Settings keys added, version migration step added
-- [ ] Strings added in **both** `strings.xml` files
-- [ ] `when` in `HomeViewModel.testFeature()` and `TOAST_BY_FEATURE` updated
-- [ ] Card takes no `settingsRepository` parameter; the dialog reads `LocalSettingsRepository`
-
-### Common Mistakes
-
-| Symptom | Cause |
-|---------|-------|
-| `IllegalStateException: FeatureSpecs has no entry for …` | The enum value was added but no `FeatureSpec` record was |
-| `ForegroundServiceDidNotStartInTimeException` | `startForeground()` not called early in `onStartCommand` |
-| Feature toggles on but glyphs stay dark | `acquire()`/`release()` called by hand instead of `withStrip` — the mutex is stuck and every other feature reports "strip busy" forever |
-| The feature works once, then never again | A service that is cancelled while holding the lock; `withStrip` puts the release in a `finally` for exactly this |
-| A toast appears instead of the dialog | The "Glyph service" master switch is off — check `isServiceActive` |
-| The animation never stops at the duration setting | The run was launched with `launch` instead of `runCapped` |
-| Service does not start after reboot | Not added to `BootCompletedReceiver`, or the feature flag is `false` |
-| Localized text is empty | Key added to only one of the `strings.xml` files |
-
----
+A feature is something with a **card and a service of its own**. There is one today: the
+music visualiser, because its `MediaProjection` token can only be obtained by an Activity. A
+second one would be four pieces: a value in `GlyphFeature`, an entry in `FeatureSpecs` (the
+service, the stop action, the switch, the message), the service itself and the card.
+Everything the app needs to *know* about a feature is data in one record, so nothing else in
+the app has to learn that the service exists.
 
 ## 8. UI Layer
 
@@ -1506,7 +1197,7 @@ each of the 15 Material 3 slots is multiplied by its category factor. `SYSTEM` d
 | `SquareFeatureCard` | `cards/ContentCards.kt` | 1:1 square card, dimmed when the service is off |
 | `WideFeatureCardWithToggle` | `cards/ContentCards.kt` | Feature card with an overlaid toggle |
 | `GlyphControlCard` | `cards/ContentCards.kt` | Master glyph switch card |
-| `PowerPeekCard` … `MusicVisualizerCard`, `VpnConnectedCard` | `FeatureCards.kt`, `VpnConnected.kt` | The 8 feature cards |
+| `MusicVisualizerCard` | `FeatureCards.kt` | The one feature card — the visualiser |
 | `rememberGlyphAnimationManager()` | `GlyphDependencies.kt` | The manager behind every card's Test button |
 | `MorphingToggleButton` | `controls/ToggleButtons.kt` | Toggle with a morphing animation |
 | `ThreeStateFontMorphingButton` | `controls/ToggleButtons.kt` | Three-state font picker |
@@ -1732,7 +1423,7 @@ silently never fires.
 > `AudioManager.isMusicActive()` plus the analysed level decide that.
 
 `RECORD_AUDIO` gates the whole thing and is requested when the user switches
-the feature on, the same way Power Peek asks for its permission.
+the feature on.
 
 ### Degrading
 
@@ -1784,8 +1475,8 @@ because that is a separate Activity with its own context.
 `FOREGROUND_SERVICE_SPECIAL_USE`, `FOREGROUND_SERVICE_DATA_SYNC`,
 `FOREGROUND_SERVICE_MEDIA_PROJECTION`, `SYSTEM_ALERT_WINDOW`, `RECEIVE_BOOT_COMPLETED`,
 `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `DISABLE_KEYGUARD`, `TURN_SCREEN_ON`,
-`NFC`, `ACCESS_NETWORK_STATE` (VPN Connected — the state, not
-the network, and also what `glyph.net` reads), `RECORD_AUDIO`, `READ_MEDIA_AUDIO`,
+`NFC` (the NFC trigger), `ACCESS_NETWORK_STATE` (the state, not the network: the VPN
+trigger reads it, and so does `glyph.net`), `RECORD_AUDIO`, `READ_MEDIA_AUDIO`,
 `INTERNET` (the animation store — the only thing the app downloads; an ordinary
 permission, not requested at runtime).
 
@@ -1941,19 +1632,24 @@ shipped build.
 
 | Issue | Where | Consequence |
 |-------|-------|-------------|
-| **Empty stubs in `MainActivity`** | `startPersistentGlyphService()`, `maybeRestoreSession()`, `writeLogToUri()` | `GlyphForegroundService` **does not start** on a normal app launch — only after reboot |
+| ~~Empty stubs in `MainActivity`~~ | `startPersistentGlyphService()`, `maybeRestoreSession()` — the bodies are there now | The log export moved to Settings: in `MainActivity` it was registered but never launched |
 
 ### Logging
 
-`LoggingManager` is disabled by default: `isLoggingEnabled = false`, and
-`setLoggingEnabled(true)` is **never called**. All 22 logging methods are no-ops,
-including `logSessionState` and `logSDKOperation` inside `GlyphManager`.
-`shareLogs()` and `LoggingManager.exportLogs()` are never called either.
+`LoggingManager` is **on**: the file is always written, and the last ten sessions are
+kept in the logs folder (`MAX_LOG_FILES`). Only events are written — a session opening,
+a device registering, a trigger firing — never frames, so the file stays small.
 
 > [!NOTE]
-> When debugging glyphs, enable logging manually:
-> `LoggingManager.initialize(this)` already runs in `GlyphShargeApplication.onCreate`,
-> but you must add `setLoggingEnabled(true)` yourself.
+> Logging used to be off by default, `setLoggingEnabled(true)` was **never called**,
+and the log-export button was registered but never launched: the file came out empty
+and there was no way to get it at all. The log is written now, and Settings has an
+"Export logs" row — it picks a place and writes the assembled file there, and every
+outcome (written, nothing to write, could not write) is said out loud.
+
+The triggers write into the same file (`Trigger`): what they subscribed to and what
+arrived. On a phone where logcat is not an option, it is the only way to find out
+whether a broadcast reached its receiver.
 
 ### GlyphManager
 
@@ -2040,19 +1736,14 @@ The places where the code behaves in a non-obvious way:
   in `main/` calls it any more — the studio has no on-screen preview — and nothing that
   lights real LEDs ever did; only the tests use it.
 
-### UI
-
-- `ChargingAnimationConfig.isEnabled` and `PowerPeekConfig.enableWhenScreenOff` are written
-  but have **no matching repository keys** — the "only when screen is off" switch in the
-  Power Peek dialog does nothing.
-
 ### Manifest
 
 - `android:name=".GlyphShargeApplication"` matches the class name, but the **file is called
   `GlyphZenApplication.kt`** — the file name does not match its single class.
-- The `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` text for `NfcGlyphService`,
-  `ChargingAnimationService` and `LowBatteryAlertService` is **copy-pasted** and talks about
-  "low battery alerts" — wrong for NFC and charging.
+- `FOREGROUND_SERVICE_SPECIAL_USE` is declared, and `specialUse` is declared on three
+  services (`GlyphForegroundService`, `RuleHostService`, `MusicVisualizerService`): the
+  type is what they need, because driving the glyphs fits none of the ordinary
+  foreground-service types.
 - `WRITE_EXTERNAL_STORAGE` is declared but unnecessary: the app only writes to
   `getExternalFilesDir` and `cacheDir`. It is a no-op on API 29+ anyway.
 - `FOREGROUND_SERVICE_DATA_SYNC` is declared but no service uses it.
@@ -2253,8 +1944,8 @@ glyph.target = "music"
 
 A script with no `glyph.target` is offered by every picker, which is how it
 worked before the visualiser existed. A script that says `"music"` appears **only**
-in the visualiser's picker and disappears from Pulse Lock, NFC, Low Battery and
-Screen Off — which is what a script reading `glyph.audio` wants, because
+in the visualiser's picker and disappears from the rule picker — which is what a script
+reading `glyph.audio` wants, because
 everywhere else every value is zero.
 
 | Rule | Why |
@@ -2385,9 +2076,9 @@ independent queries can hand a script a combination that never existed for any m
 period.
 
 **Nothing here adds a trigger, a service or a permission.** A module is read *inside* a run
-that an existing feature has already woken — Pulse Lock, NFC, the charging animation, VPN
-connected, screen off, low battery, the music visualiser. There is no ninth service
-waiting on "the script said it was night", and no new permission:
+that an existing trigger has already woken — unlock, NFC, the charger, VPN connected, screen
+off, low battery, a shake, the music visualiser. There is no ninth service waiting on "the
+script said it was night", and no new permission:
 
 | Module | Permission story |
 |--------|------------------|
@@ -2537,21 +2228,18 @@ end
 glyph.off()                          -- leave cleanly if the animation was stopped
 ```
 
-### Scripts on the feature cards
+### Scripts in the constructor
 
-A saved script is **not** bound to a particular feature. It shows up in the animation picker
-of Pulse Lock, Low Battery, NFC and Screen Off — right after the ten built-ins, with the
-shared custom icon and its own name, and its stored id looks like `custom:<12 hex>`.
+A saved script is **not** bound to a particular feature. It shows up in the rule form's
+animation picker — right after the ten built-ins, with the shared custom icon and its own
+name, and its stored id looks like `custom:<12 hex>`.
 
 The one exception is `glyph.target = "music"`, which restricts a script to the music
-visualiser's picker. The rule is one-sided: the trigger features hide music scripts, and
-the visualiser lists scripts with no target as well as music ones — because "no target"
-means "anywhere", and the reverse is not true.
+visualiser's picker. The rule is one-sided: the rule picker hides music scripts, and the
+visualiser lists scripts with no target as well as music ones — because "no target" means
+"anywhere", and the reverse is not true.
 
-The charging animation and Power Peek have no picker at all and were left without scripts:
-the charging bar is fixed by its own design.
-
-Each of those four Test buttons looks at the `isCustom` flag and calls
+A rule row's ▶ looks at the `isCustom` flag and calls
 `playCustomAnimation(id)` instead of the built-in branch.
 
 > [!IMPORTANT]

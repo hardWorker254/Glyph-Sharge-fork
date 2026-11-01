@@ -32,16 +32,8 @@ class SettingsDiagnostics @Inject constructor(
             Dark Theme: ${theme.getTheme()}
             Theme Style: ${theme.getThemeStyle()}
             Glyph Service: ${glyphService.getGlyphServiceEnabled()}
-            PowerPeek: ${features.isPowerPeekEnabled()}
-            Shake Threshold: ${features.getPowerPeekThreshold()}
-            Display Duration: ${features.getPowerPeekDuration()}
             Vibration Intensity: ${glyphService.getVibrationIntensity()}
-            Glow Gate enabled: ${features.isPulseLockEnabled()}
-            Low-Battery Alert enabled: ${features.isLowBatteryEnabled()}
-            Screen Off Anim enabled: ${features.isScreenOffFeatureEnabled()}
-            NFC Feature enabled: ${features.isNfcFeatureEnabled()}
-            NFC Animation ID: ${features.getNfcAnimationId()}
-            NFC Animation Duration: ${features.getNfcAnimationDuration()}ms
+            Music Visualiser: ${features.isMusicVizEnabled()}
             ===================
         """.trimIndent()
         Log.d(TAG, dump)

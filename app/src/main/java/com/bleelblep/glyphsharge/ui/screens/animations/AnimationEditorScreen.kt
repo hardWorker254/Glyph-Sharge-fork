@@ -4,10 +4,7 @@ import android.util.Log
 import androidx.annotation.ArrayRes
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -23,7 +20,6 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -54,7 +50,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
@@ -68,6 +63,7 @@ import androidx.compose.ui.unit.sp
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.glyph.script.LogLevel
 import com.bleelblep.glyphsharge.glyph.script.ScriptTarget
+import com.bleelblep.glyphsharge.ui.components.CodeEditor
 import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import com.bleelblep.glyphsharge.ui.theme.themeCardContainerColor
 import com.bleelblep.glyphsharge.ui.theme.themePrimaryActionColor
@@ -295,49 +291,6 @@ private fun ConsoleLine.color(): Color = when (level) {
     LogLevel.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
     LogLevel.WARN -> MaterialTheme.colorScheme.tertiary
     LogLevel.ERROR -> MaterialTheme.colorScheme.error
-}
-
-/**
- * A plain monospace text field.
- *
- * `BasicTextField` rather than `OutlinedTextField` because the decoration of a
- * form control is noise on a code surface, and because the field has to scroll
- * in both axes without a label floating over the first line.
- */
-@Composable
-private fun CodeEditor(
-    source: String,
-    onSourceChange: (String) -> Unit,
-    accent: Color,
-    modifier: Modifier = Modifier,
-) {
-    val vertical = rememberScrollState()
-    val horizontal = rememberScrollState()
-
-    Box(
-        modifier = modifier
-            .background(
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                shape = RoundedCornerShape(12.dp),
-            )
-            .padding(12.dp),
-    ) {
-        BasicTextField(
-            value = source,
-            onValueChange = onSourceChange,
-            textStyle = TextStyle(
-                fontFamily = FontFamily.Monospace,
-                fontSize = 13.sp,
-                lineHeight = 20.sp,
-                color = MaterialTheme.colorScheme.onSurface,
-            ),
-            cursorBrush = SolidColor(accent),
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(vertical)
-                .horizontalScroll(horizontal),
-        )
-    }
 }
 
 /**

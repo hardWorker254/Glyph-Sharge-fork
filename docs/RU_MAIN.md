@@ -1,3 +1,14 @@
+> [!WARNING]
+> **Этот документ устарел.** Он описывает состояние до того, как семь фич переехали с
+> собственных foreground-сервисов и карточек на хост правил
+> (`RuleHostService` + `GlyphRuleRepository`), а потом ушли вместе со своими
+> предустановленными правилами: приложение поставляет **пользовательские** правила и
+> одну фичу — музыкальную визуализацию. Сервисы `ChargingAnimationService`,
+> `PowerPeekService`, `PulseLockService`, `ScreenOffGlyphService`, `NfcGlyphService`,
+> `LowBatteryAlertService` и `VpnConnectedService` удалены, их карточек на главном
+> экране больше нет, а от каждой фичи остались только **триггеры**. Актуальная версия:
+> [DOCUMENTATION_RU.md](DOCUMENTATION_RU.md).
+
 # Glyph Sharge Documentation
 
 Полная документация для проекта Glyph Sharge — приложения для управления Nothing Glyph Interface.

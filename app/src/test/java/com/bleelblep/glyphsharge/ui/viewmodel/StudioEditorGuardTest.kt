@@ -52,8 +52,13 @@ class StudioEditorGuardTest {
         // and `source` and resets `isDirty`. A script half written and then lost
         // to a back press was indistinguishable from one never typed — while
         // `isDirty` was computed and drawn as a dot the whole time.
+        //
+        // Cut at the `when`'s last branch rather than at the branch that used
+        // to follow the editor: the store has moved to its own Activity, and
+        // anchoring on a branch that no longer exists would read the whole rest
+        // of the file as the editor and pass for the wrong reason.
         val editorBranch = activity.substringAfter("state.isEditorOpen ->")
-            .substringBefore("storeOpen ->")
+            .substringBefore("else ->")
 
         assertFalse(
             "back must not close the editor outright",

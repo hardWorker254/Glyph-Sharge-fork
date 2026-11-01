@@ -4,146 +4,31 @@
 
 
     <!-- Charging Animation -->
-    <string name="charging_animation_title">Charging Animation</string>
-    <string name="charging_animation_description">Индикация при подключении и отключении</string>
-    <string name="charging_animation_how_it_works_title">Как это работает:</string>
-    <string name="charging_animation_how_it_works_description">• Отображает уровень заряда при подключении зарядного устройства\n• Следующий сегмент плавно «дышит» во время зарядки\n• Показывает текущий уровень при отключении зарядного устройства</string>
-    <string name="charging_animation_button_test">Протестировать</string>
-    <string name="charging_animation_configure_title">Настройка</string>
-    <string name="charging_animation_configure_subtitle">Настройте отображение при зарядке</string>
-    <string name="charging_animation_duration_title">Длительность</string>
-    <string name="charging_animation_duration_min">2 с</string>
-    <string name="charging_animation_duration_max">10 с</string>
-    <string name="charging_animation_button_enable">Включить</string>
-    <string name="charging_animation_toast">Сначала включите Glyph-сервис</string>
 
     <!-- VPN Connected -->
-    <string name="vpn_connected_title">VPN Connected</string>
-    <string name="vpn_connected_description">Красивая последовательность Glyph при подключении VPN.</string>
-    <string name="vpn_connected_toast">Сначала включите Glyph-сервис</string>
-    <string name="vpn_connected_button_test">Протестировать</string>
-    <string name="vpn_connected_dialog_subtitle">Подсветка при подключении VPN</string>
-    <string name="vpn_connected_how_it_works_title">Как это работает:</string>
-    <string name="vpn_connected_how_it_works_description">• Срабатывает один раз при установке VPN-соединения.\n• Воспроизводит выбранную анимацию.\n• Если VPN уже подключён при запуске фичи, ничего не срабатывает.\n• Автоматически отключается в режиме «Тишина».</string>
-    <string name="vpn_connected_configure_title">Настройка</string>
-    <string name="vpn_connected_configure_subtitle">Настройте поведение при подключении VPN</string>
-    <string name="vpn_connected_animation_title">Выберите анимацию</string>
-    <string name="vpn_connected_animation_test">Тест: </string>
-    <string name="vpn_connected_duration_title">Длительность</string>
-    <string name="vpn_connected_duration_value">%d с</string>
-    <string name="vpn_connected_duration_min">1с</string>
-    <string name="vpn_connected_duration_max">10с</string>
-    <string name="vpn_connected_button_enable">Включить</string>
 
     <!-- Power Peek -->
     <string name="power_peek_title">Power Peek</string>
     <string name="power_peek_description">Взгляд на заряд батареи одним встряхиванием.</string>
-    <string name="power_peek_toast">Сначала включите Glyph-сервис</string>
-    <string name="power_peek_dialog_title">PowerPeek</string>
-    <string name="power_peek_dialog_subtitle">Просмотр заряда встряхиванием</string>
     <string name="power_peek_how_it_works_title">Как это работает:</string>
     <string name="power_peek_how_it_works_description">• Встряхните устройство для просмотра уровня заряда\n• Работает даже при выключенном экране\n• Настраиваемая чувствительность и длительность отображения</string>
     <string name="power_peek_button_test">Протестировать</string>
-    <string name="power_peek_configure_title">Настройка</string>
-    <string name="power_peek_configure_subtitle">Настройте обнаружение встряхивания</string>
-    <string name="power_peek_sensitivity_title">Чувствительность</string>
     <string name="power_peek_sensitivity_soft">Мягко</string>
     <string name="power_peek_sensitivity_easy">Легко</string>
     <string name="power_peek_sensitivity_medium">Средне</string>
     <string name="power_peek_sensitivity_hard">Сильно</string>
     <string name="power_peek_sensitivity_hardest">Очень сильно</string>
-    <string name="power_peek_duration_title">Длительность</string>
-    <string name="power_peek_duration_value">%d с</string>
-    <string name="power_peek_duration_min">2с</string>
-    <string name="power_peek_duration_max">10с</string>
-    <string name="power_peek_button_enable">Включить</string>
 
     <!-- Glow Gate (PulseLock) -->
-    <string name="pulse_lock_title">Glow Gate</string>
-    <string name="pulse_lock_description">Эффектная анимация Glyph при разблокировке.</string>
-    <string name="pulse_lock_toast">Сначала включите Glyph-сервис</string>
-    <string name="pulse_lock_dialog_subtitle">Анимация при разблокировке</string>
-    <string name="pulse_lock_how_it_works_title">Как это работает:</string>
-    <string name="pulse_lock_how_it_works_description">• Воспроизводит выбранную анимацию Glyph после разблокировки\n• Опциональный звук с настраиваемой задержкой</string>
-    <string name="pulse_lock_button_test">Протестировать</string>
-    <string name="pulse_lock_configure_title">Настройка</string>
-    <string name="pulse_lock_configure_subtitle">Настройте анимацию разблокировки</string>
-    <string name="pulse_lock_animation_title">Анимация</string>
-    <string name="pulse_lock_animation_test">Тест: </string>
-    <string name="pulse_lock_duration_title">Длительность</string>
-    <string name="pulse_lock_duration_value">%d с</string>
-    <string name="pulse_lock_duration_min">1с</string>
-    <string name="pulse_lock_duration_max">10с</string>
-    <string name="pulse_lock_button_enable">Включить</string>
 
     <!-- Low Battery Alert -->
-    <string name="low_battery_alert_title">Low Battery Alert</string>
-    <string name="low_battery_alert_description">Получайте уведомление через Glyph при низком заряде.</string>
-    <string name="low_battery_alert_toast">Сначала включите Glyph-сервис</string>
-    <string name="low_battery_alert_how_it_works_title">Как это работает:</string>
-    <string name="low_battery_alert_how_it_works_description">• Непрерывно отслеживает уровень заряда\n• Запускает анимацию Glyph при падении ниже порога\n• Работает даже при выключенном экране\n• Настраиваемый порог и анимация</string>
-    <string name="low_battery_alert_button_test">Протестировать</string>
-    <string name="low_battery_alert_configure_title">Настройка</string>
-    <string name="low_battery_alert_configure_subtitle">Настройте уведомление о низком заряде</string>
-    <string name="low_battery_alert_threshold_title">Порог заряда</string>
-    <string name="low_battery_alert_threshold_label">Уведомлять при падении до:</string>
-    <string name="low_battery_alert_threshold_min">Низкий (5%)</string>
-    <string name="low_battery_alert_threshold_max">Высокий (50%)</string>
-    <string name="low_battery_alert_animation_title">Анимация</string>
-    <string name="low_battery_alert_animation_test">Тест: </string>
-    <string name="low_battery_alert_duration_title">Длительность</string>
-    <string name="low_battery_alert_duration_min">1с</string>
-    <string name="low_battery_alert_duration_max">10с</string>
-    <string name="low_battery_alert_button_enable">Включить</string>
 
     <!-- Screen Off Animation -->
-    <string name="screen_off_title">Screen Off Animation</string>
-    <string name="screen_off_description">Красивая последовательность Glyph при выключении экрана.</string>
-    <string name="screen_off_toast">Сначала включите Glyph-сервис</string>
-    <string name="screen_off_dialog_subtitle">Подсветка при блокировке</string>
-    <string name="screen_off_button_test">Протестировать</string>
-    <string name="screen_off_how_it_works_title">Как это работает:</string>
-    <string name="screen_off_how_it_works_description">• Срабатывает при каждом выключении экрана.\n• Воспроизводит выбранную анимацию.\n• Автоматически отключается в режиме «Тишина».</string>
-    <string name="screen_off_configure_title">Настройка</string>
-    <string name="screen_off_configure_subtitle">Настройте поведение при выключении</string>
-    <string name="screen_off_animation_title">Выберите анимацию</string>
-    <string name="screen_off_animation_test">Тест: </string>
-    <string name="screen_off_duration_title">Длительность</string>
-    <string name="screen_off_duration_value">%d с</string>
-    <string name="screen_off_duration_min">1с</string>
-    <string name="screen_off_duration_max">10с</string>
-    <string name="screen_off_button_enable">Включить</string>
 
     <!-- NFC Glyph -->
-    <string name="nfc_glyph_title">NFC Glyph</string>
-    <string name="nfc_glyph_description">Анимация Glyph при NFC событии</string>
-    <string name="nfc_glyph_toast">Сначала включите Glyph-сервис</string>
-    <string name="nfc_glyph_how_it_works_title">Как это работает:</string>
-    <string name="nfc_glyph_how_it_works_description">• Срабатывает при оплате (Google Pay и др.)\n• Срабатывает при сканировании NFC-метки\n• Воспроизводит выбранную анимацию Glyph\n• Учитывает режим «Тишина», если включён</string>
-    <string name="nfc_glyph_configure_title">Настройка</string>
-    <string name="nfc_glyph_configure_subtitle">Настройте анимацию для NFC</string>
-    <string name="nfc_glyph_button_test">Протестировать</string>
-    <string name="nfc_glyph_animation_title">Анимация</string>
-    <string name="nfc_glyph_animation_test">Тест: </string>
-    <string name="nfc_glyph_duration_title">Длительность</string>
-    <string name="nfc_glyph_duration_min">1с</string>
-    <string name="nfc_glyph_duration_max">10с</string>
-    <string name="nfc_glyph_duration_description">Как долго воспроизводится анимация после NFC-события</string>
-    <string name="nfc_glyph_note_title">Примечание</string>
-    <string name="nfc_glyph_note_description">• NFC должен быть включён в настройках системы\n• Работает с Google Pay, сканированием меток и др.\n• Обнаружение платежей HCE — автоматическое\n• Обнаружение меток требует, чтобы приложение было на переднем плане</string>
-    <string name="nfc_glyph_button_enable">Включить</string>
-    <string name="nfc_not_available">NFC недоступен на этом устройстве</string>
-    <string name="nfc_enable_in_settings">Сначала включите NFC в настройках системы</string>
 
     <!-- Common toasts -->
     <string name="toast_service_required">Сначала включите сервис Glyph</string>
-    <string name="toast_testing_power_peek">Тест: Power Peek</string>
-    <string name="toast_testing_charging_animation">Тест: анимации зарядки</string>
-    <string name="toast_testing_pulse_lock">Тест: Glow Gate</string>
-    <string name="toast_testing_screen_off">Тест: выключения экрана</string>
-    <string name="toast_testing_nfc">Тест: NFC Glyph</string>
-    <string name="toast_testing_low_battery_alert">Тест: низкого заряда</string>
-    <string name="toast_testing_vpn_connected">Тест: подключения VPN</string>
     <string name="toast_testing_music_visualizer">Тест: музыкальной визуализации</string>
     <string name="toast_testing_generic">Тест: %1$s</string>
 
@@ -177,9 +62,15 @@
     <string name="settings_card_theme">Тема</string>
     <string name="settings_section_app_info">О приложении</string>
 
+  <!-- Конструктор правил -->
+  <string name="settings_card_rule_constructor">Конструктор правил</string>
+
   <!-- Animation Studio -->
   <string name="settings_card_custom_animations">Свои анимации</string>
   <string name="settings_card_custom_animations_subtitle">Пишите свои на Lua</string>
+  <!-- В магазине лежат оба вида скриптов, поэтому подзаголовок говорит
+       «скрипты», а не называет один из них. -->
+  <string name="settings_card_store_subtitle">Скрипты, которые написали другие</string>
   <plurals name="settings_card_custom_animations_count">
     <item quantity="one">Сохранено: %1$d анимация</item>
     <item quantity="few">Сохранено: %1$d анимации</item>
@@ -313,13 +204,12 @@
     <item>Чистая арифметика: clamp, lerp, mapRange, shuffle</item>
   </string-array>
 
-  <string name="studio_reference_modules_note">require разрешает ровно эти шесть имён и больше ничего. Нет require(&quot;os&quot;) и нет способа прочитать файл — это песочница, и сделана она намеренно. Все три уровня лежат в модуле: сам по себе glyph.log — обычная функция.</string>
+  <string name="studio_reference_modules_note">require разрешает ровно эти шесть имён и больше ничего. Нет require(\"os\") и нет способа прочитать файл — это песочница, и сделана она намеренно. Все три уровня лежат в модуле: сам по себе glyph.log — обычная функция.</string>
 
   <!-- Магазин анимаций. Надпись о неподдерживаемой анимации заменяет обе
        кнопки, а не гасит их: серая кнопка на приглушённой карточке читается
        как «нажми, вдруг включится», а нажимать тут нечего. -->
   <string name="store_title">Магазин анимаций</string>
-  <string name="store_open">Магазин</string>
   <string name="store_action_install">Установить</string>
   <!-- Уже не кнопка: анимация лежит на телефоне, нажимать нечего. Зелёная
        потому, что это ответ, а не приглашение. Но если каталог опубликовал
@@ -327,52 +217,39 @@
   <string name="store_action_installed">Установлено</string>
   <string name="store_action_update">Обновить</string>
   <string name="store_action_test">Тест на глифе</string>
+  <!-- Меню строки: все действия переехали сюда, когда карточка стала
+       строкой в стиле студии. -->
+  <string name="store_row_menu">Действия со скриптом</string>
   <string name="store_unsupported_label">Не поддерживается</string>
   <string name="store_unsupported_devices">Работает на %1$s</string>
   <string name="store_empty_title">Магазин пуст</string>
   <string name="store_empty_body">В каталог пока ничего не опубликовано. Загляните позже.</string>
+  <!-- Три чипа сверху каталога: два вида и «всё». Меню спрятало бы два из
+       трёх за лишним нажатием. -->
+  <string name="store_filter_all">Все</string>
+  <string name="store_filter_animations">Анимации</string>
+  <string name="store_filter_services">Сервисы</string>
+  <!-- Не то же самое, что «Магазин пуст»: каталог наполнен, просто в той
+       половине, на которую смотрят чипы, пусто. -->
+  <string name="store_filter_empty">По этому фильтру ничего нет.</string>
   <string name="store_loading">Загружаем каталог…</string>
   <string name="store_retry">Повторить</string>
   <string name="store_offline_note">Показана сохранённая копия — магазин недоступен.</string>
   <string name="store_refresh">Обновить</string>
-  <string name="store_by_author">от %1$s</string>
-  <string name="store_msg_installed">«%1$s» установлена</string>
+  <string name="store_msg_installed">«%1$s» установлено</string>
   <string name="store_msg_updated">«%1$s» обновлена</string>
   <string name="store_msg_tested">«%1$s» проиграна</string>
   <string name="store_msg_failed">Не удалось установить анимацию</string>
   <string name="store_msg_update_failed">Не удалось обновить анимацию</string>
-  <string name="store_msg_license">Лицензия: %1$s</string>
 
-  <string name="pulse_lock_notification_channel">Сервис Glow Gate</string>
-  <string name="pulse_lock_notification_title">✨ Glow Gate активен</string>
-  <string name="pulse_lock_notification_text">При разблокировке будет показана выбранная анимация.</string>
 
   <!-- Имена каналов уведомлений: их нельзя поменять после создания канала,
        поэтому это единственная строка, которую перевод может исправить. -->
-  <string name="nfc_glyph_channel">Сервис NFC-анимаций</string>
-  <string name="nfc_glyph_notif_title">✨ NFC-анимация активна</string>
-  <string name="nfc_glyph_notif_text">Коснитесь терминала или считайте NFC-метку, чтобы запустить анимацию.</string>
 
-  <string name="power_peek_channel">Сервис Power Peek</string>
-  <string name="power_peek_notif_title">🔋 Power Peek активен</string>
-  <string name="power_peek_notif_text">Покачайте телефон вдоль стола, чтобы проверить заряд.</string>
 
-  <string name="low_battery_channel">Сервис оповещения о низком заряде</string>
-  <string name="low_battery_notif_title">🔋 Оповещение о заряде активно</string>
-  <string name="low_battery_notif_text">Следит за уровнем заряда.</string>
 
-  <string name="screen_off_channel">Сервис анимаций при выключении экрана</string>
-  <string name="screen_off_notif_title">✨ Анимация при выключении экрана активна</string>
-  <string name="screen_off_notif_text">Выключение экрана запустит выбранную анимацию.</string>
 
-  <string name="charging_animation_channel">Сервис анимации зарядки</string>
-  <string name="charging_animation_notif_title">⚡ Анимация зарядки активна</string>
-  <string name="charging_animation_notif_text">Следит за подключением и отключением зарядки.</string>
-  <string name="charging_animation_channel_description">Показывает анимацию Glyph при подключении или отключении зарядки.</string>
 
-  <string name="vpn_connected_channel">Сервис анимации VPN</string>
-  <string name="vpn_connected_notif_title">🛡️ Анимация VPN активна</string>
-  <string name="vpn_connected_notif_text">Подключение к VPN запустит выбранную анимацию.</string>
     <string name="settings_card_about">О программе</string>
     <string name="settings_about_description">От анимации заряда батареи до сигнализации при краже USB, истории зарядок и световых шоу при разблокировке — откройте все возможности Glyph от NOTHING.</string>
     <string name="settings_about_version">v%1$s (%2$d)</string>
@@ -484,5 +361,89 @@
     <!-- Animation studio: script target -->
     <string name="studio_target_music">Только для музыкальной визуализации</string>
     <string name="studio_target_any">Доступна для всех функций</string>
+
+    <!-- Home: rules section -->
+    <string name="home_section_rules">Правила</string>
+
+    <!-- Rule constructor -->
+    <string name="rules_empty">Правил пока нет. Нажмите ＋, чтобы создать: триггер, анимация — и полоса оживёт.</string>
+    <string name="rules_add">Добавить правило</string>
+    <string name="rules_custom_script">Пользовательский скрипт</string>
+    <string name="rules_delete">Удалить правило</string>
+    <string name="rules_test">Проверить</string>
+    <string name="glyph_registration_refused">Сервис глифов отказал этому телефону (%1$s): ни один из известных идентификаторов не подошёл — %2$s</string>
+    <string name="rules_constructor_title">Новое правило</string>
+    <string name="rules_edit_title">Изменить правило</string>
+
+    <!-- Список внутри конструктора, устроенный как в студии: заголовок
+         пустого состояния ведёт, меню — на каждой строке, и отдельная
+         жалоба, если скрипт правила исчез к моменту нажатия «Экспорт». -->
+    <string name="rules_list_empty_title">Сервисов пока нет</string>
+    <string name="rules_list_empty_body">Ещё ничего не построено. Создайте правило — триггер и анимацию — или импортируйте .servicelua-скрипт, который написал кто-то другой.</string>
+    <string name="rules_row_menu">Действия с правилом</string>
+    <string name="rules_msg_script_missing">Такого скрипта больше нет.</string>
+    <string name="rules_msg_saved">Правило сохранено: %1$s</string>
+    <string name="rules_msg_not_saved">Правило не сохранилось — записано пусто</string>
+    <string name="rules_constructor_subtitle">Когда это произойдёт — проиграть анимацию.</string>
+    <string name="rules_name_label">Название</string>
+    <string name="rules_trigger_label">Когда</string>
+    <string name="rules_animation_label">Что проигрывать</string>
+    <string name="rules_duration_label">Длительность</string>
+    <string name="rules_threshold_label">Срабатывать при заряде не выше</string>
+
+    <!-- Battery indicator arcs (Phone 3a): which arcs carry the charge level -->
+
+    <!-- Script capabilities: what a .servicelua reaches for, asked per script -->
+    <string name="capability_device_state_label">Состояние устройства</string>
+    <string name="capability_device_state_description">Читает уровень заряда и то, заряжается ли телефон.</string>
+
+    <!-- Constructor: advanced mode, .servicelua import and the capability prompt -->
+    <string name="rules_mode_simple">Простой</string>
+    <string name="rules_mode_advanced">Продвинутый</string>
+    <string name="rules_starter_script">-- Этот сервис говорит КОГДА; анимацию выбирает форма, а не скрипт.\n-- glyph.on(триггер, fn) — обработчик на имя триггера.\n-- glyph.playAnimation() запускает анимацию этого правила.\n\nglyph.on(\"screen_off\", function()\n  glyph.playAnimation()\nend)</string>
+    <string name="rules_import_title">Скрипт запрашивает</string>
+    <string name="rules_import_disclaimer">Скрипт-сервис работает в фоне и может делать только то, что вы ему разрешите. Рисовать на полосе он сам не может — когда правило срабатывает, приложение проигрывает выбранную для него анимацию. Изменить решения можно позже в Настройках → «Разрешения скриптов».</string>
+    <string name="rules_import_allow">Разрешить</string>
+    <string name="rules_import_decline">Запретить</string>
+    <string name="rules_import_failed">Не удалось импортировать скрипт.</string>
+    <string name="rules_msg_script_save_failed">Не удалось сохранить скрипт.</string>
+    <string name="rules_script_name_fallback">Сервис правила</string>
+    <string name="rules_script_prefix">Скрипт: %1$s</string>
+    <string name="rules_shake_label">Чувствительность тряски</string>
+
+    <!-- Settings → Script permissions -->
+    <string name="settings_card_export_logs">Экспорт логов</string>
+    <string name="settings_card_export_logs_subtitle">Сохранить лог работы приложения в файл, которым можно поделиться</string>
+    <string name="settings_card_script_permissions">Разрешения скриптов</string>
+    <string name="settings_card_script_permissions_subtitle">Что может каждый установленный скрипт</string>
+    <string name="script_permissions_empty">Скрипты-сервисы не установлены. Сюда попадут скрипты, импортированные в конструкторе правил.</string>
+    <string name="script_permissions_no_requests">Этот скрипт не использует защищённые API.</string>
+    <string name="script_permissions_applied">Изменения применяются сразу.</string>
+    <string name="rules_save">Сохранить</string>
+    <string name="rules_fail_unknown_trigger">Правило ждёт триггер, которого эта сборка не знает.</string>
+    <string name="rules_fail_trigger_unavailable">Ожидаемый триггер этого правила недоступен на этом телефоне.</string>
+    <string name="rules_fail_attach_failed">Правило не удалось присоединить — оно не сработает.</string>
+    <string name="rules_fail_script_missing">Скрипт, который стоит за этим правилом, не установлен.</string>
+    <string name="rules_fail_profile_unknown">Макет LED этого телефона неизвестен, поэтому скрипт тут запустить не может.</string>
+    <string name="rules_fail_load_failed">Скрипт не загрузился: %s</string>
+    <string name="rules_fail_no_handlers">Скрипт не регистрирует обработчики, поэтому слушать нечего.</string>
+
+    <!-- Trigger palette: the human name for each TriggerType.id -->
+    <string name="trigger_screen_off">Экран выключен</string>
+    <string name="trigger_screen_on">Экран включён</string>
+    <string name="trigger_unlock">Разблокировка</string>
+    <string name="trigger_power_connected">Зарядка подключена</string>
+    <string name="trigger_power_disconnected">Зарядка отключена</string>
+    <string name="trigger_power_changed">Зарядка подключена или отключена</string>
+    <string name="trigger_low_battery">Низкий заряд</string>
+    <string name="trigger_nfc">NFC-метка</string>
+    <string name="trigger_vpn_connected">VPN подключён</string>
+    <string name="trigger_shake">Встряхнуть</string>
+
+    <!-- Rule host service -->
+    <string name="rule_host_channel">Правила</string>
+    <string name="rule_host_notif_title">✨ Правила активны</string>
+    <string name="rule_host_notif_text">Работают ваши правила автоматизации.</string>
+    <string name="rule_host_channel_description">Срабатывают ваши правила: триггер проигрывает выбранную анимацию.</string>
 
 </resources>

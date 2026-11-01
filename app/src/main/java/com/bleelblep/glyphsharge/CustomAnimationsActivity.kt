@@ -36,7 +36,6 @@ import com.bleelblep.glyphsharge.glyph.GlyphManager
 import com.bleelblep.glyphsharge.glyph.script.ScriptFileFormat
 import com.bleelblep.glyphsharge.ui.screens.animations.AnimationEditorScreen
 import com.bleelblep.glyphsharge.ui.screens.animations.AnimationListScreen
-import com.bleelblep.glyphsharge.ui.screens.animations.ScriptStoreScreen
 import com.bleelblep.glyphsharge.ui.screens.applyLocale
 import com.bleelblep.glyphsharge.ui.theme.FontState
 import com.bleelblep.glyphsharge.ui.theme.GlyphZenTheme
@@ -44,7 +43,6 @@ import com.bleelblep.glyphsharge.ui.theme.LocalSettingsRepository
 import com.bleelblep.glyphsharge.ui.theme.LocalVibrationIntensity
 import com.bleelblep.glyphsharge.ui.theme.ThemeState
 import com.bleelblep.glyphsharge.ui.viewmodel.AnimationStudioViewModel
-import com.bleelblep.glyphsharge.ui.viewmodel.ScriptStoreViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -67,11 +65,6 @@ class CustomAnimationsActivity : ComponentActivity() {
     @Inject lateinit var settingsRepository: SettingsRepository
 
     private val viewModel: AnimationStudioViewModel by viewModels()
-
-    private val storeViewModel: ScriptStoreViewModel by viewModels()
-
-    /** Whether the store is on screen, so back leaves it before the studio. */
-    private var storeOpen by mutableStateOf(value = false)
 
     private lateinit var importLauncher: ActivityResultLauncher<Array<String>>
     private lateinit var exportLauncher: ActivityResultLauncher<String>
@@ -125,15 +118,10 @@ class CustomAnimationsActivity : ComponentActivity() {
                         Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
                     }
                 }
-                LaunchedEffect(Unit) {
-                    storeViewModel.messages.collect {
-                        Toast.makeText(context, it, Toast.LENGTH_LONG).show()
-                    }
-                }
 
                 // The same two values `MainActivity` publishes, for the same
-                // reason: the studio's screens should find the store and the
-                // user's own haptic strength already in the composition.
+                // reason: the studio's screens should find the user's own
+                // haptic strength already in the composition.
                 CompositionLocalProvider(
                     LocalSettingsRepository provides settingsRepository,
                     LocalVibrationIntensity provides settingsRepository.getVibrationIntensity(),
@@ -201,27 +189,6 @@ class CustomAnimationsActivity : ComponentActivity() {
                             )
                         }
 
-                        // Its own branch rather than a route inside the list:
-                        // the store is a screen in this Activity's back stack,
-                        // not a state of the studio's.
-                        storeOpen -> {
-                            BackHandler { storeOpen = false }
-                            val storeState by storeViewModel.uiState.collectAsStateWithLifecycle()
-                            ScriptStoreScreen(
-                                items = storeState.items,
-                                loadState = storeState.loadState,
-                                downloading = storeState.downloading,
-                                testing = storeState.testing,
-                                installed = storeState.installed,
-                                outdated = storeState.outdated,
-                                onBackClick = { storeOpen = false },
-                                onRefresh = storeViewModel::refresh,
-                                onInstall = storeViewModel::install,
-                                onTest = storeViewModel::test,
-                                isSupported = storeViewModel::isSupported,
-                            )
-                        }
-
                         else -> {
                             AnimationListScreen(
                                 animations = state.animations,
@@ -235,7 +202,6 @@ class CustomAnimationsActivity : ComponentActivity() {
                                 onPickImportFile = { importLauncher.launch(IMPORT_MIME_TYPES) },
                                 onExportToDownloads = viewModel::exportToDownloads,
                                 onExportToFile = { id -> promptExport(id) },
-                                onOpenStore = { storeOpen = true },
                             )
                         }
                     }

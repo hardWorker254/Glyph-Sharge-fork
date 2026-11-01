@@ -40,22 +40,22 @@ Whether you're checking charge levels or activating security features, Glyph Sha
 
 ## ✨ Features
 
-### 🔌 Power Management
-- Real-time battery monitoring with glyph animations
-- Charging progress visualization through light patterns
-- Low battery alerts via glyph notifications
-- Power Peek feature — shake to check battery level
-
-### 🔒 Security Features
-- NFC Glyph activation for smart tags
-- Pulse Lock — heart rate verification for device security
-- Screen-off glyph notifications
-- **VPN Connected** — your chosen animation plays once when a VPN connection is established
+### ⚡ Your own rules
+- **A rule is a trigger and an animation** — and the app ships no rules of its own, so
+  every rule in the list is yours
+- Triggers to build them from: unlock, screen on/off, charger plugged/unplugged, NFC tag
+  or contactless payment, a VPN coming up, a shake, low battery
+- Any of the ten built-in animations, or your own Lua script
+- Per-rule knobs where a trigger has them: the battery level that triggers a low-battery
+  rule, the jolt that triggers a shake rule
+- A ▶ on every rule plays it once, through the very call the host makes when it fires
 
 ### 🎵 Personalization
-- 6 unique theme styles (Classic, Y2K, Neon, AMOLED, Pastel, Expressive)
 - **Music Visualizer** — the Glyph strip reacts to whatever is playing, in six
   styles: bars, wave, mirror, beat, matrix, vortex
+
+### 🎨 Personalization
+- 6 unique theme styles (Classic, Y2K, Neon, AMOLED, Pastel, Expressive)
 - Works on every supported Nothing model, from Phone (1)'s 4 C-strip segments
   up to Phone (3a)'s 20
 - Your own visuals in Lua — `glyph.target = "music"` makes a studio script show
@@ -85,7 +85,7 @@ Whether you're checking charge levels or activating security features, Glyph Sha
 - Custom glyph patterns and animations
 - Boot-on-start service persistence
 - Comprehensive logging system
-- Your own scripts appear in the animation picker of Pulse Lock, Low Battery, NFC and Screen Off
+- Your own scripts appear in the animation picker of the rule constructor
 
 ---
 
@@ -95,8 +95,15 @@ Whether you're checking charge levels or activating security features, Glyph Sha
 |--------|--------------|-------------|
 | Nothing Phone (1) | 20111 | No testers |
 | Nothing Phone (2) | 22111 | No testers |
+| Nothing Phone (2) Global | 22111 (`AIN065`) | Same strip as the (2), registered under its own id |
 | Nothing Phone (2a) | 23111 / 23113 | No testers |
 | Nothing Phone (3a) | 24111 | ✅ Full |
+| Nothing Phone (3a) Pro | 24111 (`A059P`) | ✅ Full — same glyph layout as the (3a) |
+
+The Pro reports `A059P`, which contains the (3a)'s `A059`, so it is recognised as the
+(3a) and draws through the same channel tables. Registration offers the service both
+ids and keeps the one it accepts — the bundled SDK snapshot predates the phone, so
+which string it wants is the device's answer to give, not ours to assume.
 
 ---
 
@@ -168,19 +175,13 @@ app/
 │   │   │   │       └── Glyph*Module.kt   #     One file per module, plus ModuleSourceScan.kt
 │   │   │   ├── net/                      # Network state for glyph.net
 │   │   │   ├── sensor/                   # Accelerometer for glyph.sensor
-│   │   │   └── battery/                 # Charging / Power Peek bar
+│   │   │   └── battery/                 # Reading the battery for scripts
 │   │   │
 │   │   ├── services/                    # Background Services
 │   │   │   ├── FeatureSpec.kt           # Feature → service → preference registry
 │   │   │   ├── FeatureServiceController.kt
 │   │   │   ├── GlyphForegroundService.kt
-│   │   │   ├── ChargingAnimationService.kt
-│   │   │   ├── NfcGlyphService.kt
-│   │   │   ├── LowBatteryAlertService.kt
-│   │   │   ├── PowerPeekService.kt
-│   │   │   ├── PulseLockService.kt
-│   │   │   ├── ScreenOffGlyphService.kt
-│   │   │   ├── VpnConnectedService.kt
+│   │   │   ├── RuleHostService.kt       # Runs every user rule
 │   │   │   ├── MusicVisualizerService.kt
 │   │   │   └── GlyphServiceSwitch.kt    # The master Glyph switch, in one place
 │   │   │
@@ -191,7 +192,7 @@ app/
 │   │   │
 │   │   ├── ui/                          # UI Components
 │   │   │   ├── components/              # Reusable Composables
-│   │   │   │   ├── FeatureCards.kt      # One card per GlyphFeature
+│   │   │   │   ├── FeatureCards.kt      # The one feature card: the visualiser
 │   │   │   │   ├── GlyphAnimations.kt   # Animation catalogue + rememberAnimationOptions
 │   │   │   │   ├── GlyphDependencies.kt # rememberGlyphAnimationManager()
 │   │   │   │   ├── CommonDialogComponents.kt
@@ -313,7 +314,7 @@ Official Nothing fonts with dynamic scaling:
 | `FeatureCard`, `SquareFeatureCard`, `WideFeatureCardWithToggle` | `ui/components/cards/ContentCards.kt` | Feature presentation, square and wide-with-toggle variants |
 | `GlyphControlCard` | `ui/components/cards/ContentCards.kt` | The master Glyph on/off card |
 | `ContentCard` | `ui/components/cards/ContentCards.kt` | Custom content container |
-| `PowerPeekCard`, `PulseLockCard`, `LowBatteryAlertCard`, `ScreenOffCard`, `NfcGlyphCard`, `ChargingAnimationCard`, `MusicVisualizerCard`, `VpnConnectedCard` | `ui/components/FeatureCards.kt`, `ui/components/VpnConnected.kt` | One card per `GlyphFeature` |
+| `MusicVisualizerCard` | `ui/components/FeatureCards.kt` | The one feature card |
 | `SettingsScaffold`, `DraggableSettingsCard` | `ui/components/layout/SettingsScaffold.kt`, `.../DraggableSettingsCard.kt` | Settings screen frame and swipe-to-navigate card |
 | `HomeSectionHeader`, `FeatureGrid` | `ui/components/layout/SectionLayout.kt` | Section header and the feature grid |
 | `MorphingToggleButton`, `ThreeStateFontMorphingButton` | `ui/components/controls/ToggleButtons.kt` | Morphing on/off toggle |
@@ -327,14 +328,8 @@ Official Nothing fonts with dynamic scaling:
 | Service | Purpose |
 |---------|---------|
 | `GlyphForegroundService` | Maintains glyph session in background |
-| `ChargingAnimationService` | Displays charging animations |
-| `NfcGlyphService` | NFC tag integration |
-| `LowBatteryAlertService` | Battery level monitoring |
-| `PowerPeekService` | Shake-to-check battery feature |
-| `PulseLockService` | Heart rate security lock |
-| `ScreenOffGlyphService` | Notifications with screen off |
+| `RuleHostService` | Runs every user rule: one trigger per rule, one strip for all |
 | `MusicVisualizerService` | Spectrum visualisation of whatever is playing |
-| `VpnConnectedService` | Plays the chosen animation when a VPN connects |
 | `GlyphServiceTileService` | Quick Settings tile: the master Glyph switch |
 | `MusicVisualizerTileService` | Quick Settings tile: the music visualiser |
 

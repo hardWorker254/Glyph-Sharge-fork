@@ -75,8 +75,13 @@ class GlyphFeatureCoordinator @Inject constructor(
         owner: GlyphFeature,
         timeoutMs: Long = PREEMPT_TIMEOUT_MS,
     ): Boolean {
-        if ((_currentOwner.value != null) && (_currentOwner.value != owner)) {
-            Log.d(TAG, "${owner.name} interrupts ${_currentOwner.value} for the strip")
+        // No `owner != current` test here. Two rules are both RULE_HOST, and a
+        // preempting rule that arrives while the previous rule is still playing
+        // is exactly the case this method exists for: skipping the stop made
+        // the new rule wait out the old one's cap and then give up as "strip
+        // busy". The participant is one, the runs are not.
+        _currentOwner.value?.let { current ->
+            Log.d(TAG, "${owner.name} interrupts $current for the strip")
             glyphAnimationManager.stopAnimations()
         }
         return acquire(owner, timeoutMs)
@@ -222,14 +227,29 @@ class GlyphFeatureCoordinator @Inject constructor(
  * agree on, so a feature cannot be switched on without something behind it.
  */
 enum class GlyphFeature {
-    PULSE_LOCK,
-    POWER_PEEK,
-    LOW_BATTERY,
-    SCREEN_OFF,
-    NFC,
-    CHARGING_ANIMATION,
+    /**
+     * The music visualiser, and the only feature left.
+     *
+     * The other seven — Screen Off, Glow Gate, Power Peek, Low Battery, NFC,
+     * Charging and VPN Connected — were rules before they were features, and
+     * the user asked for the app to ship their own rules and nothing else. They
+     * keep their *triggers*, which are the palette a rule is built from; what
+     * is gone is the preinstalled rule that used to fire on them.
+     */
     MUSIC_VISUALIZER,
-    VPN_CONNECTED,
+
+    /**
+     * The generic rule host, and not a single feature.
+     *
+     * One foreground service runs *every* user-defined [com.bleelblep.glyphsharge.rules.GlyphRule],
+     * so from the strip coordinator's point of view it is a single participant
+     * that serialises its own rules internally — rather than one participant
+     * per rule, which would put an unbounded, user-generated set into this
+     * enum. Like [PREVIEW], it has no `FeatureSpec` and no preference of its
+     * own; it is listed explicitly so the `FeatureSpecs` completeness check
+     * still catches a real feature that was wired up halfway.
+     */
+    RULE_HOST,
 
     /**
      * The studio's preview, and not a feature.

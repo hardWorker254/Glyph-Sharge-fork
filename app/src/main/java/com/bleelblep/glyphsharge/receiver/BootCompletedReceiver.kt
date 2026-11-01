@@ -6,6 +6,7 @@ import android.content.Intent
 import android.util.Log
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.glyph.GlyphFeature
+import com.bleelblep.glyphsharge.services.FeatureServiceController
 import com.bleelblep.glyphsharge.services.FeatureSpecs
 import com.bleelblep.glyphsharge.services.GlyphForegroundService
 import dagger.hilt.android.AndroidEntryPoint
@@ -49,6 +50,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class BootCompletedReceiver : BroadcastReceiver() {
 
     @Inject lateinit var settingsRepository: SettingsRepository
+    @Inject lateinit var serviceController: FeatureServiceController
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Intent.ACTION_BOOT_COMPLETED) return
@@ -94,6 +96,11 @@ class BootCompletedReceiver : BroadcastReceiver() {
                 Log.d(TAG, "Tier 2 – ${spec.feature}")
                 startServiceOrNull(context, spec.serviceClass)
             }
+
+        // The other half of the restore: the generic host carries the user's
+        // rules, so it is synced once here rather than started per feature —
+        // the same split `FeatureServiceController.startAllEnabled` makes.
+        serviceController.syncRuleHost()
     }
 
     /**

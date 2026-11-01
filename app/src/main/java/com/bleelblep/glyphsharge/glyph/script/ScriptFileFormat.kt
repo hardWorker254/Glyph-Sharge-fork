@@ -16,11 +16,16 @@ import java.util.Locale
  * -- name: My Heartbeat
  * -- id: 4f3c9a11b2e7
  * -- devices: PHONE1,PHONE2,PHONE2A,PHONE3A
- * -- created: 1712345678000
- * -- updated: 1712345678000
  *
  * glyph.set(glyph.ch.c, glyph.MAX)
  * ```
+ *
+ * `created` and `updated` are deliberately not written: the author sees the
+ * exported file, and two epoch-millis lines were noise in it. The in-app
+ * library keeps its own timestamps for sorting and display
+ * ([com.bleelblep.glyphsharge.data.CustomAnimationRepository]); [decode] still
+ * *reads* the two fields so a file exported before this change keeps its place
+ * in the list instead of jumping to the top as "just updated".
  */
 object ScriptFileFormat {
 
@@ -30,7 +35,7 @@ object ScriptFileFormat {
     private const val FORMAT_VERSION = 1
     private const val HEADER_MARKER = "-- Glyph Sharge animation"
     private const val COMMENT = "--"
-    private const val FIELD = "name|id|created|updated|devices"
+    private const val FIELD = "name|id|devices"
 
     /** Rejected instead of imported when the file is not ours. */
     class InvalidScriptException(message: String) : Exception(message)
@@ -41,8 +46,6 @@ object ScriptFileFormat {
         appendLine("$COMMENT name: ${sanitiseHeaderValue(animation.name)}")
         appendLine("$COMMENT id: ${animation.id}")
         appendLine("$COMMENT devices: ${encodeDevices(animation.devices)}")
-        appendLine("$COMMENT created: ${animation.createdAt}")
-        appendLine("$COMMENT updated: ${animation.updatedAt}")
         appendLine()
         append(animation.source)
     }
@@ -76,6 +79,10 @@ object ScriptFileFormat {
 
         // The header is a run of `--` lines at the very top; the first line that
         // is not a comment ends it.
+        //
+        // `created` and `updated` are still parsed although [encode] no longer
+        // writes them: a file exported before that change carries them, and
+        // dropping them on import would reset its sort position to "just now".
         while ((index < lines.size) && lines[index].trimStart().startsWith(COMMENT)) {
             val line = lines[index].trimStart().removePrefix(COMMENT).trim()
             val separator = line.indexOf(':')

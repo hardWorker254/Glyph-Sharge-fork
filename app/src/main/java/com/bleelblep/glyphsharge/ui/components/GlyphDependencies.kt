@@ -7,6 +7,9 @@ import com.bleelblep.glyphsharge.ui.theme.LocalHomeViewModel
 /**
  * The animation manager behind every "Test" button on a feature card.
  *
+ * Reached through the ViewModel's [dagger.Lazy], so the stack is built when a
+ * button actually asks for it rather than when the home screen is composed.
+ *
  * The configuration dialogs are plain Composables that reach their state from
  * the composition, so they read the manager the same way — through
  * [LocalHomeViewModel] — rather than injecting for themselves.
@@ -20,4 +23,4 @@ import com.bleelblep.glyphsharge.ui.theme.LocalHomeViewModel
  */
 @Composable
 fun rememberGlyphAnimationManager(): GlyphAnimationManager =
-    LocalHomeViewModel.current.glyphAnimationManager
+    LocalHomeViewModel.current.glyphAnimationManager.get()

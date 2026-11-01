@@ -96,6 +96,35 @@
             android:hardwareAccelerated="true"
             android:parentActivityName=".MainActivity" />
 
+        <!-- The rule constructor, for the same reason the studio is one: it
+             has two front doors — the home list's "＋" and the settings card —
+             and a form to fill in. Not exported: a rule is written from
+             inside the app, and an implicit intent that could open the editor
+             for a rule the user never chose is exactly the kind of entry point
+             that does not belong. -->
+        <activity
+            android:name=".RuleConstructorActivity"
+            android:exported="false"
+            android:theme="@style/Theme.GlyphSharge"
+            android:windowSoftInputMode="adjustResize"
+            android:hardwareAccelerated="true"
+            android:parentActivityName=".MainActivity" />
+
+        <!-- The catalogue, reached from Settings. Its own Activity rather than a
+             route inside the settings NavHost because of "Test on glyph": that
+             button previews on the real strip, which needs a session, and
+             MainActivity only restores one while the master switch is on — so
+             a store living in the NavHost would report a preview that drew
+             nothing. Not exported: the catalogue is read from inside the app,
+             and an implicit intent that could open an install screen is exactly
+             the kind of entry point that does not belong. -->
+        <activity
+            android:name=".ScriptStoreActivity"
+            android:exported="false"
+            android:theme="@style/Theme.GlyphSharge"
+            android:hardwareAccelerated="true"
+            android:parentActivityName=".MainActivity" />
+
         <receiver
             android:name=".receiver.BootCompletedReceiver"
             android:enabled="true"
@@ -104,34 +133,6 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
-
-        <service
-            android:name=".services.PowerPeekService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="specialUse" >
-            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="This service uses the accelerometer to provide the PowerPeek feature when the screen is off." />
-        </service>
-
-        <service
-            android:name=".services.PulseLockService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="specialUse" >
-            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="This service plays a glyph animation on device unlock (Pulse Lock)." />
-        </service>
-
-
-        <service
-            android:name=".services.ScreenOffGlyphService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="specialUse" >
-            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="This service plays a glyph animation on device lock." />
-        </service>
 
         <!-- Every `specialUse` service needs a subtype property, including this
              one: the Play Console rejects a submission that declares the type
@@ -144,55 +145,20 @@
             android:exported="false"
             android:foregroundServiceType="specialUse" >
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Holds the Glyph hardware session open and keeps the feature services alive while they wait for their triggers." />
+                android:value="Holds the Glyph hardware session open for as long as the master switch is on." />
         </service>
 
+
+        <!-- The generic rule host: one foreground service that runs every
+             user-defined rule. Each rule is a trigger plus an animation the user
+             named in the constructor. -->
         <service
-            android:name=".services.LowBatteryAlertService"
+            android:name=".services.RuleHostService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="specialUse" >
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="This service monitors battery level and provides low battery alerts using glyph interface." />
-        </service>
-
-
-        <!-- NFC: the subtype must describe what the service actually does.
-             Google Play rejects a declaration that does not match, and this
-             one was a copy of the low-battery text from a service that has
-             nothing to do with NFC. -->
-        <service
-            android:name=".services.NfcGlyphService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="specialUse" >
-            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="This service plays a glyph animation on the glyph interface when an NFC tag is scanned." />
-        </service>
-
-
-        <!-- Charging: see the NFC service above. This one was the other half
-             of the same copy-paste — a low-battery declaration on a service
-             that never looks at the battery gauge. -->
-        <service
-            android:name=".services.ChargingAnimationService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="specialUse" >
-            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="This service plays a charging animation and battery bar on the glyph interface while the device is charging." />
-        </service>
-
-        <!-- VPN Connected: Android has no broadcast for a VPN coming up, so
-             the service watches the VPN transport through a NetworkCallback
-             and draws the user's animation on the connect event. -->
-        <service
-            android:name=".services.VpnConnectedService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="specialUse" >
-            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="This service plays a glyph animation when a VPN connection is established." />
+                android:value="This service runs the user's automation rules, firing a chosen glyph animation when a chosen trigger happens." />
         </service>
 
         <!-- Music visualiser foreground service.

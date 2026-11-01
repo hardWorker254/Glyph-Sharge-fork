@@ -3,6 +3,7 @@ package com.bleelblep.glyphsharge.ui.viewmodel
 import com.bleelblep.glyphsharge.data.StoreInstall
 import com.bleelblep.glyphsharge.data.StoreInstallRepository
 import com.bleelblep.glyphsharge.data.StoreItem
+import com.bleelblep.glyphsharge.data.StoreItemKind
 import com.bleelblep.glyphsharge.glyph.device.DeviceType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -33,6 +34,21 @@ class StoreUpdateRulesTest {
         sha256 = "a".repeat(64),
         devices = DeviceType.entries.toSet(),
         version = version,
+        kind = StoreItemKind.ANIMATION,
+    )
+
+    /** The other kind: a `.servicelua`, which cannot be drawn and cannot be updated. */
+    private fun serviceItem(id: String, name: String = id, version: Int = 1) = StoreItem(
+        id = id,
+        name = name,
+        author = "someone",
+        license = "MIT",
+        description = "",
+        url = "https://example.invalid/$id.servicelua",
+        sha256 = "a".repeat(64),
+        devices = DeviceType.entries.toSet(),
+        version = version,
+        kind = StoreItemKind.SERVICE,
     )
 
     /**

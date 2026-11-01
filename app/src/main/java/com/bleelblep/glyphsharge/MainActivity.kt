@@ -31,8 +31,11 @@ import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.glyph.GlyphAnimationManager
 import com.bleelblep.glyphsharge.glyph.GlyphFeature
 import com.bleelblep.glyphsharge.glyph.GlyphManager
+import com.bleelblep.glyphsharge.rules.GlyphRuleRepository
+import com.bleelblep.glyphsharge.rules.hasEnabledTrigger
+import com.bleelblep.glyphsharge.triggers.TriggerType
 import com.bleelblep.glyphsharge.services.FeatureServiceController
-import com.bleelblep.glyphsharge.services.NfcGlyphService
+import com.bleelblep.glyphsharge.triggers.NfcEventRelay
 import com.bleelblep.glyphsharge.tiles.MusicVisualizerTileService
 import com.bleelblep.glyphsharge.ui.navigation.GlyphNavHost
 import com.bleelblep.glyphsharge.ui.screens.applyLocale
@@ -48,6 +51,8 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -68,6 +73,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var fontState: FontState
     @Inject lateinit var themeState: ThemeState
     @Inject lateinit var settingsRepository: SettingsRepository
+    @Inject lateinit var ruleRepository: GlyphRuleRepository
     @Inject lateinit var glyphManager: GlyphManager
     @Inject lateinit var glyphAnimationManager: GlyphAnimationManager
     @Inject lateinit var featureServiceController: FeatureServiceController
@@ -79,7 +85,6 @@ class MainActivity : ComponentActivity() {
     private var isGlyphDemoRunning = false
     private var wasServiceEnabled = false
 
-    private lateinit var createLogFileLauncher: ActivityResultLauncher<String>
     private lateinit var recordAudioLauncher: ActivityResultLauncher<String>
     private lateinit var musicCaptureLauncher: ActivityResultLauncher<Intent>
 
@@ -109,13 +114,13 @@ class MainActivity : ComponentActivity() {
         Log.d(TAG, "=== App startup - checking settings persistence ===")
         settingsRepository.dumpAllSettings()
 
-        // NFC foreground dispatch needs the Activity, so the ViewModel calls
-        // back into us when the NFC feature is toggled.
-        homeViewModel.setNfcDispatchHook(::onNfcFeatureToggled)
-
-        createLogFileLauncher = registerForActivityResult(
-            ActivityResultContracts.CreateDocument("text/plain"),
-        ) { uri -> uri?.let { writeLogToUri(it) } }
+        // NFC foreground dispatch needs an Activity, so *we* are the half that
+        // can do it — and we are told by watching the preference rather than by
+        // being pushed, because the feature's switch is now reachable from a
+        // rule row on the home screen and from the constructor's own list. A
+        // hook would have had to be installed by every screen that could flip
+        // it; this fires once, whichever screen did.
+        observeNfcDispatch()
 
         registerMusicCaptureLaunchers()
         watchMusicCaptureRequests()
@@ -191,7 +196,11 @@ class MainActivity : ComponentActivity() {
         // The shade reuses a task, so a second tile tap arrives here rather
         // than through onCreate.
         handleTileIntent(intent)
-        NfcGlyphService.forwardNfcIntent(this, intent)
+        // The NFC half: the Activity is the only participant Android hands
+        // tag discoveries to (foreground dispatch), so whatever it saw goes
+        // out on the relay for whichever NFC rule is attached. Non-tag
+        // actions are filtered inside `publish`.
+        NfcEventRelay.publish(intent.action)
     }
 
     override fun onDestroy() {
@@ -246,9 +255,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Starts every feature service the user has switched on. */
+    /**
+     * Starts every feature service the user has switched on.
+     *
+     * The rule host is only ensured here, not reloaded: this runs on every
+     * `onStart`, including the one a fingerprint unlock triggers, and a
+     * reload would detach the screen-on watcher before it can see the
+     * transition. Rule changes and the master switch still reload it.
+     */
     private fun startEnabledFeatureServices() {
-        featureServiceController.startAllEnabled()
+        featureServiceController.startAllEnabled(reloadRuleHost = false)
     }
 
     // Music capture consent
@@ -403,7 +419,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun enableNfcForegroundDispatch() {
-        if (!featureServiceController.isEnabled(GlyphFeature.NFC)) return
+        // Only worth doing when a rule actually listens for it: the dispatch is
+        // how a tag reaches the app at all, and it costs a window registration
+        // to keep it on. The question is "does any enabled rule want an NFC
+        // event", which is a question about the rules now that there are no
+        // features left to ask.
+        if (!nfcRuleWantsTags()) return
         try {
             nfcAdapter?.enableForegroundDispatch(this, nfcPendingIntent, null, null)
             Log.d(TAG, "NFC foreground dispatch enabled")
@@ -424,6 +445,37 @@ class MainActivity : ComponentActivity() {
     fun onNfcFeatureToggled(enabled: Boolean) {
         if (enabled) enableNfcForegroundDispatch() else disableNfcForegroundDispatch()
     }
+
+    /**
+     * Turns the NFC preference into foreground dispatch, for as long as this
+     * Activity lives.
+     *
+     * Started-and-stopped rather than once in `onCreate`: dispatch is a
+     * property of this window, so a stop leaves nothing registered and a start
+     * puts it back — including after the process was killed with NFC on, which
+     * is exactly the case the old one-shot `initializeNfcDispatch` covered by
+     * luck rather than by arrangement.
+     */
+    private fun observeNfcDispatch() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                ruleRepository.rules
+                    .map { rules -> rules.any { it.enabled && it.triggerId == TriggerType.NFC.id } }
+                    .distinctUntilChanged()
+                    .collect { onNfcFeatureToggled(it) }
+            }
+        }
+    }
+
+    /**
+     * Whether any enabled rule listens for an NFC event.
+     *
+     * Read from the repository rather than from a feature's switch, because the
+     * features are gone: a rule is what asks for a tag now, and a rule that is
+     * switched on and wants an NFC event is the whole of the condition.
+     */
+    private fun nfcRuleWantsTags(): Boolean =
+        ruleRepository.getAll().hasEnabledTrigger(TriggerType.NFC.id)
 
     // UI
     private fun setupUI() {
@@ -450,41 +502,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }
-
-    /**
-     * Writes the collected logs to a location the user picked.
-     *
-     * Was an empty body, behind a comment that called this "the log export
-     * launcher" — so the user chose a destination, got a zero-byte file, and
-     * nothing said so.
-     *
-     * `LoggingManager` already knows how to assemble the file; this only moves
-     * the bytes. Every failure is reported to the user, because the alternative
-     * is a silent empty file, which is the outcome this replaces.
-     */
-    private fun writeLogToUri(uri: Uri) {
-        val content = LoggingManager.exportLogs()
-        if (content.isBlank()) {
-            Toast.makeText(this, R.string.log_export_empty, Toast.LENGTH_LONG).show()
-            return
-        }
-
-        val written = runCatching {
-            contentResolver.openOutputStream(uri)?.use { stream ->
-                stream.write(content.toByteArray())
-                stream.flush()
-            } ?: error("The chosen location could not be opened for writing")
-        }
-
-        written
-            .onSuccess {
-                Toast.makeText(this, R.string.log_export_done, Toast.LENGTH_SHORT).show()
-            }
-            .onFailure {
-                Log.e(TAG, "Could not write the logs to $uri", it)
-                Toast.makeText(this, R.string.log_export_failed, Toast.LENGTH_LONG).show()
-            }
     }
 
     /**

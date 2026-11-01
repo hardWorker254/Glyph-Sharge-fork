@@ -7,7 +7,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.bleelblep.glyphsharge.RuleConstructorActivity
 import com.bleelblep.glyphsharge.ui.components.cards.GlyphControlCard
 import androidx.compose.ui.res.stringResource
 import com.bleelblep.glyphsharge.R
@@ -34,6 +36,10 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // The constructor is its own Activity, so nothing about it is held here
+    // any more: the list hands over an id (or none) and re-reads the rules
+    // from the repository when this screen resumes.
+    val context = LocalContext.current
 
     SettingsScaffold(
         title = "Glyph Sharge",
@@ -50,6 +56,20 @@ fun HomeScreen(
                 onEnabledChange = viewModel::toggleGlyphService,
             )
         }
+
+        // The user's own rules come first: the app ships no rules of its own,
+        // so this list is everything it does, and it is the screen the
+        // constructor writes back into.
+        item { HomeSectionHeader(title = stringResource(R.string.home_section_rules)) }
+
+        homeRuleCards(
+            uiState = uiState,
+            viewModel = viewModel,
+            onAddRule = { context.startActivity(RuleConstructorActivity.intent(context, create = true)) },
+            onEditRule = { ruleId ->
+                context.startActivity(RuleConstructorActivity.intent(context, ruleId))
+            },
+        )
 
         item { HomeSectionHeader(title = stringResource(R.string.home_section_features)) }
 

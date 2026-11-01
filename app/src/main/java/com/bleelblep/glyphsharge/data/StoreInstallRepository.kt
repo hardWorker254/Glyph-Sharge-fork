@@ -104,6 +104,20 @@ class StoreInstallRepository @Inject constructor(
 
     private val _installs = MutableStateFlow(read())
 
+    /**
+     * Serialises a record from the flow to the disk, so the two cannot be left
+     * disagreeing about what the phone has installed.
+     *
+     * [update] is already atomic on its own, and that is not enough here: it
+     * guarantees both installs land in the map, while [persist] writes the
+     * snapshot it was handed. Two overlapping [record] calls therefore put two
+     * snapshots on disk in whichever order the threads reached it, and the
+     * older one could land last — the history would read back one record short
+     * on the next launch, exactly the "an install the store forgets it made"
+     * this class exists to prevent.
+     */
+    private val writeLock = Any()
+
     /** Every installed item, keyed by catalogue id. */
     val installs: StateFlow<Map<String, StoreInstall>> = _installs.asStateFlow()
 
@@ -148,11 +162,16 @@ class StoreInstallRepository @Inject constructor(
         // second silently dropped the first. The second install of a second item
         // then looked like it had never happened.
         var next: Map<String, StoreInstall> = emptyMap()
-        _installs.update { current ->
-            next = current + (key to StoreInstall(key, version, animationId))
-            next
+        synchronized(writeLock) {
+            _installs.update { current ->
+                next = current + (key to StoreInstall(key, version, animationId))
+                next
+            }
+            // Under the same lock as the update: the snapshot `next` was just
+            // written has to be the one that reaches the disk before anyone
+            // else's does.
+            persist(next)
         }
-        persist(next)
     }
 
 

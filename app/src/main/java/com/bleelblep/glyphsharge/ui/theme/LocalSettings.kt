@@ -42,7 +42,7 @@ val LocalSettingsRepository = staticCompositionLocalOf<SettingsRepository> {
  * What the split cost: everything `MainActivity` wrote went to an instance no
  * card could see, so `glyphServiceEnabled` stayed `false` on the copy the cards
  * read and all eight cards stayed disabled with a "service is off" toast on
- * every tap; `setNfcDispatchHook` was installed on the other instance and
+ * every tap; the NFC dispatch hook was installed on the other instance and
  * foreground dispatch was never enabled; and the visualiser's switch raised a
  * request on a channel that only the Activity drained, so it filled and
  * nothing answered it — with no error, because a full channel is not an

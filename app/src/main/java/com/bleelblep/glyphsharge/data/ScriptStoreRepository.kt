@@ -524,6 +524,11 @@ class ScriptStoreRepository @Inject constructor(
             )
         }.getOrDefault(DeviceType.entries.toSet())
 
+        // `type` does not exist in the index this build reads — every entry
+        // arrives through the extension fallback — but a catalogue that starts
+        // publishing it should be believed rather than re-derived.
+        val kind = StoreItemKind.parse(item.optString("type").ifBlank { null }, url)
+
         return StoreItem(
             id = id,
             name = item.optString("name").trim().ifBlank { id },
@@ -534,6 +539,7 @@ class ScriptStoreRepository @Inject constructor(
             sha256 = sha256.lowercase(),
             devices = devices,
             version = item.optInt("version", 1),
+            kind = kind,
         )
     }
 

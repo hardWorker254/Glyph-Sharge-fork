@@ -26,7 +26,14 @@ object GlyphAnimations {
         val id: String,
         val displayName: String,
         @param:DrawableRes val iconRes: Int,
-        /** `true` for a Lua animation, which the duration setting bounds. */
+        /**
+         * `true` for a Lua animation, which times itself.
+         *
+         * Every screen that offers a duration control hides it for these:
+         * the script's own code decides how long it runs, and
+         * `GlyphAnimationManager.playAnimation` never hands the setting to
+         * one. A slider that cannot change the outcome is worse than none.
+         */
         val isCustom: Boolean = false,
     )
 

@@ -20,22 +20,43 @@ import com.bleelblep.glyphsharge.glyph.GlyphFeature
  * The preference accessors are lambdas over [SettingsRepository] rather than
  * methods on it, so the mapping stays declarative and the repository keeps
  * having no idea that features exist as a group.
+ *
+ * **There is one feature left.** The seven that used to be here — Screen Off,
+ * Glow Gate, Power Peek, Low Battery, NFC, Charging and VPN Connected — became
+ * rules, and then their rules went the way of every built-in rule the user
+ * does not want: the user asked for the app to ship *their* rules and nothing
+ * else. A feature is now a thing with a card and a service of its own, and only
+ * the music visualiser is one.
  */
 data class FeatureSpec(
     val feature: GlyphFeature,
+    /**
+     * The service that runs this feature.
+     *
+     * The visualiser's own: a `MediaProjection` token can only be obtained by
+     * an Activity, so it cannot be a rule the host runs.
+     */
     val serviceClass: Class<out Service>,
     val stopAction: String,
     val isEnabled: (SettingsRepository) -> Boolean,
     val saveEnabled: (SettingsRepository, Boolean) -> Unit,
 
     /**
-     * The toast this feature already shows when its dialog is opened while the
+     * The toast this feature already shows when its card is opened while the
      * Glyph service is off. It is here because it is the same kind of fact —
      * one per feature, forgotten independently of the others — and because
      * reusing each feature's existing wording beats adding a second, slightly
      * different message next to it.
      */
     @param:StringRes val serviceOffMessage: Int,
+
+    /**
+     * The feature's own name, in the user's language.
+     *
+     * Here because it is needed in two places with no common ancestor: the
+     * home card that shows it, and the tile that mirrors it.
+     */
+    @param:StringRes val titleRes: Int,
 ) {
     /**
      * Whether this feature is allowed to do anything at all.
@@ -69,68 +90,13 @@ object FeatureSpecs {
 
     val all: List<FeatureSpec> = listOf(
         FeatureSpec(
-            feature = GlyphFeature.PULSE_LOCK,
-            serviceClass = PulseLockService::class.java,
-            stopAction = PulseLockService.ACTION_STOP,
-            isEnabled = { it.isPulseLockEnabled() },
-            saveEnabled = { repo, enabled -> repo.savePulseLockEnabled(enabled) },
-            serviceOffMessage = R.string.pulse_lock_toast,
-        ),
-        FeatureSpec(
-            feature = GlyphFeature.POWER_PEEK,
-            serviceClass = PowerPeekService::class.java,
-            stopAction = PowerPeekService.ACTION_STOP,
-            isEnabled = { it.isPowerPeekEnabled() },
-            saveEnabled = { repo, enabled -> repo.savePowerPeekEnabled(enabled) },
-            serviceOffMessage = R.string.power_peek_toast,
-        ),
-        FeatureSpec(
-            feature = GlyphFeature.LOW_BATTERY,
-            serviceClass = LowBatteryAlertService::class.java,
-            stopAction = LowBatteryAlertService.ACTION_STOP,
-            isEnabled = { it.isLowBatteryEnabled() },
-            saveEnabled = { repo, enabled -> repo.saveLowBatteryEnabled(enabled) },
-            serviceOffMessage = R.string.low_battery_alert_toast,
-        ),
-        FeatureSpec(
-            feature = GlyphFeature.SCREEN_OFF,
-            serviceClass = ScreenOffGlyphService::class.java,
-            stopAction = ScreenOffGlyphService.ACTION_STOP,
-            isEnabled = { it.isScreenOffFeatureEnabled() },
-            saveEnabled = { repo, enabled -> repo.saveScreenOffFeatureEnabled(enabled) },
-            serviceOffMessage = R.string.screen_off_toast,
-        ),
-        FeatureSpec(
-            feature = GlyphFeature.NFC,
-            serviceClass = NfcGlyphService::class.java,
-            stopAction = NfcGlyphService.ACTION_STOP,
-            isEnabled = { it.isNfcFeatureEnabled() },
-            saveEnabled = { repo, enabled -> repo.saveNfcFeatureEnabled(enabled) },
-            serviceOffMessage = R.string.nfc_glyph_toast,
-        ),
-        FeatureSpec(
-            feature = GlyphFeature.CHARGING_ANIMATION,
-            serviceClass = ChargingAnimationService::class.java,
-            stopAction = ChargingAnimationService.ACTION_STOP,
-            isEnabled = { it.isChargingAnimationEnabled() },
-            saveEnabled = { repo, enabled -> repo.saveChargingAnimationEnabled(enabled) },
-            serviceOffMessage = R.string.charging_animation_toast,
-        ),
-        FeatureSpec(
             feature = GlyphFeature.MUSIC_VISUALIZER,
             serviceClass = MusicVisualizerService::class.java,
             stopAction = MusicVisualizerService.ACTION_STOP,
             isEnabled = { it.isMusicVizEnabled() },
             saveEnabled = { repo, enabled -> repo.saveMusicVizEnabled(enabled) },
             serviceOffMessage = R.string.music_viz_toast,
-        ),
-        FeatureSpec(
-            feature = GlyphFeature.VPN_CONNECTED,
-            serviceClass = VpnConnectedService::class.java,
-            stopAction = VpnConnectedService.ACTION_STOP,
-            isEnabled = { it.isVpnConnectedEnabled() },
-            saveEnabled = { repo, enabled -> repo.saveVpnConnectedEnabled(enabled) },
-            serviceOffMessage = R.string.vpn_connected_toast,
+            titleRes = R.string.music_viz_title,
         ),
     )
 
@@ -144,10 +110,15 @@ object FeatureSpecs {
      * and no preference to read, so it has no [FeatureSpec] and is deliberately
      * absent from [all].
      *
+     * [GlyphFeature.RULE_HOST] is the same shape: one foreground service runs
+     * every user rule, so it is a single strip participant with no per-feature
+     * preference and no entry of its own here.
+     *
      * Listed rather than allowed implicitly, so the `init` check below still
      * catches a feature that was added and wired up halfway.
      */
-    val NON_FEATURE_PARTICIPANTS: Set<GlyphFeature> = setOf(GlyphFeature.PREVIEW)
+    val NON_FEATURE_PARTICIPANTS: Set<GlyphFeature> =
+        setOf(GlyphFeature.PREVIEW, GlyphFeature.RULE_HOST)
 
     init {
         // Fail here rather than at the first lookup. Every caller of `of` is
@@ -170,5 +141,3 @@ object FeatureSpecs {
                 "service to start and no preference to read",
         )
 }
-
-    

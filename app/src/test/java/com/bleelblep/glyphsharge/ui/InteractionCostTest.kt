@@ -21,16 +21,19 @@ class InteractionCostTest {
         .replace(Regex("""/\*.*?\*/""", RegexOption.DOT_MATCHES_ALL), "")
         .replace(Regex("""//[^\n]*"""), "")
 
+    /**
+     * Every file that draws a `Slider`.
+     *
+     * A list, because "there are no sliders left" is exactly as much a bug as a
+     * new one: the check below is about what a drag costs, and it costs nothing
+     * to say where sliders may appear. The constructor's form is here because it
+     * is where durations, battery thresholds and shake levels are set now that
+     * the feature dialogs are rules — one screen doing what six dialogs did.
+     */
     private val sliders = listOf(
-        "ui/components/ChargingAnimation.kt",
-        "ui/components/LowBattery.kt",
         "ui/components/MusicVisualizer.kt",
-        "ui/components/NfcGlyph.kt",
-        "ui/components/PowerPeek.kt",
-        "ui/components/PulseLock.kt",
-        "ui/components/ScreenOff.kt",
-        "ui/components/VpnConnected.kt",
         "ui/components/FontSettingsComponents.kt",
+        "ui/screens/RuleConstructorScreen.kt",
     )
 
     /** The body of every `onValueChange = { ... }` lambda in [source], brace-balanced. */
@@ -66,10 +69,16 @@ class InteractionCostTest {
     }
 
     @Test
-    fun `every slider answers the end of the gesture`() {
+    fun `every slider that buzzes answers the end of the gesture`() {
         // A slider with a per-pixel callback but no `onValueChangeFinished`
         // cannot express the one thing the haptic should hang off.
-        sliders.forEach { path ->
+        //
+        // Skipped for a file that never buzzes: the constructor's sliders set
+        // local state and nothing else, so there is no end-of-gesture callback
+        // to hang anything on — demanding one there would be a test buying
+        // ceremony, not a defect being caught. What such a file must still
+        // satisfy is the check above, which is about the drag itself.
+        sliders.filter { "HapticUtils" in codeOf(it) }.forEach { path ->
             val code = codeOf(path)
             val count = Regex("""onValueChange = \{""").findAll(code).count()
             val finished = Regex("""onValueChangeFinished""").findAll(code).count()

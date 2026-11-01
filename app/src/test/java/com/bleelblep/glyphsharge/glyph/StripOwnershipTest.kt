@@ -144,10 +144,22 @@ class StripOwnershipTest {
         // than the check being loosened into a no-op.
         val specs = codeOf("services/FeatureSpec.kt")
 
+        // The members of the set, read out of the declaration rather than
+        // matched as one literal string — so adding a second participant
+        // (RULE_HOST) cannot fail a test whose subject is PREVIEW.
+        val participants = specs
+            .substringAfter("val NON_FEATURE_PARTICIPANTS")
+            .substringAfter("setOf(")
+            .substringBefore(")")
+
         assertTrue(
             "PREVIEW should be declared as a non-feature participant",
             (specs.contains("NON_FEATURE_PARTICIPANTS")) &&
-                (specs.contains("setOf(GlyphFeature.PREVIEW)")),
+                (participants.contains("GlyphFeature.PREVIEW")),
+        )
+        assertTrue(
+            "RULE_HOST is one strip participant running every rule, so it is listed too",
+            participants.contains("GlyphFeature.RULE_HOST"),
         )
         assertTrue(
             "and the check should exempt exactly that set",
@@ -157,6 +169,27 @@ class StripOwnershipTest {
             "PREVIEW must not have a spec of its own: it has no service to start " +
                 "and no preference to read",
             specs.contains("feature = GlyphFeature.PREVIEW"),
+        )
+    }
+
+    @Test
+    fun `a preempting run interrupts even the previous rule of the same host`() {
+        // All rules are one participant (`RULE_HOST`) to the coordinator, but
+        // two firings are two runs. A preempting rule that arrives while the
+        // previous rule is still playing must stop it; otherwise it waits out
+        // that rule's whole cap and gives up as "strip busy", which is exactly
+        // the screen-on-after-screen-off case where the second animation never
+        // appears.
+        val acquireNow = coordinator.substringAfter("suspend fun acquireNow(")
+            .substringBefore("\n    }")
+
+        assertFalse(
+            "acquireNow must not skip the stop just because the owner is the same",
+            acquireNow.contains("!= owner"),
+        )
+        assertTrue(
+            "and it must still stop whatever is drawing",
+            acquireNow.contains("stopAnimations()"),
         )
     }
 

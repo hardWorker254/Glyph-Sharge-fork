@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.bleelblep.glyphsharge.ui.screens.FontSettingsScreen
 import com.bleelblep.glyphsharge.ui.screens.LanguageSettingsScreen
+import com.bleelblep.glyphsharge.ui.screens.ScriptPermissionsScreen
 import com.bleelblep.glyphsharge.ui.screens.SettingsScreen
 import com.bleelblep.glyphsharge.ui.screens.ThemeSettingsScreen
 import com.bleelblep.glyphsharge.ui.screens.home.HomeScreen
@@ -58,13 +59,24 @@ fun GlyphNavHost(
         }
 
         composable(Routes.SETTINGS) {
+            // All four named — no trailing lambda: it would bind to the *last*
+            // parameter (`onScriptPermissionsClick`), not the language one.
             SettingsScreen(
                 onBackClick = { navController.popBackStack() },
                 onThemeSettingsClick = { navController.navigate(Routes.THEME_SETTINGS) },
                 onFontSettingsClick = { navController.navigate(Routes.FONT_SETTINGS) },
-            ) {
-                navController.navigate(Routes.LANGUAGE_SETTINGS)
-            }
+                onLanguageSettingsClick = { navController.navigate(Routes.LANGUAGE_SETTINGS) },
+                onScriptPermissionsClick = { navController.navigate(Routes.SCRIPT_PERMISSIONS) },
+            )
+        }
+
+        composable(Routes.SCRIPT_PERMISSIONS) {
+            // The same instance Home drives, not a `hiltViewModel()` — a toggle
+            // here re-syncs the very host the home screen's switches re-sync.
+            ScriptPermissionsScreen(
+                onBackClick = { navController.popBackStack() },
+                viewModel = homeViewModel,
+            )
         }
 
         composable(Routes.THEME_SETTINGS) {

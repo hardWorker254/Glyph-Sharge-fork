@@ -25,6 +25,21 @@ class HygieneRegressionTest {
     private fun ui(vararg path: String): String =
         codeOf(File(mainRoot, "ui/" + path.joinToString("/")))
 
+    /**
+     * Every `.kt` under [this] directory, as paths relative to it.
+     *
+     * Recursive and list-free on purpose. These guards ask "does *any* dialog do
+     * the thing that was a bug once?", and a list of files answers that only
+     * until the next dialog is added — which is exactly when the answer is
+     * wanted.
+     */
+    private fun File.walkSourceFiles(): List<String> =
+        walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .map { it.relativeTo(this).path }
+            .sorted()
+            .toList()
+
     @Test
     fun `the network metered flag means what its own docs say`() {
         val code = codeOf(File(mainRoot, "glyph/net/NetworkSource.kt"))
@@ -155,20 +170,22 @@ class HygieneRegressionTest {
     }
 
     @Test
-    fun `the low battery config cannot be silently dropped`() {
-        val code = ui("components/LowBattery.kt")
-
+    fun `no dialog can close while dropping what it was given`() {
         // A nullable `pendingConfig` plus `pendingConfig?.let(onEnableAlert)`
         // meant a lost config closed the dialog and enabled nothing, with no
-        // message. Non-null makes that outcome unrepresentable.
-        assertFalse(
-            "pendingConfig must not be nullable, or Enable can close the dialog doing nothing",
-            "pendingConfig?.let(onEnableAlert)" in code,
-        )
-        assertTrue(
-            "LowBatteryAlertConfig must be saveable across a configuration change",
-            ("java.io.Serializable" in code) && ("rememberSaveable" in code),
-        )
+        // message. Non-null made that outcome unrepresentable — in the one dialog
+        // that had it, which was Low Battery and is now a rule. The shape is
+        // still worth pinning everywhere it could return: it is written by
+        // accident, and every dialog here collects a few values across two
+        // steps, which is how it starts.
+        File(mainRoot, "ui/components").walkSourceFiles().forEach { name ->
+            val code = ui("components/$name")
+            assertFalse(
+                "$name must not enable from a nullable pending config, or Enable " +
+                    "can close the dialog doing nothing",
+                "pendingConfig?.let(" in code,
+            )
+        }
     }
 
     @Test
@@ -178,7 +195,7 @@ class HygieneRegressionTest {
         // sliders for — their second card and slider ended up outside the
         // dialog while the buttons stayed reachable: a dialog that cannot be
         // configured.
-        listOf("PowerPeek.kt", "ChargingAnimation.kt").forEach { name ->
+        listOf("MusicVisualizer.kt").forEach { name ->
             val code = ui("components/$name")
             val dialog = code.substringAfter("AlertDialog(")
             assertTrue(
@@ -195,12 +212,14 @@ class HygieneRegressionTest {
         // nothing — and on a dialog whose confirm did not close it, it stayed
         // for good.
         listOf(
-            "LowBattery.kt", "MusicVisualizer.kt", "PowerPeek.kt", "PulseLock.kt",
-            "ScreenOff.kt", "NfcGlyph.kt", "VpnConnected.kt", "ChargingAnimation.kt",
+            "components/MusicVisualizer.kt",
+            // The constructor's form, where a rule's duration, threshold and
+            // shake level are set now that the feature dialogs are gone.
+            "screens/RuleConstructorScreen.kt",
         ).forEach { name ->
             assertFalse(
                 "$name still declares an isSaving flag",
-                "var isSaving" in ui("components/$name"),
+                "var isSaving" in ui(name),
             )
         }
         assertFalse(
@@ -259,6 +278,8 @@ class HygieneRegressionTest {
         listOf(
             "screens/animations/AnimationListScreen.kt",
             "screens/animations/ScriptStoreScreen.kt",
+            // The constructor's list: same defect, same `remember`ed menu.
+            "screens/RuleListScreen.kt",
         ).forEach { name ->
             val code = ui(name)
             assertTrue(
@@ -305,20 +326,43 @@ class HygieneRegressionTest {
             "MainActivity still has a stub body",
             "{ /* ... */ }" in code,
         )
+        // The export itself moved to the settings screen, where the user can
+        // reach it: it used to be registered here and never launched, so the
+        // only way to get a log off the phone did not exist. The invariant is
+        // the same one — the export writes what LoggingManager assembled, and
+        // never a hand-made empty file.
         assertTrue(
-            "the log export should use what LoggingManager already assembles",
-            code.contains("LoggingManager.exportLogs()"),
+            "the log export should go through LoggingManager",
+            codeOf(File(mainRoot, "ui/screens/SettingsScreen.kt"))
+                .contains("LoggingManager.exportTo("),
+        )
+        assertTrue(
+            "and LoggingManager should write what it assembled",
+            codeOf(File(mainRoot, "utils/LoggingManager.kt"))
+                .contains("exportLogs()"),
         )
     }
 
     @Test
     fun `slider values are clamped on the way in as well as out`() {
         // `Slider` requires `value` to be inside `valueRange` and throws
-        // otherwise, so a stored threshold outside 5..50 took the dialog down.
-        val code = ui("components/LowBattery.kt")
-        assertTrue(
-            "the threshold should be clamped where it is read",
-            "getLowBatteryThreshold().toFloat().coerceIn(5f, 50f)" in code,
-        )
+        // otherwise, so a stored value outside the range took the screen down
+        // rather than snapping to the nearest end.
+        // The constructor's sliders, whose ranges are literals the form owns
+        // rather than preferences somebody else wrote — so the clamp belongs on
+        // the state the form opens on. A rule arrives from outside the app (an
+        // imported `.servicelua` is JSON), and `Slider` throws rather than
+        // snapping when `value` is outside `valueRange`: a crash on opening a
+        // rule that had been working.
+        val form = ui("screens/RuleConstructorScreen.kt")
+        listOf(
+            "threshold" to "stored.coerceIn(LOW_BATTERY_MIN_PERCENT, LOW_BATTERY_MAX_PERCENT)",
+            "durationSeconds" to "(existing?.durationMs ?: 3000L) / 1000f).coerceIn(1f, 10f)",
+        ).forEach { (what, clamp) ->
+            assertTrue(
+                "the form should clamp $what where it reads it, not trust the rule",
+                clamp in form,
+            )
+        }
     }
 }

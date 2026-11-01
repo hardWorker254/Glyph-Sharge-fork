@@ -18,7 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -70,7 +69,6 @@ import java.util.Date
  * @param onPickImportFile opens the system file picker to import a `.glyphlua`
  * @param onExportToDownloads writes straight into the public Downloads folder
  * @param onExportToFile writes to a location the user picks
- * @param onOpenStore opens the animation store
  */
 @Composable
 fun AnimationListScreen(
@@ -83,7 +81,6 @@ fun AnimationListScreen(
     onPickImportFile: () -> Unit,
     onExportToDownloads: (String) -> Unit,
     onExportToFile: (String) -> Unit,
-    onOpenStore: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val haptic = LocalHapticFeedback.current
@@ -125,19 +122,6 @@ fun AnimationListScreen(
                         contentDescription = stringResource(R.string.studio_new),
                     )
                 }
-            }
-            // Always present, unlike New: the store is the way to get a script
-            // without writing one, which is exactly what an empty studio needs.
-            IconButton(
-                onClick = {
-                    HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
-                    onOpenStore()
-                },
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Storefront,
-                    contentDescription = stringResource(R.string.store_open),
-                )
             }
         },
     ) {

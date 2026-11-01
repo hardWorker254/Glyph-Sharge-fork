@@ -3,146 +3,31 @@
 
 
     <!-- Charging Animation -->
-    <string name="charging_animation_title">Charging Animation</string>
-    <string name="charging_animation_description">Glyphs on plug &amp; unplug</string>
-    <string name="charging_animation_how_it_works_title">How it works:</string>
-    <string name="charging_animation_how_it_works_description">• Shows battery level when charger is connected\n• The next segment smoothly breathes while charging\n• Shows current level when charger is disconnected</string>
-    <string name="charging_animation_button_test">Test Animation</string>
-    <string name="charging_animation_configure_title">Configure</string>
-    <string name="charging_animation_configure_subtitle">Customize charging display</string>
-    <string name="charging_animation_duration_title">Duration</string>
-    <string name="charging_animation_duration_min">2s</string>
-    <string name="charging_animation_duration_max">10s</string>
-    <string name="charging_animation_button_enable">Enable</string>
-    <string name="charging_animation_toast">Please enable the Glyph service first</string>
 
     <!-- VPN Connected -->
-    <string name="vpn_connected_title">VPN Connected</string>
-    <string name="vpn_connected_description">Play a glyph sequence when a VPN connects.</string>
-    <string name="vpn_connected_toast">Please enable the Glyph service first</string>
-    <string name="vpn_connected_button_test">Test VPN Connected</string>
-    <string name="vpn_connected_dialog_subtitle">Light up when the VPN connects</string>
-    <string name="vpn_connected_how_it_works_title">How it works:</string>
-    <string name="vpn_connected_how_it_works_description">• Triggers once when a VPN connection is established.\n• Plays your selected animation.\n• Nothing plays if a VPN is already up when the feature starts.</string>
-    <string name="vpn_connected_configure_title">Configure</string>
-    <string name="vpn_connected_configure_subtitle">Customize VPN Connected behavior</string>
-    <string name="vpn_connected_animation_title">Select Animation</string>
-    <string name="vpn_connected_animation_test">Test </string>
-    <string name="vpn_connected_duration_title">Duration</string>
-    <string name="vpn_connected_duration_value">%d s</string>
-    <string name="vpn_connected_duration_min">1s</string>
-    <string name="vpn_connected_duration_max">10s</string>
-    <string name="vpn_connected_button_enable">Enable</string>
 
     <!-- Power Peek -->
     <string name="power_peek_title">Power Peek</string>
     <string name="power_peek_description">Peek at your battery life with a quick shake.</string>
-    <string name="power_peek_toast">Please enable the Glyph service first</string>
-    <string name="power_peek_dialog_title">PowerPeek</string>
-    <string name="power_peek_dialog_subtitle">Battery peek on shake</string>
     <string name="power_peek_how_it_works_title">How it works:</string>
     <string name="power_peek_how_it_works_description">• Shake your device to view battery percentage\n• Works even when screen is off\n• Customizable sensitivity and display duration</string>
     <string name="power_peek_button_test">Test Power Peek</string>
-    <string name="power_peek_configure_title">Configure</string>
-    <string name="power_peek_configure_subtitle">Customize your shake detection</string>
-    <string name="power_peek_sensitivity_title">Shake Sensitivity</string>
     <string name="power_peek_sensitivity_soft">Soft</string>
     <string name="power_peek_sensitivity_easy">Easy</string>
     <string name="power_peek_sensitivity_medium">Medium</string>
     <string name="power_peek_sensitivity_hard">Hard</string>
     <string name="power_peek_sensitivity_hardest">Harder</string>
-    <string name="power_peek_duration_title">Duration</string>
-    <string name="power_peek_duration_value">%d s</string>
-    <string name="power_peek_duration_min">2s</string>
-    <string name="power_peek_duration_max">10s</string>
-    <string name="power_peek_button_enable">Enable</string>
 
     <!-- Glow Gate (PulseLock) -->
-    <string name="pulse_lock_title">Glow Gate</string>
-    <string name="pulse_lock_description">Light up your unlock with stunning glyph animations.</string>
-    <string name="pulse_lock_toast">Please enable the Glyph service first</string>
-    <string name="pulse_lock_dialog_subtitle">Unlock animation</string>
-    <string name="pulse_lock_how_it_works_title">How it works:</string>
-    <string name="pulse_lock_how_it_works_description">• Plays the selected Glyph animation after unlock\n• Optional sound with adjustable delay</string>
-    <string name="pulse_lock_button_test">Test Glow Gate</string>
-    <string name="pulse_lock_configure_title">Configure</string>
-    <string name="pulse_lock_configure_subtitle">Customize unlock animation</string>
-    <string name="pulse_lock_animation_title">Animation</string>
-    <string name="pulse_lock_animation_test">Test </string>
-    <string name="pulse_lock_duration_title">Duration</string>
-    <string name="pulse_lock_duration_value">%d s</string>
-    <string name="pulse_lock_duration_min">1s</string>
-    <string name="pulse_lock_duration_max">10s</string>
-    <string name="pulse_lock_button_enable">Enable</string>
 
     <!-- Low Battery Alert -->
-    <string name="low_battery_alert_title">Low Battery Alert</string>
-    <string name="low_battery_alert_description">Get notified with glyphs when your battery runs low.</string>
-    <string name="low_battery_alert_toast">Please enable the Glyph service first</string>
-    <string name="low_battery_alert_how_it_works_title">How it works:</string>
-    <string name="low_battery_alert_how_it_works_description">• Monitors battery level continuously\n• Triggers glyph animation when level drops below threshold\n• Works even when screen is off\n• Customizable threshold and animation</string>
-    <string name="low_battery_alert_button_test">Test Low Alert</string>
-    <string name="low_battery_alert_configure_title">Configure</string>
-    <string name="low_battery_alert_configure_subtitle">Customize low battery alert</string>
-    <string name="low_battery_alert_threshold_title">Battery Threshold</string>
-    <string name="low_battery_alert_threshold_label">Alert when battery drops to:</string>
-    <string name="low_battery_alert_threshold_min">Low (5%)</string>
-    <string name="low_battery_alert_threshold_max">High (50%)</string>
-    <string name="low_battery_alert_animation_title">Animation</string>
-    <string name="low_battery_alert_animation_test">Test </string>
-    <string name="low_battery_alert_duration_title">Duration</string>
-    <string name="low_battery_alert_duration_min">1s</string>
-    <string name="low_battery_alert_duration_max">10s</string>
-    <string name="low_battery_alert_button_enable">Enable</string>
 
     <!-- Screen Off Animation -->
-    <string name="screen_off_title">Screen Off Animation</string>
-    <string name="screen_off_description">Play a beautiful glyph sequence when turning off the screen.</string>
-    <string name="screen_off_toast">Please enable the Glyph service first</string>
-    <string name="screen_off_button_test">Test Screen Off</string>
-    <string name="screen_off_dialog_subtitle">Light up when locking</string>
-    <string name="screen_off_how_it_works_title">How it works:</string>
-    <string name="screen_off_how_it_works_description">• Triggers every time the screen turns off.\n• Plays your selected animation.</string>
-    <string name="screen_off_configure_title">Configure</string>
-    <string name="screen_off_configure_subtitle">Customize Screen Off behavior</string>
-    <string name="screen_off_animation_title">Select Animation</string>
-    <string name="screen_off_animation_test">Test </string>
-    <string name="screen_off_duration_title">Duration</string>
-    <string name="screen_off_duration_value">%d s</string>
-    <string name="screen_off_duration_min">1s</string>
-    <string name="screen_off_duration_max">10s</string>
-    <string name="screen_off_button_enable">Enable</string>
 
     <!-- NFC Glyph -->
-    <string name="nfc_glyph_title">NFC Glyph</string>
-    <string name="nfc_glyph_description">Animate glyphs on NFC events</string>
-    <string name="nfc_glyph_toast">Please enable the Glyph service first</string>
-    <string name="nfc_glyph_how_it_works_title">How it works:</string>
-    <string name="nfc_glyph_how_it_works_description">• Triggers when you tap to pay (Google Pay, etc.)\n• Triggers when an NFC tag is scanned\n• Plays a chosen glyph animation</string>
-    <string name="nfc_glyph_configure_title">Configure</string>
-    <string name="nfc_glyph_configure_subtitle">Customize NFC glyph animation</string>
-    <string name="nfc_glyph_button_test">Test NFC Glyph</string>
-    <string name="nfc_glyph_animation_title">Animation</string>
-    <string name="nfc_glyph_animation_test">Test </string>
-    <string name="nfc_glyph_duration_title">Duration</string>
-    <string name="nfc_glyph_duration_min">1s</string>
-    <string name="nfc_glyph_duration_max">10s</string>
-    <string name="nfc_glyph_duration_description">How long the animation plays after an NFC event</string>
-    <string name="nfc_glyph_note_title">Note</string>
-    <string name="nfc_glyph_note_description">• NFC must be enabled in system settings\n• Works with Google Pay, tag scans, etc.\n• HCE payment detection is automatic\n• Tag detection requires the app in foreground</string>
-    <string name="nfc_glyph_button_enable">Enable</string>
-    <string name="nfc_not_available">NFC is not available on this device</string>
-    <string name="nfc_enable_in_settings">Please enable NFC in system settings first</string>
 
     <!-- Common toasts -->
     <string name="toast_service_required">Please enable the Glyph service first</string>
-    <string name="toast_testing_power_peek">Testing Power Peek</string>
-    <string name="toast_testing_charging_animation">Testing Charging Animation</string>
-    <string name="toast_testing_pulse_lock">Testing Pulse Lock</string>
-    <string name="toast_testing_screen_off">Testing Screen Off</string>
-    <string name="toast_testing_nfc">Testing NFC</string>
-    <string name="toast_testing_low_battery_alert">Testing Low Battery Alert</string>
-    <string name="toast_testing_vpn_connected">Testing VPN Connected</string>
     <string name="toast_testing_music_visualizer">Testing Music Visualizer</string>
     <!-- Fallback for a feature added without a toast of its own: the name is
          an enum constant, so it is the last resort, not the normal wording. -->
@@ -182,6 +67,9 @@
     <string name="settings_card_about">About</string>
     <string name="settings_about_description">From live battery glyphs to USB-theft alarms, charging history and unlock light-shows—unlock the full power of the NOTHING glyphs.</string>
 
+  <!-- Rule constructor -->
+  <string name="settings_card_rule_constructor">Rule constructor</string>
+
   <!-- Animation Studio -->
   <string name="settings_card_custom_animations">Custom Animations</string>
   <string name="settings_card_custom_animations_subtitle">Write your own in Lua</string>
@@ -189,6 +77,10 @@
     <item quantity="one">%1$d saved</item>
     <item quantity="other">%1$d saved</item>
   </plurals>
+
+  <!-- The store's card. Both kinds of script live there, so the subtitle says
+       "scripts" rather than naming one of them. -->
+  <string name="settings_card_store_subtitle">Scripts other people wrote, ready to use</string>
   <string name="studio_title">Animation Studio</string>
   <string name="studio_new">New</string>
   <string name="studio_import">Import</string>
@@ -256,7 +148,84 @@
        Russian user saw "Features" and "GLYPH LIGHTS" in English above
        Russian subtitles. -->
   <string name="home_section_features">Features</string>
+  <string name="home_section_rules">Rules</string>
   <string name="home_glyph_lights">GLYPH LIGHTS</string>
+
+  <!-- The constructor: the rule list on the home screen and the dialog that
+       builds one. A rule is a trigger plus an animation, named by the user. -->
+  <string name="rules_empty">No rules yet. Tap ＋ to build one: a trigger, an animation, and the strip lights up.</string>
+  <string name="rules_add">Add rule</string>
+  <string name="rules_custom_script">Custom script</string>
+  <string name="rules_delete">Delete rule</string>
+  <string name="rules_test">Test</string>
+  <string name="glyph_registration_refused">The Glyph service refused this phone (%1$s); none of the ids it accepts are known: %2$s</string>
+  <string name="rules_constructor_title">New rule</string>
+  <string name="rules_edit_title">Edit rule</string>
+
+  <!-- The constructor's own list, arranged the way the studio's is: a lead
+       empty state, an action menu per row, and the complaint when a rule's
+       script is already gone by the time its export is pressed. -->
+  <string name="rules_list_empty_title">No services yet</string>
+  <string name="rules_list_empty_body">Nothing is built yet. Create a rule — a trigger and an animation — or import a .servicelua script someone wrote.</string>
+  <string name="rules_row_menu">Rule actions</string>
+  <string name="rules_msg_script_missing">That script no longer exists.</string>
+  <string name="rules_msg_saved">Rule saved: %1$s</string>
+  <string name="rules_msg_not_saved">The rule did not stick — nothing was written</string>
+  <string name="rules_threshold_label">Trigger when battery is at or below</string>
+
+  <!-- Battery indicator arcs (Phone 3a): which arcs carry the charge level -->
+
+  <!-- Script capabilities: what a .servicelua reaches for, asked per script -->
+  <string name="capability_device_state_label">Device state</string>
+  <string name="capability_device_state_description">Reads the battery level and whether the phone is charging.</string>
+
+  <!-- Constructor: advanced mode, .servicelua import and the capability prompt -->
+  <string name="rules_mode_simple">Simple</string>
+  <string name="rules_mode_advanced">Advanced</string>
+  <string name="rules_starter_script">-- This service says WHEN; the animation itself is picked in the form.\n-- glyph.on(trigger, fn) files a handler under a trigger name.\n-- glyph.playAnimation() fires the animation of this rule.\n\nglyph.on(\"screen_off\", function()\n  glyph.playAnimation()\nend)</string>
+  <string name="rules_import_title">This script asks for</string>
+  <string name="rules_import_disclaimer">A service script runs in the background and can only do what you allow here. It cannot draw on the strip itself — when a rule fires, the app plays the animation you chose for it. You can change these decisions later in Settings → Script permissions.</string>
+  <string name="rules_import_allow">Allow</string>
+  <string name="rules_import_decline">Decline</string>
+  <string name="rules_import_failed">The script could not be imported.</string>
+  <string name="rules_msg_script_save_failed">The script could not be saved.</string>
+  <string name="rules_script_name_fallback">Rule service</string>
+  <string name="rules_script_prefix">Script: %1$s</string>
+  <string name="rules_shake_label">Shake sensitivity</string>
+
+  <!-- Settings → Script permissions -->
+  <string name="settings_card_export_logs">Export logs</string>
+  <string name="settings_card_export_logs_subtitle">Save what the app did to a file you can share</string>
+  <string name="settings_card_script_permissions">Script permissions</string>
+  <string name="settings_card_script_permissions_subtitle">What each installed script may access</string>
+  <string name="script_permissions_empty">No service scripts installed. Scripts you import in the rule constructor appear here.</string>
+  <string name="script_permissions_no_requests">This script does not use any protected APIs.</string>
+  <string name="script_permissions_applied">Changes take effect immediately.</string>
+
+  <!-- Trigger palette: the human name for each TriggerType.id. -->
+  <string name="trigger_screen_off">Screen off</string>
+  <string name="trigger_screen_on">Screen on</string>
+  <string name="trigger_unlock">Unlock</string>
+  <string name="trigger_power_connected">Charger plugged in</string>
+  <string name="trigger_power_disconnected">Charger unplugged</string>
+  <string name="trigger_power_changed">Charger plugged or unplugged</string>
+  <string name="trigger_low_battery">Low battery</string>
+  <string name="trigger_nfc">NFC tag</string>
+  <string name="trigger_vpn_connected">VPN connected</string>
+  <string name="trigger_shake">Shake</string>
+  <string name="rules_constructor_subtitle">When this happens, play an animation.</string>
+  <string name="rules_name_label">Name</string>
+  <string name="rules_trigger_label">When</string>
+  <string name="rules_animation_label">Play</string>
+  <string name="rules_duration_label">For</string>
+  <string name="rules_save">Save</string>
+  <string name="rules_fail_unknown_trigger">This rule waits for a trigger the build does not know.</string>
+  <string name="rules_fail_trigger_unavailable">The trigger this rule waits for is not available on this phone.</string>
+  <string name="rules_fail_attach_failed">This rule could not be attached and will not fire.</string>
+  <string name="rules_fail_script_missing">The script behind this rule is not installed.</string>
+  <string name="rules_fail_profile_unknown">The LED layout of this phone is unknown, so the script cannot run here.</string>
+  <string name="rules_fail_load_failed">The script did not load: %s</string>
+  <string name="rules_fail_no_handlers">The script files no handlers, so there is nothing to listen to.</string>
 
   <!-- Log export. The picker used to accept a destination and then write
        nothing, with no message either way. -->
@@ -298,7 +267,7 @@
     <item>glyph.ch.c / .a / .b / .d / .e</item>
     <item>glyph.ch.all / .nonC / .spiral</item>
     <item>glyph.ch.pulse</item>
-    <item>glyph.group(&quot;c&quot;)</item>
+    <item>glyph.group(\"c\")</item>
     <item>glyph.MAX</item>
     <item>glyph.device</item>
     <item>glyph.battery / .charging</item>
@@ -310,7 +279,7 @@
     <item>glyph.ease(t, kind)</item>
     <item>glyph.exit()</item>
     <item>glyph.log(text) / print(text)</item>
-    <item>glyph.target = &quot;music&quot;</item>
+    <item>glyph.target = \"music\"</item>
     <item>glyph.audio.active / .level</item>
     <item>glyph.audio.bass / .mid / .treble</item>
     <item>glyph.audio.beat</item>
@@ -352,7 +321,7 @@
   </string-array>
 
   <string-array name="studio_module_calls">
-    <item>local time = require(&quot;glyph.time&quot;)</item>
+    <item>local time = require(\"glyph.time\")</item>
     <item>glyph.time</item>
     <item>glyph.battery</item>
     <item>glyph.net</item>
@@ -371,13 +340,12 @@
     <item>Pure arithmetic: clamp, lerp, mapRange, shuffle</item>
   </string-array>
 
-  <string name="studio_reference_modules_note">require resolves these six names and nothing else. There is no require(&quot;os&quot;), and no way to read a file: that is the sandbox, and it is deliberate. The three severities live in the module — glyph.log on its own is a plain function.</string>
+  <string name="studio_reference_modules_note">require resolves these six names and nothing else. There is no require(\"os\"), and no way to read a file: that is the sandbox, and it is deliberate. The three severities live in the module — glyph.log on its own is a plain function.</string>
 
   <!-- Animation store. The unsupported label replaces both action buttons
        rather than disabling them: a greyed-out button on a dimmed card reads
        as "press it, it might work", and there is nothing to press. -->
   <string name="store_title">Animation Store</string>
-  <string name="store_open">Store</string>
   <string name="store_action_install">Install</string>
   <!-- Not a button any more: the animation is already on the phone, so
        there is nothing to press. Green because it is an answer — unless the
@@ -385,56 +353,48 @@
   <string name="store_action_installed">Installed</string>
   <string name="store_action_update">Update</string>
   <string name="store_action_test">Test on glyph</string>
+  <!-- The row's overflow menu, which is where every action moved when the
+       card became a studio-style row. -->
+  <string name="store_row_menu">Script actions</string>
   <string name="store_unsupported_label">Not supported on this phone</string>
   <string name="store_unsupported_devices">Works on %1$s</string>
   <string name="store_empty_title">The store is empty</string>
   <string name="store_empty_body">Nothing has been published to the catalogue yet. Check back later.</string>
+  <!-- The three chips across the top of the catalogue: two kinds, plus
+       everything. A menu would hide two of them behind a tap. -->
+  <string name="store_filter_all">All</string>
+  <string name="store_filter_animations">Animations</string>
+  <string name="store_filter_services">Services</string>
+  <!-- Not the empty state above: the catalogue has entries, just not in the
+       half the chips are pointing at. -->
+  <string name="store_filter_empty">Nothing matches this filter.</string>
   <string name="store_loading">Loading the catalogue…</string>
   <string name="store_retry">Retry</string>
   <string name="store_offline_note">Showing a saved copy — the store could not be reached.</string>
   <string name="store_refresh">Refresh</string>
-  <string name="store_by_author">by %1$s</string>
   <string name="store_msg_installed">“%1$s” installed</string>
   <string name="store_msg_updated">“%1$s” updated</string>
   <string name="store_msg_tested">“%1$s” finished playing</string>
   <string name="store_msg_failed">Could not install the animation</string>
   <string name="store_msg_update_failed">Could not update the animation</string>
-  <string name="store_msg_license">License: %1$s</string>
 
   <!-- Notification for the Glow Gate service -->
-  <string name="pulse_lock_notification_channel">Glow Gate Service</string>
-  <string name="pulse_lock_notification_title">✨ Glow Gate Active</string>
-  <string name="pulse_lock_notification_text">Unlocking will play your chosen animation.</string>
 
   <!-- The other six feature services. Their channel names were hard-coded
        English, which is the one string in a notification that cannot be
        changed after install: a channel's name is frozen the first time it is
        created. FeatureService now takes these as a string resource so the
        translation is the only thing that can ever differ. -->
-  <string name="nfc_glyph_channel">NFC Glyph Service</string>
-  <string name="nfc_glyph_notif_title">✨ NFC Animation Active</string>
-  <string name="nfc_glyph_notif_text">Tap to pay or scan an NFC tag to trigger an animation.</string>
 
-  <string name="power_peek_channel">Power Peek Service</string>
-  <string name="power_peek_notif_title">🔋 Power Peek Active</string>
-  <string name="power_peek_notif_text">Wiggle the phone horizontally on a table to check the battery.</string>
 
-  <string name="low_battery_channel">Low Battery Alert Service</string>
-  <string name="low_battery_notif_title">🔋 Low Battery Alert Active</string>
-  <string name="low_battery_notif_text">Monitoring battery level for alerts.</string>
 
-  <string name="screen_off_channel">Screen Off Glyph Service</string>
-  <string name="screen_off_notif_title">✨ Screen Off Animation Active</string>
-  <string name="screen_off_notif_text">Turning the screen off will play your chosen animation.</string>
 
-  <string name="charging_animation_channel">Charging Animation Service</string>
-  <string name="charging_animation_notif_title">⚡ Charging Animation Active</string>
-  <string name="charging_animation_notif_text">Listening for charger connection and disconnection.</string>
-  <string name="charging_animation_channel_description">Shows a Glyph animation when the charger is connected or disconnected.</string>
+  <string name="rule_host_channel">Rules</string>
+  <string name="rule_host_notif_title">✨ Rules Active</string>
+  <string name="rule_host_notif_text">Running your automation rules.</string>
+  <string name="rule_host_channel_description">Fires your rules: a trigger plays the animation you picked.</string>
 
-  <string name="vpn_connected_channel">VPN Connected Glyph Service</string>
-  <string name="vpn_connected_notif_title">🛡️ VPN Connected Animation Active</string>
-  <string name="vpn_connected_notif_text">Connecting to a VPN will play your chosen animation.</string>
+
     <string name="settings_about_version">v%1$s (%2$d)</string>
     <string name="settings_about_beta_notice">🧪 You\'re using a public release build. Expect occasional quirks and bugs.</string>
     <string name="settings_about_beta_alt">Special thanks to beedah for the countless installs and quick beta testing.</string>

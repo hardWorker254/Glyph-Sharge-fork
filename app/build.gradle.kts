@@ -69,6 +69,14 @@ android {
             // android.util.Log is a stub in JVM unit tests; the glyph layer only
             // uses it for diagnostics, so returning defaults is enough.
             isReturnDefaultValues = true
+            // Real resources for Robolectric. Without this `context.getString`
+            // throws `Resources$NotFoundException`, and every test that walks a
+            // screen's own copy of a string — a rule row's description, a
+            // feature's own name — has to stop one line short of what it is
+            // checking. That is not a small gap: the save path publishes to the
+            // list by building exactly those rows, so "did the save reach the
+            // screen" was untestable while this was off.
+            isIncludeAndroidResources = true
         }
     }
 

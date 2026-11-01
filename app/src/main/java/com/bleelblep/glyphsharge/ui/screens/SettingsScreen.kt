@@ -1,6 +1,7 @@
 package com.bleelblep.glyphsharge.ui.screens
 
 import android.content.pm.PackageManager
+import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
@@ -32,6 +33,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -40,6 +43,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.CustomAnimationsActivity
+import com.bleelblep.glyphsharge.RuleConstructorActivity
+import com.bleelblep.glyphsharge.ScriptStoreActivity
 import com.bleelblep.glyphsharge.ui.components.controls.MorphingToggleButton
 import com.bleelblep.glyphsharge.ui.components.controls.SettingsTrailingIcon
 import com.bleelblep.glyphsharge.ui.components.controls.ThreeStateFontMorphingButton
@@ -50,6 +55,7 @@ import com.bleelblep.glyphsharge.ui.theme.LocalFontState
 import com.bleelblep.glyphsharge.ui.theme.LocalSettingsRepository
 import com.bleelblep.glyphsharge.ui.theme.LocalThemeState
 import com.bleelblep.glyphsharge.ui.viewmodel.CustomAnimationsViewModel
+import com.bleelblep.glyphsharge.utils.LoggingManager
 
 /**
  * Settings screen for the GlyphZen app.
@@ -65,6 +71,7 @@ fun SettingsScreen(
     onThemeSettingsClick: () -> Unit = {},
     onFontSettingsClick: () -> Unit = {},
     onLanguageSettingsClick: () -> Unit = {},
+    onScriptPermissionsClick: () -> Unit = {},
 ) {
     val fontState = LocalFontState.current
     val themeState = LocalThemeState.current
@@ -111,6 +118,12 @@ fun SettingsScreen(
         }
 
         item {
+            RuleConstructorCard(
+                onClick = { context.startActivity(RuleConstructorActivity.intent(context)) },
+            )
+        }
+
+        item {
             CustomAnimationsCard(
                 animationCount = customAnimationCount,
             ) {
@@ -119,9 +132,90 @@ fun SettingsScreen(
         }
 
         item {
+            StoreCard(
+                onClick = { context.startActivity(ScriptStoreActivity.intent(context)) },
+            )
+        }
+
+        item {
+            ScriptPermissionsCard(
+                onNavigate = onScriptPermissionsClick,
+            )
+        }
+
+        item {
+            LogExportCard()
+        }
+
+        item {
             AppInfoSection()
         }
     }
+}
+
+/**
+ * The way to get the app's log off the phone.
+ *
+ * The log is a file in the app's own directory and nothing else can read it:
+ * on a phone with no shell attached, logcat is not an option, so the log is
+ * the only way to find out what the app was doing — which trigger fired,
+ * which rule was attached, whether the Glyph session was open.
+ *
+ * The user picks where it goes (a file in Downloads, something they can share
+ * from there), and every outcome is said out loud: a log that exports as an
+ * empty file looks exactly like an app that did nothing.
+ */
+@Composable
+private fun LogExportCard() {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain"),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val message = when (LoggingManager.exportTo(uri)) {
+            LoggingManager.ExportResult.DONE -> R.string.log_export_done
+            LoggingManager.ExportResult.EMPTY -> R.string.log_export_empty
+            LoggingManager.ExportResult.FAILED -> R.string.log_export_failed
+        }
+        Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+    }
+
+    DraggableSettingsCard(
+        title = stringResource(id = R.string.settings_card_export_logs),
+        subtitle = stringResource(id = R.string.settings_card_export_logs_subtitle),
+        onNavigate = { launcher.launch(LOG_FILE_NAME) },
+        onClick = { launcher.launch(LOG_FILE_NAME) },
+        trailing = {
+            SettingsTrailingIcon()
+        },
+    )
+}
+
+/** The name the exported log is offered under. */
+private const val LOG_FILE_NAME = "glyphsharge-log.txt"
+
+/**
+ * The entry point to the constructor — the same door the home list's "＋"
+ * opens, offered here so the app's main feature is reachable from Settings
+ * the way the studio is.
+ *
+ * The subtitle is the constructor's own line rather than a count: what is in
+ * there is rules the user built, they are already listed on the home screen,
+ * and a number here would add nothing the list does not say better.
+ */
+@Composable
+private fun RuleConstructorCard(
+    onClick: () -> Unit,
+) {
+    DraggableSettingsCard(
+        title = stringResource(id = R.string.settings_card_rule_constructor),
+        subtitle = stringResource(id = R.string.rules_constructor_subtitle),
+        onNavigate = onClick,
+        onClick = onClick,
+        trailing = {
+            SettingsTrailingIcon()
+        },
+    )
 }
 
 @Composable
@@ -143,9 +237,58 @@ private fun CustomAnimationsCard(
         onNavigate = onClick,
         onClick = onClick,
         trailing = {
-            // The one row that had no trailing control at all, which left it the
-            // only card in the list with an empty right edge. No content named,
-            // so the chip draws its own mark.
+            // No control of its own, so the chip draws its own mark rather
+            // than leaving the right edge of the card empty.
+            SettingsTrailingIcon()
+        },
+    )
+}
+
+/**
+ * The entry point to the catalogue.
+ *
+ * Its own door, and outside the studio's, because it is no longer the studio's
+ * to host: it publishes `.servicelua` rules as much as `.glyphlua` animations,
+ * and someone looking for a rule should not have to open a code editor to get
+ * one. Placed after the studio and before permissions on purpose — the three
+ * read as *write one* / *get one* / *decide what they may do*.
+ *
+ * No count in the subtitle: what the catalogue holds is not what this phone
+ * holds, and a number on this screen would be a network call on every visit.
+ */
+@Composable
+private fun StoreCard(
+    onClick: () -> Unit,
+) {
+    DraggableSettingsCard(
+        title = stringResource(id = R.string.store_title),
+        subtitle = stringResource(id = R.string.settings_card_store_subtitle),
+        onNavigate = onClick,
+        onClick = onClick,
+        trailing = {
+            SettingsTrailingIcon()
+        },
+    )
+}
+
+/**
+ * The entry point to the withdraw side of the capability model.
+ *
+ * No count in the subtitle: the number that matters here is neither the
+ * scripts nor their grants but the decisions a user may want to revisit, and
+ * a "3" would not say which. The screen itself is the honest preview — it
+ * lists exactly what each script reaches for.
+ */
+@Composable
+private fun ScriptPermissionsCard(
+    onNavigate: () -> Unit,
+) {
+    DraggableSettingsCard(
+        title = stringResource(id = R.string.settings_card_script_permissions),
+        subtitle = stringResource(id = R.string.settings_card_script_permissions_subtitle),
+        onNavigate = onNavigate,
+        onClick = onNavigate,
+        trailing = {
             SettingsTrailingIcon()
         },
     )

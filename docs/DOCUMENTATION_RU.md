@@ -13,7 +13,7 @@
 4. [Слой Glyph](#4-слой-glyph)
 5. [Слой данных](#5-слой-данных)
 6. [Сервисы](#6-сервисы)
-7. [**Добавление нового сервиса (Quickstart)**](#7-добавление-нового-сервиса-quickstart)
+7. [**Добавление нового триггера (Quickstart)**](#7-добавление-нового-триггера-quickstart)
 8. [Слой UI](#8-слой-ui)
 9. [Навигация](#9-навигация)
 10. [Музыкальная визуализация](#10-музыкальная-визуализация)
@@ -35,9 +35,8 @@
 
 | Область | Возможности |
 |---------|-------------|
-| 🔌 Питание | Анимации зарядки, отображение уровня батареи, оповещения о низком заряде, Power Peek (тряска → проверка батареи) |
-| 🔒 Безопасность | Pulse Lock (анимация при разблокировке), Screen Off (анимация при блокировке) |
-| 📡 Интеграция | NFC-глифы по событию оплаты, анимация глифов при подключении VPN |
+| ⚡ Правила | Свои правила: триггер (разблокировка, экран, зарядка, NFC, VPN, встряска, низкий заряд) → анимация, своя или из каталога |
+| 🎵 Развлечения | Музыкальная визуализация: спектр того, что играет |
 | 🎨 Персонализация | 6 стилей тем, шрифты Nothing (NType Headline, NDot 55 Caps), масштабирование размеров текста, собственные анимации глифов на Lua |
 | ⚙️ Система | Автозапуск после загрузки, журналирование |
 | ⚡ Быстрый доступ | Две плитки в шторке: главный сервис глифов и музыкальная визуализация |
@@ -48,12 +47,37 @@
 |------------|--------|--------|
 | Nothing Phone (1) | 20111 | Без тестировщиков |
 | Nothing Phone (2) | 22111 | Без тестировщиков |
+| Nothing Phone (2) Global | 22111 (`AIN065`) | Полоса как у (2), свой id регистрации |
 | Nothing Phone (2a) | 23111 / 23113 | Без тестировщиков |
 | Nothing Phone (3a) | 24111 | ✅ Полная поддержка |
+| Nothing Phone (3a) Pro | 24111 (`A059P`) | ✅ Полная поддержка — та же раскладка глифов, что у (3a) |
 
 Определение модели выполняется в [DeviceType](../app/src/main/java/com/bleelblep/glyphsharge/glyph/device/DeviceType.kt)
-через `Common.is20111()` и подобные проверки. На неподдерживаемом устройстве приложение всё
-равно запускается, но глифы работать не будут.
+сравнением `Build.MODEL` со строкой модели: каждая проверка `Common.is…` в Ketchum SDK —
+это ровно то же сравнение, просто внутри SDK, и наш вариант читается, проверяется тестом на
+ноутбуке и не зависит от того, какие телефоны знала сборка SDK на момент упаковки.
+На неподдерживаемом устройстве приложение всё равно запускается, но глифы работать не будут.
+
+> [!NOTE]
+> **Phone (3a) Pro — это Phone (3a).** Он сообщает `A059P`, а (3a) — `A059`, и первая строка
+> содержит вторую, поэтому модель опознаётся как (3a): раскладка полосы, каналы, дуги и ритм
+> у них одинаковые, а второй `DeviceType` означал бы вторую копию таблиц каналов и на минус
+> ветку в каждом `when (profile.type)` — включая акценты полосы заряда.
+>
+> Отдельной остаётся только регистрация: строки идентификатора
+> различаются, и какую из них считать своей, знает только системный сервис.
+> Поэтому [DeviceType.registrationIds] отдаёт список проб, а `GlyphManager.registerDevice`
+> идёт по нему и оставляет тот, который приняли. Порядок не произвольный, и в нём два
+> правила:
+>
+>  * **вариант, который SDK знает** (`A142P` у 2a Plus, `AIN065` у Phone (2) Global) —
+>    идёт первым, потому что сервис построен вместе с этими константами;
+>  * **модель, которой в SDK нет** (`A059P` у 3a Pro — сборка jar от 2025-03-19 за
+>    месяцы до её выхода) — идёт последним, потому что сервис мог о ней и не слышать:
+>    сначала предлагается `A059`, и только если он отклонён, `A059P`.
+>
+> Отказ виден пользователю — тост `glyph_registration_refused` называет модель и все
+> предложенные идентификаторы, потому что на этом телефоне нет logcat.
 
 ### Ключевые факты проекта
 
@@ -236,15 +260,14 @@ app/src/main/java/com/bleelblep/glyphsharge/
 │   │   ├── SensorSnapshot.kt   # x / y / z / magnitude / shaken, одно измерение
 │   │   ├── SensorControl.kt    # Что открывает и закрывает слушатель одного прогона
 │   │   └── SensorSource.kt     # Сам слушатель и порог, который считается встряхиванием
-│   └── battery/                # Анимация зарядки и Power Peek
-│       ├── BatteryState.kt
-│       └── BatteryGlyphAnimator.kt
+│   └── battery/                # Чтение заряда для скриптов (glyph.battery)
+│       └── BatteryState.kt
 ├── data/
 │   ├── SettingsRepository.kt   # Тонкий фасад над срезами ниже
 │   ├── SettingsPrefs.kt        # Типизированные get/put поверх SharedPreferences
 │   ├── ThemeSettings.kt / FontSettings.kt / GlyphServiceSettings.kt
-│   ├── FeatureSettings.kt      # Переключатели, id и длительности восьми фич
-│   ├── LanguageSettings.kt / UserPresenceSettings.kt
+│   ├── FeatureSettings.kt      # Настройки самой визуализации
+│   ├── LanguageSettings.kt
 │   ├── SettingsMigrations.kt   # Значения по умолчанию и шаги версий
 │   ├── SettingsDiagnostics.kt  # dumpAllSettings()
 │   └── CustomAnimationRepository.kt # Файлы скриптов + индекс, экспорт через MediaStore
@@ -252,14 +275,9 @@ app/src/main/java/com/bleelblep/glyphsharge/
 │   ├── GlyphForegroundService.kt   # Мастер-сервис
 │   ├── FeatureServiceController.kt # Старт, стоп и чтение фич
 │   ├── FeatureSpec.kt          # Реестр «фича → сервис → настройка»
-│   ├── ChargingAnimationService.kt
-│   ├── PowerPeekService.kt
-│   ├── PulseLockService.kt
-│   ├── ScreenOffGlyphService.kt
-│   ├── NfcGlyphService.kt
-│   ├── LowBatteryAlertService.kt
-│   ├── VpnConnectedService.kt
-│   ├── MusicVisualizerService.kt
+│   ├── RuleHostService.kt       # Хост правил: один сервис на все семь мигрированных фич
+│   ├── FeatureTriggerPlayer.kt  # «Триггер сработал — рисуем», общая цепочка
+│   ├── MusicVisualizerService.kt # Единственная bespoke-фича: токен MediaProjection
 │   └── GlyphServiceSwitch.kt    # Главный переключатель, одно место для приложения и плитки
 ├── tiles/                    # Плитки быстрых настроек (шторка)
 │   ├── GlyphServiceTileService.kt      # Главный сервис глифов
@@ -269,7 +287,7 @@ app/src/main/java/com/bleelblep/glyphsharge/
 │   └── BootCompletedReceiver.kt
 ├── ui/
 │   ├── components/            # Карточки, диалоги, layout
-│   │   ├── FeatureCards.kt    # 7 карточек фич; восьмая — в VpnConnected.kt
+│   │   ├── FeatureCards.kt    # 1 карточка: Music Visualizer. Остальные семь — правила
 │   │   ├── GlyphAnimations.kt # Каталог анимаций + rememberAnimationOptions()
 │   │   ├── GlyphDependencies.kt # rememberGlyphAnimationManager()
 │   │   ├── cards/             # ContentCard, FeatureCard, WideFeatureCardWithToggle
@@ -336,10 +354,11 @@ app/src/main/java/com/bleelblep/glyphsharge/
 > [!IMPORTANT]
 > **`GlyphFeature` — это единственный enum**, объявленный в конце
 > [GlyphFeatureCoordinator.kt](../app/src/main/java/com/bleelblep/glyphsharge/glyph/GlyphFeatureCoordinator.kt):
-> `PULSE_LOCK`, `POWER_PEEK`, `LOW_BATTERY`, `SCREEN_OFF`, `NFC`, `CHARGING_ANIMATION`,
-> `MUSIC_VISUALIZER`, `VPN_CONNECTED`. Список фич, обвязка сервисов и UI согласованы с ним,
-> поэтому фичу нельзя включить, не заведя за ней что-то работающее. См.
-> [раздел 7](#7-добавление-нового-сервиса-quickstart).
+> `MUSIC_VISUALIZER`, `RULE_HOST`, `PREVIEW`. `MUSIC_VISUALIZER` — единственная фича,
+> у которой есть и своя карточка, и свой сервис; `RULE_HOST` и `PREVIEW` — не фичи, а
+> участники полосы (см. `FeatureSpecs.NON_FEATURE_PARTICIPANTS`). Список фич, обвязка
+> сервисов и UI согласованы с ним, поэтому фичу нельзя включить, не заведя за ней что-то
+> работающее.
 
 ---
 
@@ -439,20 +458,20 @@ fun cleanup()
 | `runFireworksAnimation()` | Запуски и взрывы с затуханием |
 | `runDNAHelixAnimation()` | Две встречно вращающиеся нити |
 
-**Сценарии фич** — обёртки, которые проверяют настройки и вызывают базовую анимацию:
+**Входы анимаций:**
 
 ```kotlin
-suspend fun playPulseLockAnimation()
-suspend fun playLowBatteryAnimation()
-suspend fun playScreenOffAnimation()
-suspend fun playNfcAnimation()
-suspend fun playPowerPeekAnimation(context: Context, onProgressUpdate: (Float) -> Unit = {})
-suspend fun playChargingAnimationAnimation(context: Context, onProgressUpdate: (Float) -> Unit = {})
+suspend fun playAnimationById(id: String, durationMs: Long)  // единственный вход для правил
 suspend fun playMusicVisualizerAnimation()
 suspend fun previewMusicVisualizer(mode: MusicVisualizationMode)
-suspend fun playVpnConnectedAnimation()
 fun stopAnimations()
 ```
+
+Вход один, и это не совпадение: правило несёт свою анимацию, поэтому и хост, и ▶ у строки
+правила зовут один `playAnimationById` — «как выглядит правило» не может разойтись между
+двумя способами сказать одно и то же. Все `playXxx` по одной на фичу (Screen Off, Glow Gate,
+Power Peek, Low Battery, NFC, Charging, VPN) ушли вместе с их фичами: у каждой свой вход
+читал свою пару настроек, а теперь у фич нет ни настроек, ни карточек.
 
 **Диспетчеризация по id.** Приватный `playAnimation(id, durationMs)` сначала проверяет,
 не является ли id пользовательским (`ScriptAnimation.isCustomId(id)` → префикс `custom:`), и если
@@ -522,7 +541,6 @@ fun stopAnimations()
 | `glyph/animations/AudioAnimations.kt` | `runMusicVisualization` и `resolveStrip` |
 | `glyph/audio/MusicVisualisation.kt` | настоящий прогон визуализации и её превью из настроек |
 | `glyph/audio/SyntheticTrack.kt` | выдуманный спектр, который играет превью |
-| `glyph/battery/BatteryGlyphAnimator.kt` | полоса заряда для зарядки и Power Peek плюс акценты |
 | `glyph/battery/BatteryState.kt` | `BatteryState` + `BatteryStateReader` (sticky broadcast) |
 | `glyph/engine/GlyphRenderer.kt` | сборка кадров, флаг запуска, обработка ошибок, `pulse` |
 | `glyph/device/DeviceProfileFactory.kt` | раскладки каналов и тайминги по моделям |
@@ -605,9 +623,8 @@ fun release(owner: GlyphFeature)
 | `ThemeSettings` | тёмная тема, `AppThemeStyle` |
 | `FontSettings` | `FontVariant`, переключатель своих шрифтов, четыре масштаба |
 | `GlyphServiceSettings` | мастер-переключатель, интенсивность вибрации, ступени встряхивания |
-| `FeatureSettings` | переключатели, id анимаций, длительности и пороги восьми фич |
+| `FeatureSettings` | настройки самой музыкальной визуализации |
 | `LanguageSettings` | код `language` |
-| `UserPresenceSettings` | учёт разблокировок, который читает Pulse Lock |
 | `SettingsMigrations` | значения по умолчанию, шаги версий, починка легаси-вибрации |
 | `SettingsDiagnostics` | `dumpAllSettings()` |
 | `SettingsPrefs.kt` | типизированные `SharedPreferences.getSetting` / `putSetting` |
@@ -644,15 +661,8 @@ fun release(owner: GlyphFeature)
 | Тема | `saveTheme` / `getTheme`, `saveThemeStyle` / `getThemeStyle` |
 | Шрифт | `saveFontVariant` / `getFontVariant`, `saveUseCustomFonts` / `getUseCustomFonts`, `saveFontSizeSettings` / `getFontSizeSettings`, `clearFontSizeCustomization`, `getFontSizeSettingsForFont` |
 | Мастер-переключатель | `saveGlyphServiceEnabled` / `getGlyphServiceEnabled` |
-| Power Peek | `savePowerPeekEnabled` / `isPowerPeekEnabled`, `savePowerPeekThreshold` / `getPowerPeekThreshold`, `getShakeIntensityLevel`, `savePowerPeekDuration` / `getPowerPeekDuration`, `saveVibrationIntensity` / `getVibrationIntensity` |
-| Pulse Lock | `savePulseLockEnabled` / `isPulseLockEnabled`, `…AnimationId`, `…Duration` |
-| Low Battery | `saveLowBatteryEnabled` / `isLowBatteryEnabled`, `…Threshold`, `…AnimationId`, `…Duration` |
-| Screen Off | `saveScreenOffFeatureEnabled` / `isScreenOffFeatureEnabled`, `…AnimationId`, `…Duration` |
-| NFC | `saveNfcFeatureEnabled` / `isNfcFeatureEnabled`, `…AnimationId`, `…AnimationDuration` |
-| Charging | `saveChargingAnimationEnabled` / `isChargingAnimationEnabled`, `…Duration` |
+| Вибрация | `saveVibrationIntensity` / `getVibrationIntensity`, `getShakeIntensityLevel` |
 | Музыкальная визуализация | `saveMusicVizEnabled` / `isMusicVizEnabled`, `…AnimationId`, `…Sensitivity`, `…ScreenOffOnly` |
-| VPN Connected | `saveVpnConnectedEnabled` / `isVpnConnectedEnabled`, `…AnimationId`, `…Duration` |
-| Присутствие пользователя | `isUserPresentExpected`, `markUserPresentSeen`, `markUserPresentMissing` |
 | Язык | `getAppLanguageCode` / `saveAppLanguageCode` |
 | Отладка | `dumpAllSettings()` (пишет в Logcat только при `Log.isLoggable`) |
 
@@ -660,8 +670,8 @@ fun release(owner: GlyphFeature)
 `SHAKE_HARD=22.0f`, `SHAKE_HARDEST=28.0f`.
 
 > [!NOTE]
-> У анимации зарядки **нет** настройки выбора анимации (`saveChargingAnimationId` отсутствует) —
-> используется фиксированный `playChargingAnimationAnimation`.
+> Настроек у фич больше нет: семь фич стали правилами, а правило несёт свои анимацию,
+> длительность и пороги сам. Хранится только то, что у визуализатора.
 
 ### CustomAnimationRepository
 
@@ -673,9 +683,8 @@ fun release(owner: GlyphFeature)
 `filesDir/glyph_scripts/<id>.glyphlua`, а SharedPreferences `glyphsharge_custom_animations`
 содержит только компактный JSON-массив (`org.json`) для отрисовки списка без похода на диск.
 
-Список отдаётся как `StateFlow<List<ScriptAnimation>>` — пикеры анимаций на карточках
-Pulse Lock, Low Battery, NFC и Screen Off находятся на несколько экранов от редактора,
-и сохранение скрипта должно обновить чипы сразу везде.
+Список отдаётся как `StateFlow<List<ScriptAnimation>>` — пикер анимаций в конструкторе
+читает его, и сохранение скрипта должно обновить чипы сразу.
 
 | Группа | Методы |
 |--------|--------|
@@ -717,26 +726,30 @@ Phone (3a) — поэтому один проход занимает приме�
 | Сервис | Назначение | Триггер |
 |--------|-----------|---------|
 | `GlyphForegroundService` | Постоянное уведомление, держит процесс живым. Не содержит LED-логики | `FeatureServiceController.stopAll()` |
-| `ChargingAnimationService` | Анимация при подключении/отключении зарядки | `POWER_CONNECTED` / `POWER_DISCONNECTED` |
-| `PowerPeekService` | Проверка батареи встряхиванием при выключенном экране | Акселерометр |
-| `PulseLockService` | Анимация при разблокировке | `ACTION_USER_PRESENT` |
-| `ScreenOffGlyphService` | Анимация при блокировке экрана | `ACTION_SCREEN_OFF` |
-| `NfcGlyphService` | Анимация по NFC-событию | NFC-Intent через Activity |
-| `LowBatteryAlertService` | Оповещение о низком заряде | `ACTION_BATTERY_CHANGED` |
+| `RuleHostService` | Единственный сервис семи мигрированных фич: держит правила и рисует то, что они просят | Триггеры из `triggers/`, подписанные самим хостом |
 | `MusicVisualizerService` | Спектр того, что сейчас играет | `Visualizer` + `AudioManager` |
-| `VpnConnectedService` | Анимация при подключении VPN | `NetworkCallback` на `TRANSPORT_VPN` — не broadcast |
 
 > [!NOTE]
-> **Единственный триггер, который не broadcast, — у `VpnConnectedService`.** Android не
-> рассылает событие «VPN подключён», поэтому сервис регистрирует
+> **Фича — это теперь только музыкальная визуализация.** Семь остальных (Charging,
+> Power Peek, Glow Gate, Screen Off, NFC, Low Battery, VPN Connected) стали правилами, а
+> потом ушли вместе со своими предустановленными правилами: приложение поставляет
+> *пользовательские* правила и ничего больше. Их сервисы, их карточки и их настройки
+> удалены; от каждой остались только **триггеры** — разблокировка, экран, зарядка, NFC, VPN,
+> встряска, низкий заряд, — из которых пользователь строит свои правила. У визуализатора
+> осталась и карточка, и свой сервис: её токен `MediaProjection` может получить только
+> Activity.
+
+> [!NOTE]
+> **Единственный триггер, который не broadcast, — `VpnConnectedTrigger`.** Android не
+> рассылает событие «VPN подключён», поэтому триггер регистрирует
 > `ConnectivityManager.NetworkCallback` для `NetworkCapabilities.TRANSPORT_VPN` и объявляет
 > `ACCESS_NETWORK_STATE` — нужно *состояние*, а не сама сеть. `registerNetworkCallback`
 > немедленно вызывает `onAvailable` для VPN, который **уже** подключён, а это неотличимо от
-> только что сделанного пользователем подключения, поэтому сервис читает текущее состояние
+> только что сделанного пользователем подключения, поэтому триггер читает текущее состояние
 > *до* регистрации и держит защёлку `wasConnected`: `onAvailable` проигрывает анимацию только
 > на настоящем переходе false → true, а `onLost` и `onUnavailable` сбрасывают защёлку, чтобы
 > следующий `onAvailable` читался как то самое событие подключения. VPN, поднятый до старта
-> сервиса, поэтому оставляет полосу тёмной — анимация принадлежит событию подключения, а не
+> хоста, поэтому оставляет полосу тёмной — анимация принадлежит событию подключения, а не
 > факту запуска сервиса.
 
 ### Плитки быстрых настроек
@@ -929,6 +942,7 @@ data class FeatureSpec(
     val isEnabled: (SettingsRepository) -> Boolean,
     val saveEnabled: (SettingsRepository, Boolean) -> Unit,
     @StringRes val serviceOffMessage: Int,
+    @StringRes val titleRes: Int,
 ) {
     fun isRunnable(settings: SettingsRepository): Boolean =
         isEnabled(settings) && settings.getGlyphServiceEnabled()
@@ -936,6 +950,7 @@ data class FeatureSpec(
 
 object FeatureSpecs {
     val all: List<FeatureSpec>
+    val NON_FEATURE_PARTICIPANTS: Set<GlyphFeature>
     fun of(feature: GlyphFeature): FeatureSpec
 }
 ```
@@ -945,7 +960,9 @@ object FeatureSpecs {
 > остаётся декларативным, а слой настроек по-прежнему не имеет понятия о том, что фичи
 > существуют как группа. `FeatureSpecs.init` проверяет, что у каждого `GlyphFeature` есть
 > запись, и иначе бросает исключение — запись, выпавшая из `Map`, не компилируется, а у
-> фичи без записи нет ни сервиса для запуска, ни настройки для чтения.
+> фичи без записи нет ни сервиса для запуска, ни настройки для чтения. `RULE_HOST` и
+> `PREVIEW` — участники полосы, а не фичи: у них нет ни сервиса, ни настройки, и они
+> перечислены в `NON_FEATURE_PARTICIPANTS` явно, чтобы проверка оставалась честной.
 
 Публичный API: `readAll()`, `start(feature)`, `stop(feature)`, `apply(feature, enabled)`,
 `startAllEnabled()`, `stopAll()`.
@@ -953,466 +970,130 @@ object FeatureSpecs {
 `startAllEnabled()` и `stopAll()` итерируют `GlyphFeature.entries`, поэтому новая фича
 подхватывается автоматически — отдельно регистрировать её не нужно.
 
+> [!NOTE]
+> **Проекций больше нет.** Раньше `FeatureSpec` умел ещё и `derivedRule` / `applyRule`: фича
+> проецировалась в правило, и правка правила писалась обратно в настройки фичи. Пока
+> приложение поставляло семь предустановленных правил, это было нужно — правило жило в
+> репозитории, а настройки переживали перепроекцию. Теперь приложение поставляет
+> **пользовательские** правила, и хранить надо только их: правило несёт свои анимацию,
+> длительность и пороги само. Правила, которые остались на диске от прошлой версии,
+> хранились с префиксом `feature:` — репозиторий вычищает их при первом чтении, иначе они
+> вернулись бы в списке как пользовательские.
+
 ### BootCompletedReceiver
 
 `@AndroidEntryPoint`, работает через `goAsync()` + `Dispatchers.IO`. Восстановление в два
 уровня с задержкой `TIER2_DELAY_MS = 100L`:
 
 1. **Уровень 1** — `GlyphForegroundService`, если включён мастер-переключатель.
-2. **Уровень 2** — семь фич по порядку: PowerPeek, LowBattery, PulseLock, ScreenOff, NFC,
-   Charging Animation, VPN Connected. Каждая — под своим флагом **и** под общим `glyphOn`.
+2. **Уровень 2** — `RuleHostService`, если есть хотя бы одно включённое правило. Хост
+   поднимается один раз и выполняет все правила сам; каждое — под своим флагом **и** под
+   общим `glyphOn`.
 > [!NOTE]
 > Музыкальная визуализация сознательно **не** входит в уровень 2: она захватывает звук
 > других приложений через токен `MediaProjection`, а токен нельзя получить из фона — только
 > из результата Activity. Запуск при загрузке либо отклонили бы, либо он поднялся бы без
 > захвата и просто показывал бы мёртвую карточку, поэтому приложение просит открыть его самому.
 >
-> VPN Connected **входит** в уровень 2 даже если VPN пережил перезагрузку: сервис должен
-> наблюдать, чтобы увидеть следующее подключение, а текущее состояние он читает до
-> регистрации, поэтому уцелевший VPN считается «уже подключённым», а не воспроизводится как
-> подключение, которого пользователь не делал.
+> VPN Connected — обычный триггер, и защёлка `wasConnected` в `VpnConnectedTrigger` при
+> перезагрузке читается так же, как при старте хоста: уцелевший VPN считается «уже
+> подключённым», а не воспроизводится как подключение, которого пользователь не делал.
 
 ---
 
-## 7. Добавление нового сервиса (Quickstart)
+## 7. Добавление нового триггера (Quickstart)
 
 > [!TIP]
-> Это пошаговая инструкция: **как добавить новую фичу со своим foreground-сервисом**,
-> снятая с `ScreenOffGlyphService` / `LowBatteryAlertService`.
-> Пример: фича, которая играет полосу прогресса всякий раз, когда телефон берут в руку.
-> Настоящий, уже в коде пример, по которому можно сверяться, — фича VPN Connected:
-> [VpnConnectedService.kt](../app/src/main/java/com/bleelblep/glyphsharge/services/VpnConnectedService.kt)
-> и [VpnConnected.kt](../app/src/main/java/com/bleelblep/glyphsharge/ui/components/VpnConnected.kt).
-> Она идёт по тем же четырём шагам и заодно показывает единственный триггер, который **не**
-> `BroadcastReceiver`.
+> Триггер — это **событие**, на которое реагирует правило: разблокировка, экран, зарядка,
+> NFC, VPN, встряска, низкий заряд. Правило = триггер + анимация, и триггеры — то, что
+> пользователь выбирает в конструкторе. Новый триггер — это новая возможность для
+> пользователя, а новая фича — уже нет: приложение поставляет пользовательские правила.
 
-Фича — это четыре куска обвязки, и только четыре: **значение в enum, запись в реестре,
-сервис и карточка.** Всё, что приложению нужно *знать* о фиче — какой сервис её обслуживает,
-в какой настройке лежит её переключатель, что сказать при выключенном сервисе глифов, —
-хранится данными в одной записи, поэтому больше ничто в приложении не обязано узнавать,
-что сервис существует.
+### Что такое триггер
 
-Порядок выбран **снизу вверх** (enum → реестр → сервис → UI), чтобы проект в любой момент
-либо компилировался, либо падал с понятной ошибкой компилятора.
+`TriggerType` — список событий, `TriggerSource` — живой слушатель одного события, а
+`TriggerSources.create` собирает слушателя по типу. Правило хранит `triggerId` — строку из
+`TriggerType.id`; она **контракт**: она пишется в сохранённое правило и в вызов
+`glyph.on("...")` скрипта, и должна значить то же самое во всех выпусках.
 
-### Сводная карта изменений
-
-| # | Шаг | Файл |
-|---|-----|------|
-| 1 | Имя фичи | [GlyphFeatureCoordinator.kt](../app/src/main/java/com/bleelblep/glyphsharge/glyph/GlyphFeatureCoordinator.kt) |
-| 2 | Её сервис, действие остановки, настройка и сообщение | [FeatureSpec.kt](../app/src/main/java/com/bleelblep/glyphsharge/services/FeatureSpec.kt) |
-| 3 | Сам сервис | **новый** `services/…Service.kt` |
-| 4 | Карточка и её диалог | **новый** `ui/components/….kt` |
-
-Помимо этих четырёх — механические части: ключи настроек, запись в манифесте, строки и,
-если фича должна пережить перезагрузку, одна строка в ресивере загрузки.
-
----
-
-### Шаг 1. Добавьте значение в `GlyphFeature`
-
-`GlyphFeature` — единственный enum, объявленный в конце
-[GlyphFeatureCoordinator.kt](../app/src/main/java/com/bleelblep/glyphsharge/glyph/GlyphFeatureCoordinator.kt),
-и с ним согласованы и список фич, и обвязка сервисов, и UI. Добавьте значение туда:
-
-```kotlin
-enum class GlyphFeature {
-    PULSE_LOCK,
-    POWER_PEEK,
-    LOW_BATTERY,
-    SCREEN_OFF,
-    NFC,
-    CHARGING_ANIMATION,
-    MUSIC_VISUALIZER,
-    PROGRESS_ON_PICKUP,          // ← new
-}
-```
-
-> [!NOTE]
-> Порядок совпадает с `FeatureSpecs.all`, чтобы реестр можно было читать напротив enum.
-> Второго enum, который надо держать в синхроне, нет, и нет ни одного `when`, который
-> обязан был бы узнать новое значение руками: `startAllEnabled()`, `stopAll()` и
-> `readAll()` итерируют `GlyphFeature.entries`.
-
----
-
-### Шаг 2. Добавьте одну запись `FeatureSpec`
-
-В [FeatureSpec.kt](../app/src/main/java/com/bleelblep/glyphsharge/services/FeatureSpec.kt)
-добавьте одну запись в `FeatureSpecs.all`, рядом с остальными:
-
-```kotlin
-FeatureSpec(
-    feature = GlyphFeature.PROGRESS_ON_PICKUP,
-    serviceClass = ProgressOnPickupService::class.java,
-    stopAction = ProgressOnPickupService.ACTION_STOP,
-    isEnabled = { it.isProgressOnPickupEnabled() },
-    saveEnabled = { repo, enabled -> repo.saveProgressOnPickupEnabled(enabled) },
-    serviceOffMessage = R.string.progress_on_pickup_toast
-)
-```
-
-Это весь маппинг. Две лямбды — это чтение и запись настройки, а
-`isRunnable(settings)` — тот самый пропуск, который спрашивает каждый сервис перед
-действием, — приезжает вместе с записью, а не повторяется в каждом сервисе заново:
-
-```kotlin
-fun isRunnable(settings: SettingsRepository): Boolean =
-    isEnabled(settings) && settings.getGlyphServiceEnabled()
-```
-
-`FeatureSpecs.init` бросает исключение в момент загрузки класса, если в enum есть значение,
-которого нет в этом списке, поэтому наполовину зарегистрированная фича падает сразу и
-громко, а не на первом intent'е запуска. `startAllEnabled()`, `stopAll()` и `readAll()`
-править не нужно: они итерируют enum.
+| Файл | Что в нём |
+|------|------------|
+| `triggers/TriggerType.kt` | сам список событий и их подписи |
+| `triggers/TriggerSources.kt` | фабрика: «как услышать это событие на Android» |
+| `triggers/BroadcastTrigger.kt` | общий слушатель broadcast'а — и главное, где решается `RECEIVER_EXPORTED` |
+| `triggers/ScreenOnTrigger.kt` | «экран включён»: broadcast **и** состояние платформы |
+| `triggers/InteractiveStateWatcher.kt` | наблюдатель за `PowerManager.isInteractive()` |
+| `triggers/NfcEventRelay.kt` | передача NFC-интентов из Activity в хост |
 
 > [!IMPORTANT]
-> `serviceOffMessage` — это тост, который фича уже показывает, когда её диалог открывают при
-> выключенном сервисе глифов. Он живёт в записи потому, что это факт того же рода — один на
-> фичу, забываемый независимо от остальных, — и потому, что переиспользовать уже имеющуюся
-> формулировку лучше, чем добавить рядом вторую, слегка отличную. `HomeViewModel.setFeatureEnabled`
-> читает его прямо из реестра.
+> **Событие «экран включён» нельзя оставлять на одном broadcast'е.** `ACTION_SCREEN_ON`
+> доходит до получателя, зарегистрированного фоновым процессом, не всегда: хост правил —
+> это foreground-*сервис*, а не foreground-приложение, и на телефоне, под который писалось
+> приложение, этот broadcast просто не приходил. Ничего об этом не говорилось: получатель
+> был зарегистрирован, правило было присоединено, а событие не наступало.
+>
+> Поэтому у события два пути. `ScreenOnTrigger` спрашивает у платформы **состояние**
+> (`PowerManager.isInteractive()`) — состояние можно спросить, а broadcast можно только
+> ждать. Тик при этом не опрос: пока экран включён, CPU и так не спит, а пока телефон
+> спит — тик не выполняется вовсе и срабатывает в момент пробуждения, то есть ровно
+> тогда, когда экран включается.
+>
+> Тот же приём у другого триггера: запасной путь «разблокировки» (`UnlockTrigger`)
+> тоже построен на состоянии, а не на `ACTION_SCREEN_ON`.
 
----
-
-### Шаг 3. Напишите сервис
-
-Создайте `services/ProgressOnPickupService.kt` по шаблону из
-[раздела 6](#контракт-жизненного-цикла-сервиса) и дайте ему две вещи, которые делают
-одинаково все фичевые сервисы: **забрать полосу через `withStrip` и ограничить прогон
-через `runCapped`.**
+### Шаг 1. Добавьте значение в `TriggerType`
 
 ```kotlin
-@AndroidEntryPoint
-class ProgressOnPickupService : Service() {
-
-    // This service's own registry entry, which owns the run gate: my switch
-    // and the master Glyph switch, in one answer.
-    private val spec = FeatureSpecs.of(GlyphFeature.PROGRESS_ON_PICKUP)
-
-    @Inject lateinit var settingsRepository: SettingsRepository
-    @Inject lateinit var glyphAnimationManager: GlyphAnimationManager
-    @Inject lateinit var featureCoordinator: GlyphFeatureCoordinator
-
-    // … lifecycle: onCreate, onStartCommand, onDestroy, onBind, onTaskRemoved …
-
-    private fun triggerProgressBar() {
-        animationScope.launch {
-            if (!spec.isRunnable(settingsRepository)) return@launch
-
-            try {
-                val played = featureCoordinator.withStrip(
-                    owner = GlyphFeature.PROGRESS_ON_PICKUP,
-                    // `preempt = true` only for something the user just did
-                    // (an unlock, a lock, a tap): it interrupts the current
-                    // owner instead of losing the strip in 500 ms.
-                    onRelease = { stopForegroundCompat() }
-                ) {
-                    val duration = settingsRepository.getProgressOnPickupDuration()
-
-                    startForeground(NOTIF_ID, buildNotification())
-
-                    glyphAnimationManager.runCapped(
-                        capMs = duration,
-                        onTimeout = { Log.d(TAG, "Duration limit reached") }
-                    ) {
-                        glyphAnimationManager.playProgressOnPickupAnimation()
-                    }
-                }
-                if (played == null) {
-                    Log.d(TAG, "Strip busy by ${featureCoordinator.currentOwner.value} – skipping")
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error in progress bar sequence", e)
-            }
-        }
-    }
+enum class TriggerType(val id: String, @StringRes val labelRes: Int) {
+    // …
+    /** The phone was flipped face down. */
+    FACE_DOWN("face_down", R.string.trigger_face_down),
 }
 ```
 
-**Почему `withStrip`, а не `acquire()`/`release()` руками.** Полоса — один общий ресурс за
-`Mutex`, поэтому сервис, который вернулся, бросил исключение или был отменён, не отдав
-замок, оставляет захваченной именно *блокировку*, а не просто зажжённые светодиоды, и
-`release()` игнорирует вызов от не-владельца — значит забрать её обратно уже никто не сможет,
-и каждая другая фича до гибели процесса будет писать в лог «полоса занята» на каждом
-триггере. `withStrip` кладёт освобождение в `finally` и возвращает `null`, когда полоса так и
-не была взята, поэтому вызывающий отличает «не получил» от «получил и держал» без
-собственного флага.
+`id` — контракт (см. выше), `labelRes` — то, что видит пользователь.
 
-`onRelease` выполняется из того же `finally`, **после** `release`, поэтому светодиоды уже
-погашены — именно тот порядок, которого ждёт собственная разборка сервиса (WakeLock,
-`stopForeground`). Он не выполняется, когда захват не удался: тогда ничего не брали и
-отменять нечего, поэтому сервис, выводящий себя в foreground внутри блока, остаётся в
-foreground ровно на том пути, где блок не выполнялся.
+### Шаг 2. Напишите слушателя
 
-**Почему `runCapped`, а не самописный сторож.** Это та же последовательность, которую восемь
-сервисов раньше копипастили — корутина отрисовки, таймер, который её отменяет и дожидается,
-`stopAnimations()` для того, до чего отмена не достаёт, — с единственной ошибкой, которую
-каждая копия решала чуть по-своему. Он ещё и дожидается анимации перед возвратом, а это
-не даёт полосе освободиться, пока кадры ещё рисуются.
+Реализуйте `TriggerSource`: `attach(onEvent)` начинает слушать, `detach()` прекращает.
+Событие приходит как `TriggerEvent(type, label)`, где `label` — короткое человеческое
+описание («payment (AID=…)»), чтобы журнал мог показать, что именно выстрелило.
 
-Ключевые моменты для остальной части сервиса:
-
-- `@AndroidEntryPoint` для инъекции
-- `ACTION_START` / `ACTION_STOP` в `companion object` с префиксом `com.bleelblep.glyphsharge.`
-- `startForeground()` первым оператором в `onStartCommand`
-- `CoroutineScope(Dispatchers.Main + SupervisorJob())`
-- Регистрация любого `BroadcastReceiver` через `ContextCompat.registerReceiver(...)`
-
----
-
-### Шаг 4. Добавьте карточку и её диалог
-
-Создайте `ui/components/ProgressOnPickup.kt` по образцу
-[ScreenOff.kt](../app/src/main/java/com/bleelblep/glyphsharge/ui/components/ScreenOff.kt):
-дата-класс конфигурации, диалог подтверждения поверх `FeatureConfirmationFlow` и сам
-диалог настройки.
-
-**Карточка не принимает параметр настроек.** Она читает хранилище из композиции, и именно
-это делает карточку вызываемой самой по себе — из превью или откуда угодно ещё, кому
-нужна карточка:
+Проще всего — broadcast:
 
 ```kotlin
-@Composable
-fun ProgressOnPickupCard(
-    isEnabled: Boolean,
-    isServiceActive: Boolean,
-    onEnabledChange: (Boolean) -> Unit,
-    onTest: () -> Unit,
-    modifier: Modifier = Modifier,
-    title: String = stringResource(R.string.progress_on_pickup_title),
-    description: String = stringResource(R.string.progress_on_pickup_description),
-    icon: Painter,
-    iconSize: Int = 32,
-) {
-    val context = LocalContext.current
-    var showDialog by remember { mutableStateOf(false) }
-    val toastText = stringResource(R.string.progress_on_pickup_toast)
-
-    WideFeatureCardWithToggle(
-        title = title,
-        description = description,
-        icon = icon,
-        isServiceActive = isServiceActive,
-        isFeatureEnabled = isEnabled,
-        onFeatureToggle = onEnabledChange,
-        onCardClick = {
-            if (isServiceActive) showDialog = true
-            else Toast.makeText(context, toastText, Toast.LENGTH_SHORT).show()
-        },
-        modifier = modifier,
-        iconSize = iconSize
-    )
-
-    if (showDialog && isServiceActive) {
-        ProgressOnPickupConfirmationDialog(
-            onTest = { onTest(); showDialog = false },
-            onEnable = { onEnabledChange(true); showDialog = false },
-            onDisable = { onEnabledChange(false); showDialog = false },
-            onDismiss = { showDialog = false }
-        )
-    }
-}
+TriggerType.FACE_DOWN -> BroadcastTrigger(
+    context = context,
+    type = type,
+    actions = setOf(Intent.ACTION_SCREEN_OFF),
+    exported = false,
+) { "face down" }
 ```
 
-**Диалог настройки тоже читает хранилище из композиции:**
+`exported` — не украшение, а решение: broadcast от системы другого UID нужно ловить с
+`RECEIVER_EXPORTED`, а broadcast, который система шлёт внутрь приложения, — с
+`RECEIVER_NOT_EXPORTED`, иначе платформа его отбросит молча.
 
-```kotlin
-@Composable
-fun ProgressOnPickupEnableDialog(
-    onConfirm: (ProgressOnPickupConfig) -> Unit,
-    onDisable: () -> Unit,
-    onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val settingsRepository = LocalSettingsRepository.current
-    val haptic = LocalHapticFeedback.current
-    val vibrationIntensity = LocalVibrationIntensity.current
-    val scope = rememberCoroutineScope()
+### Шаг 3. Подключите его в `TriggerSources.create`
 
-    val currentlyEnabled = remember { settingsRepository.isProgressOnPickupEnabled() }
-    var durationSeconds by remember {
-        mutableFloatStateOf((settingsRepository.getProgressOnPickupDuration() / 1000f))
-    }
+Одно место отвечает на «как услышать это событие», и ни хост правил, ни подписка скрипта не
+должны знать, как это сделано.
 
-    // … AlertDialog: sliders mutate local state, FeatureSaveButtons writes on Save …
+### Шаг 4. Проверьте
 
-    // A Test button plays it on the real strip:
-    val glyphAnimationManager = rememberGlyphAnimationManager()
-    scope.launch {
-        runCatching { glyphAnimationManager.playProgressOnPickupAnimation() }
-    }
-}
-```
+- `TriggerType.fromId` должен находить новый id (иначе правило с ним не заработает, а
+  сообщения об этом нет);
+- новый триггер обязан появиться в `TriggerSources.available(context)` — это то, что
+  показывается чипами в форме.
 
-`rememberGlyphAnimationManager()` в
-[GlyphDependencies.kt](../app/src/main/java/com/bleelblep/glyphsharge/ui/components/GlyphDependencies.kt)
-— это весь ответ на вопрос «как обычный composable дотягивается до менеджера»: он
-разрешает `HomeViewModel` через `hiltViewModel()`, что работает внутри диалога ровно так же,
-как с экрана, и отдаёт тот же синглтон, который держат фичевые сервисы.
+### Если всё-таки нужна новая фича
 
-**Рецепт диалога настройки** (одинаков для всех фич):
-
-1. Прочитать текущие значения **один раз** в `remember` (или `rememberFloatStateOf` для слайдеров).
-2. Изменения писать в репозиторий сразу **или** только по кнопке Save — в проекте
-   преобладает первый вариант для выбора анимации, второй — для слайдеров.
-3. Тело: прокручиваемый `Column` (`heightIn(max = 400.dp)`, `spacedBy(20.dp)`) из
-   `Card` с `themeCardContainerColor()`, слайдеры через `themePrimaryActionColor()`,
-   значение через `ThemedValueBadge`.
-4. Каждое движение слайдера — `HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)`.
-5. Кнопки — `FeatureSaveButtons`.
-
----
-
-### Механические части
-
-Ничто из этого не архитектура, но без этого фича недостижима.
-
-**Ключи настроек.** Ключи и аксессоры живут в
-[FeatureSettings.kt](../app/src/main/java/com/bleelblep/glyphsharge/data/FeatureSettings.kt)
-(срез, владеющий фичами), а фасад переадресует их из
-[SettingsRepository.kt](../app/src/main/java/com/bleelblep/glyphsharge/data/SettingsRepository.kt),
-чтобы лямбдам реестра было что вызывать:
-
-```kotlin
-fun saveProgressOnPickupEnabled(enabled: Boolean) = prefs.putSetting(KEY_PROGRESS_ENABLED, enabled)
-
-fun isProgressOnPickupEnabled(): Boolean = prefs.getSetting(KEY_PROGRESS_ENABLED, false)
-
-fun saveProgressOnPickupDuration(durationMs: Long) =
-    prefs.putSetting(KEY_PROGRESS_DURATION, durationMs)
-
-fun getProgressOnPickupDuration(): Long =
-    prefs.getSetting(KEY_PROGRESS_DURATION, DEFAULT_PROGRESS_DURATION)
-```
-
-и новый шаг в `applyVersionMigrations()` — именно он записывает значение по умолчанию тем,
-у кого приложение уже стоит:
-
-```kotlin
-if (lastMigrated < 115) {
-    prefs.edit {
-        if (!prefs.contains(FeatureSettings.KEY_PROGRESS_ENABLED)) {
-            putBoolean(FeatureSettings.KEY_PROGRESS_ENABLED, false)
-        }
-        putInt(KEY_LAST_MIGRATED_VERSION, 115)
-    }
-}
-```
-
-> [!TIP]
-> Проверка `prefs.contains(...)` обязательна — без неё у пользователя, у которого фича
-> уже включена, миграция сбросит настройку при обновлении.
-
-> [!IMPORTANT]
-> Номер версии — это *следующий за уже занятым*, а не константа. Сейчас `SettingsMigrations`
-> заканчивается на 114 (шаг VPN-connected), поэтому фича, добавляемая сегодня, берёт 115.
-> Повторное использование занятого номера даёт шаг, который никогда не выполнится: более
-> ранний шаг уже передвинул сохранённую версию за него.
-
-**Манифест.** В [AndroidManifest.xml](../app/src/main/AndroidManifest.xml), рядом с
-остальными сервисами:
-
-```xml
-<service
-    android:name=".services.ProgressOnPickupService"
-    android:enabled="true"
-    android:exported="false"
-    android:foregroundServiceType="specialUse">
-    <property
-        android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-        android:value="This service draws a progress bar on the glyph interface when the phone is picked up." />
-</service>
-```
-
-> [!IMPORTANT]
-> Описание в `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` должно **точно** соответствовать назначению
-> сервиса. Google Play отклоняет публикации с недостоверными формулировками — и такой
-> случай в манифесте был: `NfcGlyphService` и `ChargingAnimationService` дословно
-> объявляли текст `LowBatteryAlertService`. Теперь каждый описывает свою работу.
-
-Не забудьте `<uses-permission>`, если сервису что-то нужно, и собственный `<uses-feature>`,
-если задействован датчик.
-
-**Строки.** Скопируйте существующий блок вроде `charging_animation_*` в
-[values/strings.xml](../app/src/main/res/values/strings.xml) — заголовок, описание, тост о
-выключенном сервисе, который называет `FeatureSpec`, пару «как это работает», подписи Test
-и Save — и добавьте **те же ключи** в `res/values-ru-rRU/strings.xml` с переводом.
-
-> [!TIP]
-> Покрытие локализации в проекте полное — 301 строка в `values/` и 301 в `values-ru-rRU/`.
-> Сохраняйте паритет, иначе русский интерфейс покажет английский текст.
-
-**Запись на главном экране.** В
-[HomeFeatures.kt](../app/src/main/java/com/bleelblep/glyphsharge/ui/screens/home/HomeFeatures.kt)
-добавьте `item {}` в `homeFeatureCards`. Эта функция — чистая обвязка: карточке нужны только
-состояние переключателя и два колбэка:
-
-```kotlin
-item {
-    ProgressOnPickupCard(
-        isEnabled = uiState.stateOf(GlyphFeature.PROGRESS_ON_PICKUP).isEnabled,
-        isServiceActive = uiState.glyphServiceEnabled,
-        onEnabledChange = { viewModel.setFeatureEnabled(GlyphFeature.PROGRESS_ON_PICKUP, it) },
-        onTest = { viewModel.testFeature(GlyphFeature.PROGRESS_ON_PICKUP) },
-        icon = rememberVectorPainter(image = Icons.Default.DirectionsWalk),
-        modifier = Modifier.fillMaxWidth(),
-        iconSize = 32
-    )
-}
-```
-
-> [!NOTE]
-> Порядок карточек на экране задаётся именно здесь — это единственное место, где
-> перечисляются элементы списка.
-
-**Кнопка Test карточки.** `HomeViewModel.testFeature()` — это исчерпывающий `when` по enum,
-так что компилятор укажет на него сам; добавьте ветку и запись в `TOAST_BY_FEATURE`:
-
-```kotlin
-GlyphFeature.PROGRESS_ON_PICKUP -> glyphAnimationManager.playProgressOnPickupAnimation()
-```
-
-**Восстановление после загрузки (опционально).** В
-[BootCompletedReceiver.kt](../app/src/main/java/com/bleelblep/glyphsharge/receiver/BootCompletedReceiver.kt),
-внутри `startServicesInOrder`, в блоке второго уровня:
-
-```kotlin
-if (glyphOn && settingsRepository.isProgressOnPickupEnabled()) {
-    Log.d(TAG, "Tier 2 – ProgressOnPickup")
-    context.startForegroundServiceCompat(ProgressOnPickupService::class.java)
-}
-```
-
----
-
-### Чек-лист перед сборкой
-
-- [ ] Значение добавлено в единственный enum `GlyphFeature`
-- [ ] Одна запись `FeatureSpec` — класс сервиса, действие остановки, обе лямбды настройки, сообщение
-- [ ] Сервис берёт полосу через `withStrip` и ограничивает прогон через `runCapped`
-- [ ] `startForeground()` в начале `onStartCommand`
-- [ ] `runCatching` вокруг `wakeLock.release()` и `unregisterReceiver`
-- [ ] Сервис объявлен в манифесте с `specialUse` + `PROPERTY_SPECIAL_USE_FGS_SUBTYPE`
-- [ ] Ключи настроек добавлены, шаг миграции версий добавлен
-- [ ] Строки добавлены в **оба** `strings.xml`
-- [ ] `when` в `HomeViewModel.testFeature()` и `TOAST_BY_FEATURE` обновлены
-- [ ] Карточка не принимает параметр `settingsRepository`; диалог читает `LocalSettingsRepository`
-
-### Частые ошибки
-
-| Симптом | Причина |
-|---------|---------|
-| `IllegalStateException: FeatureSpecs has no entry for …` | Значение в enum добавлено, а запись `FeatureSpec` — нет |
-| `ForegroundServiceDidNotStartInTimeException` | `startForeground()` не вызван в первых строках `onStartCommand` |
-| Фича включается, но глифы не горят | `acquire()`/`release()` вызваны руками вместо `withStrip` — мьютекс залип, и каждая другая фича навсегда сообщает «полоса занята» |
-| Фича работает один раз и больше никогда | Сервис отменили, пока он держал замок; `withStrip` кладёт освобождение в `finally` ровно ради этого |
-| Вместо диалога всплывает тост | Выключен мастер-переключатель «Glyph service» — проверьте `isServiceActive` |
-| Анимация никогда не останавливается по настройке длительности | Прогон запущен через `launch`, а не через `runCapped` |
-| Сервис не стартует после перезагрузки | Не добавлен в `BootCompletedReceiver` либо флаг фичи `false` |
-| Локализованный текст пустой | Ключ добавлен только в один из `strings.xml` |
-
----
+Фича — это то, у чего есть **карточка и свой сервис**. Сейчас такая одна: музыкальная
+визуализация, потому что её токен `MediaProjection` может получить только Activity. Если
+нужна вторая, то это четыре куска: значение в `GlyphFeature`, запись в `FeatureSpecs`
+(сервис, действие остановки, переключатель, сообщение), сам сервис и карточка. Всё, что
+приложению нужно *знать* о фиче, — данные в одной записи, поэтому больше ничто в
+приложении не обязано узнавать, что сервис существует.
 
 ## 8. Слой UI
 
@@ -1507,7 +1188,7 @@ data class FontSizeSettings(displayScale, titleScale, bodyScale, labelScale)
 | `SquareFeatureCard` | `cards/ContentCards.kt` | Квадратная карточка 1:1, приглушается при выключенном сервисе |
 | `WideFeatureCardWithToggle` | `cards/ContentCards.kt` | Карточка фичи с наложенным переключателем |
 | `GlyphControlCard` | `cards/ContentCards.kt` | Карточка мастер-переключателя глифов |
-| `PowerPeekCard` … `MusicVisualizerCard`, `VpnConnectedCard` | `FeatureCards.kt`, `VpnConnected.kt` | 8 карточек фич |
+| `MusicVisualizerCard` | `FeatureCards.kt` | 1 карточка фичи — визуализация |
 | `rememberGlyphAnimationManager()` | `GlyphDependencies.kt` | Менеджер за кнопкой Test на каждой карточке |
 | `MorphingToggleButton` | `controls/ToggleButtons.kt` | Переключатель с анимацией морфинга |
 | `ThreeStateFontMorphingButton` | `controls/ToggleButtons.kt` | Трёхпозиционный выбор шрифта |
@@ -1730,8 +1411,7 @@ object Routes {
 > Буфер используется, только когда играет что-то музыкальное: решают
 > `AudioManager.isMusicActive()` и посчитанный уровень.
 
-`RECORD_AUDIO` открывает весь доступ и запрашивается в момент включения фичи —
-так же, как Power Peek просит своё разрешение.
+`RECORD_AUDIO` открывает весь доступ и запрашивается в момент включения фичи.
 
 ### Деградация
 
@@ -1783,16 +1463,16 @@ app/src/main/res/
 `FOREGROUND_SERVICE_SPECIAL_USE`, `FOREGROUND_SERVICE_DATA_SYNC`,
 `FOREGROUND_SERVICE_MEDIA_PROJECTION`, `SYSTEM_ALERT_WINDOW`, `RECEIVE_BOOT_COMPLETED`,
 `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `DISABLE_KEYGUARD`, `TURN_SCREEN_ON`,
-`NFC`, `ACCESS_NETWORK_STATE` (VPN Connected — состояние, а не
-сама сеть, и это же читает `glyph.net`), `RECORD_AUDIO`, `READ_MEDIA_AUDIO`,
+`NFC` (триггер NFC), `ACCESS_NETWORK_STATE` (состояние, а не сама сеть: его читает
+триггер VPN и это же читает `glyph.net`), `RECORD_AUDIO`, `READ_MEDIA_AUDIO`,
 `INTERNET` (магазин анимаций — единственное, что приложение качает из сети;
 это обычное разрешение, оно не спрашивается у пользователя в рантайме).
 
 > [!NOTE]
 > Шесть модулей, доступных через `require`, **не добавили ни одного разрешения**. `glyph.net`
-> читает `ACCESS_NETWORK_STATE`, который уже был объявлен для фичи VPN и в любом случае не
-> является runtime-разрешением; `glyph.sensor` читает акселерометр, которому разрешение не
-> нужно вовсе.
+> читает `ACCESS_NETWORK_STATE`, который и так объявлен ради триггера VPN и в любом случае
+> не является runtime-разрешением; `glyph.sensor` читает акселерометр, которому разрешение
+> не нужно вовсе.
 
 ---
 
@@ -1941,19 +1621,24 @@ testOptions {
 
 | Проблема | Где | Следствие |
 |----------|-----|-----------|
-| **Пустые стабы в `MainActivity`** | `startPersistentGlyphService()`, `maybeRestoreSession()`, `writeLogToUri()` | `GlyphForegroundService` **не стартует** при обычном запуске приложения — только после перезагрузки |
+| ~~Пустые стабы в `MainActivity`~~ | `startPersistentGlyphService()`, `maybeRestoreSession()` — тела появились | Экспорт логов переехал в настройки: в `MainActivity` он был зарегистрирован, но не запускался никогда |
 
 ### Логирование
 
-`LoggingManager` выключен по умолчанию: `isLoggingEnabled = false`, а
-`setLoggingEnabled(true)` **нигде не вызывается**. Все 22 метода логирования —
-no-op, включая `logSessionState` и `logSDKOperation` внутри `GlyphManager`.
-`shareLogs()` и `LoggingManager.exportLogs()` тоже не вызываются ни разу.
+`LoggingManager` **включён**: файл пишется всегда, а в папке логов остаются последние
+десять сессий (`MAX_LOG_FILES`). Пишутся только события — сессия открылась, устройство
+зарегистрировалось, триггер сработал, — а не кадры, поэтому файл маленький.
 
 > [!NOTE]
-> При отладке глифов включите логи вручную:
-> `LoggingManager.initialize(this)` уже вызывается в `GlyphShargeApplication.onCreate`,
-> но `setLoggingEnabled(true)` нужно добавить самому.
+> Раньше логирование было выключено по умолчанию, а `setLoggingEnabled(true)` **никогда
+> не вызывался**, и кнопка экспорта логов была зарегистрирована, но не запускалась
+> никогда: файл получался пустым, а способа его получить не было вовсе. Теперь лог
+> пишется, а в настройках есть строка «Экспорт логов» — она выбирает место и пишет
+> туда собранный файл, и каждый исход (записан, пусто, не записался) говорит вслух.
+
+Триггеры пишут в этот же файл (`Trigger`): что подписались и что пришло. На телефоне,
+где logcat недоступен, это единственный способ узнать, дошёл ли broadcast до
+получателя.
 
 ### GlyphManager
 
@@ -2038,19 +1723,13 @@ no-op, включая `logSessionState` и `logSDKOperation` внутри `Glyph
   ничего в `main/` её не вызывает — в студии нет экранного превью, — и никогда не вызывал
   то, что зажигает настоящие светодиоды; им пользуются только тесты.
 
-### UI
-
-- `ChargingAnimationConfig.isEnabled` и `PowerPeekConfig.enableWhenScreenOff`
-  записываются, но соответствующих ключей в репозитории **нет** —
-  переключатель «только при выключенном экране» в диалоге Power Peek ничего не делает.
-
 ### Манифест
 
 - `android:name=".GlyphShargeApplication"` совпадает с именем класса, но **файл называется
   `GlyphZenApplication.kt`** — имя файла не соответствует единственному классу внутри.
-- Описания `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` у `NfcGlyphService`,
-  `ChargingAnimationService` и `LowBatteryAlertService` **скопированы** и говорят
-  про «низкий заряд батареи» — для NFC и зарядки это неверно.
+- `FOREGROUND_SERVICE_SPECIAL_USE` объявлен, а `specialUse` объявлен у трёх сервисов
+  (`GlyphForegroundService`, `RuleHostService`, `MusicVisualizerService`): тип нужен им,
+  потому что работа с глифами не ложится ни в один из обычных типов foreground-сервиса.
 - `WRITE_EXTERNAL_STORAGE` объявлен, но не нужен: приложение пишет только в
   `getExternalFilesDir` и `cacheDir`. На API 29+ разрешение ничего не делает.
 - `FOREGROUND_SERVICE_DATA_SYNC` объявлен, но ни один сервис его не использует.
@@ -2248,9 +1927,8 @@ glyph.target = "music"
 
 Скрипт без `glyph.target` доступен во всех пикерах — так было до появления
 визуализации. Скрипт со строкой `"music"` появляется **только** в пикере
-визуализации и исчезает из Pulse Lock, NFC, Low Battery и Screen Off — именно
-то, что нужно скрипту, читающему `glyph.audio`, потому что в остальных сервисах
-все значения равны нулю.
+визуализации и исчезает из пикера правил — именно то, что нужно скрипту,
+читающему `glyph.audio`, потому что в правилах все значения равны нулю.
 
 | Правило | Почему |
 |---------|--------|
@@ -2382,15 +2060,15 @@ local time = require("glyph.time")   -- связать с local — вот и в
 могут выдать скрипту комбинацию, которой не существовало ни в какой измеримый момент.
 
 **Здесь не появляется ни нового триггера, ни сервиса, ни разрешения.** Модуль читается
-*внутри* прогона, который уже разбудила существующая фича — Pulse Lock, NFC, анимация
-зарядки, VPN connected, выключение экрана, низкий заряд, визуализация музыки. Девятого
-сервиса, который «ждёт, пока скрипт скажет, что наступила ночь», не существует, и новых
+*внутри* прогона, который уже разбудил существующий триггер — разблокировка, NFC, зарядка,
+VPN, выключение экрана, низкий заряд, встряска, а ещё визуализация музыки. Сервиса,
+который «ждёт, пока скрипт скажет, что наступила ночь», не существует, и новых
 разрешений тоже:
 
 | Модуль | Что с разрешениями |
 |--------|-------------------|
 | `glyph.sensor` | **Ничего не нужно.** Акселерометру на Android runtime-разрешение не требуется |
-| `glyph.net` | **Ничего не нужно.** Чтение *состояния* сети runtime-разрешения не требует, а `ACCESS_NETWORK_STATE` уже объявлен для фичи VPN. Модуль не открывает сокет, поэтому не может стать для скрипта способом достучаться до сети |
+| `glyph.net` | **Ничего не нужно.** Чтение *состояния* сети runtime-разрешения не требует, а `ACCESS_NETWORK_STATE` и так объявлен ради триггера VPN. Модуль не открывает сокет, поэтому не может стать для скрипта способом достучаться до сети |
 | остальные четыре | Объявлять нечего — данные уже в процессе |
 
 **Скрипт, отвечающий на время суток** — та форма, к которой тянутся чаще всего, и та,
@@ -2535,28 +2213,25 @@ end
 glyph.off()                          -- leave cleanly if the animation was stopped
 ```
 
-### Скрипты на карточках фич
+### Скрипты в конструкторе
 
 Сохранённый скрипт **не связан** с конкретной фичей. Он появляется в ряд выбора анимации
-у Pulse Lock, Low Battery, NFC и Screen Off — сразу после десяти встроенных, с общей
-иконкой и своим именем, а сохранённый id имеет вид `custom:<12 hex>`.
+формы правила — сразу после десяти встроенных, с общей иконкой и своим именем, а сохранённый
+id имеет вид `custom:<12 hex>`.
 
 Единственное исключение — `glyph.target = "music"`, который ограничивает скрипт пикером
-музыкальной визуализации. Правило одностороннее: триггерные фичи скрывают музыкальные
+музыкальной визуализации. Правило одностороннее: пикер правил скрывает музыкальные
 скрипты, а визуализация показывает и скрипты без цели, и музыкальные, — потому что
 «без цели» значит «где угодно», а обратное неверно.
 
-Отдельные анимации зарядки и Power Peek выбора не имеют и остались без скриптов:
-у зарядки фиксированная полоса по своему дизайну.
-
-Кнопка Test у каждой из четырёх фич смотрит на флаг `isCustom` и уходит в
+Кнопка ▶ у строки правила смотрит на флаг `isCustom` и уходит в
 `playCustomAnimation(id)` вместо встроенной ветки.
 
 > [!IMPORTANT]
 > Для скрипта настройка **Duration** значит не то же, что для встроенных анимаций.
 > Именованные встроенные её игнорируют, а у скрипта длительности нет вовсе:
 > `runCapMs()` отдаёт сторожу `ScriptAnimation.SAFETY_CAP_MS` для id вида `custom:`
-> вместо слайдера фичи, и диалог фичи прячет управление длительностью, когда выбран
+> вместо слайдера анимации, и форма правила прячет управление длительностью, когда выбран
 > скрипт, потому что управление, которое ничего не меняет, хуже его отсутствия.
 > Именно поэтому скрипт корректно отрабатывает и при выключенном экране — он
 > заканчивается, когда заканчивается его код, а не «когда-нибудь допишет цикл».

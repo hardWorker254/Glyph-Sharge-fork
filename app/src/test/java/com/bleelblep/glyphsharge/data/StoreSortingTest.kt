@@ -28,6 +28,7 @@ class StoreSortingTest {
         sha256 = "a".repeat(64),
         devices = DeviceType.entries.toSet(),
         version = 1,
+        kind = StoreItemKind.ANIMATION,
     )
 
     /**

@@ -94,21 +94,6 @@ abstract class FeatureService : Service() {
     protected open val restartsOnTaskRemoval: Boolean get() = true
 
     /**
-     * Answers `true` for a start intent this service should act on *without*
-     * consulting the run gate.
-     *
-     * Needed by `LowBatteryAlertService`'s "Test" action. The gate is a pair of
-     * preferences — this feature's switch and the master Glyph switch — and the
-     * Test button means "show me what this sounds like" rather than "turn it
-     * on", so refusing it would be answering a different question than the one
-     * that was asked.
-     *
-     * Deliberately narrow: overriding it would bypass the gate for the wrong
-     * action and leave a service drawing with its switch off.
-     */
-    protected open fun bypassesRunGate(intent: Intent?): Boolean = false
-
-    /**
      * The channel's name, as a resource.
      *
      * A resource rather than a string because a notification channel's name is
@@ -193,10 +178,6 @@ abstract class FeatureService : Service() {
             return START_NOT_STICKY
         }
 
-        // Answered before the gate, and only for the action that asks for it:
-        // see [bypassesRunGate].
-        if (bypassesRunGate(intent)) return onStartCommandAfterGate(intent)
-
         // A service that starts while its switch is off registers no trigger
         // and just sits there burning a WakeLock for nothing.
         if (!isRunnable) {
@@ -211,8 +192,8 @@ abstract class FeatureService : Service() {
     /**
      * What a feature does once it is allowed to run.
      *
-     * @return [START_STICKY] for the seven services whose trigger is a
-     *   broadcast they registered themselves. `MusicVisualizerService`
+     * @return [START_STICKY] for the services whose trigger is a broadcast or
+     *   callback they registered themselves. `MusicVisualizerService`
      *   overrides this to say otherwise, because a `MediaProjection` token
      *   cannot be re-obtained from the background and a restart could only
      *   ever fail.

@@ -213,7 +213,7 @@ fun FeatureCard(
 
 /**
  * Wide feature card with integrated toggle switch.
- * Used for features that can be enabled/disabled (PowerPeek, PulseLock, etc.)
+ * Used for features that can be enabled/disabled (PowerPeek, Charging, …)
  */
 @Composable
 fun WideFeatureCardWithToggle(

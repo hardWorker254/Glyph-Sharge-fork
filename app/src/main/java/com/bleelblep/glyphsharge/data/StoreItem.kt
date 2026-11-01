@@ -4,6 +4,65 @@ import com.bleelblep.glyphsharge.glyph.device.DeviceType
 import java.util.Locale
 
 /**
+ * What kind of script a catalogue entry points at — the one fact that decides
+ * what its card can do.
+ *
+ * An [ANIMATION] is a `.glyphlua`: the studio imports it, the strip plays it,
+ * and "Test on glyph" and "Update" both mean something for it. A [SERVICE] is
+ * a `.servicelua`: it cannot draw, so there is nothing to preview, and there is
+ * no local animation for an update to overwrite — it installs through the
+ * capability prompt instead, and stops there.
+ *
+ * Not derived at the call site from a file extension, because the screen, the
+ * ViewModel and the parser all have to answer the same question and three
+ * answers to one question is how a card ends up offering a button that does
+ * nothing.
+ */
+enum class StoreItemKind {
+    /** A `.glyphlua`: drawn directly by the strip. */
+    ANIMATION,
+
+    /** A `.servicelua`: fires animations from the background, draws nothing. */
+    SERVICE,
+    ;
+
+    companion object {
+        /**
+         * Reads the catalogue's `type`, falling back to the file's extension.
+         *
+         * **The extension is a fallback for the `animation` answer too, not
+         * only for `service`.** The index this build reads has no `type` field
+         * at all, so today every entry arrives through the extension path — and
+         * a catalogue that publishes an unrecognised `type` should degrade to
+         * "whatever the file says" rather than to a hard-coded guess. Only
+         * `.servicelua` names a kind; every other extension is an animation,
+         * which is the shape of every entry published so far.
+         *
+         * The query and fragment are stripped first: a URL that hands out
+         * `foo.servicelua?token=…` must not have its kind decided by the token.
+         */
+        fun parse(type: String?, url: String): StoreItemKind {
+            when (type?.trim()?.lowercase(Locale.ROOT)) {
+                "service" -> return SERVICE
+                "animation" -> return ANIMATION
+            }
+
+            val fileName = url
+                .substringAfterLast('/', missingDelimiterValue = "")
+                .substringBefore('?')
+                .substringBefore('#')
+            return if (fileName.endsWith(EXTENSION_SERVICELUA, ignoreCase = true)) {
+                SERVICE
+            } else {
+                ANIMATION
+            }
+        }
+
+        private const val EXTENSION_SERVICELUA = ".servicelua"
+    }
+}
+
+/**
  * One entry in the animation store's index.
  *
  * A shop item rather than a script: it is what the catalogue says exists, not
@@ -17,6 +76,10 @@ import java.util.Locale
  * generates its index from those headers, so this is a second reading of the
  * same line rather than a second source of truth: if the two ever disagree,
  * the file wins and the hash check is what notices.
+ *
+ * [kind] is not defaulted: it decides which buttons a card offers, so a call
+ * site that has not decided is a bug the compiler should find rather than one
+ * a user finds when "Test on glyph" does nothing.
  */
 data class StoreItem(
     val id: String,
@@ -28,6 +91,7 @@ data class StoreItem(
     val sha256: String,
     val devices: Set<DeviceType>,
     val version: Int,
+    val kind: StoreItemKind,
 ) {
     /** The models this item claims to work on, in declaration order. */
     val deviceNames: List<String>

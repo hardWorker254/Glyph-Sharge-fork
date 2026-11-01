@@ -8,17 +8,25 @@ import android.nfc.NfcAdapter
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.bleelblep.glyphsharge.R
+import com.bleelblep.glyphsharge.data.ScriptPermissionStore
+import com.bleelblep.glyphsharge.data.ServiceScriptRepository
 import com.bleelblep.glyphsharge.data.SettingsRepository
 import com.bleelblep.glyphsharge.glyph.GlyphAnimationManager
+import com.bleelblep.glyphsharge.glyph.GlyphDeviceReport
 import com.bleelblep.glyphsharge.glyph.GlyphFeature
 import com.bleelblep.glyphsharge.glyph.GlyphManager
 import com.bleelblep.glyphsharge.glyph.audio.PlaybackAudioSource
+import com.bleelblep.glyphsharge.glyph.script.ScriptCapability
+import com.bleelblep.glyphsharge.glyph.script.ServiceScript
 import com.bleelblep.glyphsharge.services.FeatureServiceController
 import com.bleelblep.glyphsharge.services.FeatureSpecs
 import com.bleelblep.glyphsharge.services.GlyphServiceSwitch
+import com.bleelblep.glyphsharge.rules.GlyphRule
+import com.bleelblep.glyphsharge.rules.GlyphRuleRepository
 import com.bleelblep.glyphsharge.tiles.TileStateBus
 import com.bleelblep.glyphsharge.ui.state.FeatureUiState
 import com.bleelblep.glyphsharge.ui.state.HomeUiState
+import dagger.Lazy
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.Channel
@@ -44,18 +52,24 @@ class HomeViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     glyphManager: GlyphManager,
     /**
-     * The manager the feature dialogs' "Test" buttons drive.
+     * The manager the visualiser's "Test" button and a rule row's ▶ drive.
      *
-     * Public because those dialogs are plain Composables: they read this
+     * Public and lazy because those dialogs are plain Composables: they read it
      * through [com.bleelblep.glyphsharge.ui.theme.LocalHomeViewModel], which
-     * hands back the instance this Activity drives. Same singleton the feature
-     * services hold.
+     * hands back the instance this Activity drives. Lazy because nothing else on
+     * this screen reaches the animation stack — a list of switches and rules
+     * should not have to stand up a renderer to be tested, and the one thing
+     * this screen most often does is re-read its own state.
      */
-    val glyphAnimationManager: GlyphAnimationManager,
+    val glyphAnimationManager: Lazy<GlyphAnimationManager>,
     private val serviceController: FeatureServiceController,
+    private val ruleRepository: GlyphRuleRepository,
     private val glyphServiceSwitch: GlyphServiceSwitch,
     private val tileStateBus: TileStateBus,
     private val playbackAudioSource: PlaybackAudioSource,
+    private val serviceScriptRepository: ServiceScriptRepository,
+    private val scriptPermissionStore: ScriptPermissionStore,
+    private val deviceReport: GlyphDeviceReport,
 ) : ViewModel() {
 
     /**
@@ -114,35 +128,57 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * The Activity registers this because `enableForegroundDispatch` needs a
-     * real `Activity`, which a ViewModel cannot hold.
-     */
-    fun setNfcDispatchHook(hook: (Boolean) -> Unit) {
-        nfcDispatchHook = hook
-    }
-
-    /**
-     * The last reference dropped with the screen.
+     * There is no hook here any more.
      *
-     * The hook is a bound method of `MainActivity`, and a hook kept past the
-     * Activity that installed it is a hook calling into a destroyed window —
-     * `enableForegroundDispatch` on a dead Activity is the kind of failure that
-     * only shows up on some device. `onCleared` covers the finishing case; a
-     * configuration change keeps the ViewModel alive, so there the old hook
-     * stands until the new `onCreate` replaces it, which is why installation
-     * happens unconditionally on every create rather than once.
+     * `enableForegroundDispatch` needs a real `Activity`, which a ViewModel
+     * cannot hold — so this used to hand `MainActivity` a callback to be told
+     * through. That only worked while one screen could switch NFC: a hook is
+     * installed by a screen and dropped with it, and the feature's switch is
+     * now reachable from a rule row on this screen *and* from the
+     * constructor's list. `MainActivity` watches
+     * [FeatureServiceController.featureStates] instead, so the preference is
+     * followed by whichever reader needs it and nothing has to be installed.
      */
-    override fun onCleared() {
-        nfcDispatchHook = null
-        super.onCleared()
-    }
-
-    private var nfcDispatchHook: ((Boolean) -> Unit)? = null
 
     private val _isNothingPhone = glyphManager.isNothingPhone()
 
     init {
         refreshFeatures()
+        watchDeviceVerdict()
+    }
+
+    /**
+     * Says out loud a phone the app recognised and the system refused.
+     *
+     * The only failure in the app that produces a perfectly working screen and
+     * a dead strip: every toggle is where it should be, every service starts,
+     * and nothing lights, because registration never succeeded. There is no
+     * logcat on the phone to pull, so the reason is said once, in the user's
+     * words, naming the model — which is also the one thing worth asking a bug
+     * report for.
+     *
+     * Once per refusal rather than once per collection: the verdict is held in
+     * a singleton that outlives this ViewModel, so a rotation would otherwise
+     * repeat the same message, and a second identical toast teaches people to
+     * stop reading toasts.
+     */
+    private fun watchDeviceVerdict() {
+        viewModelScope.launch {
+            var lastRefusal: String? = null
+            deviceReport.verdict.collect { verdict ->
+                if (verdict == null || verdict.registered) return@collect
+                val refusal = "${verdict.model}|${verdict.offeredIds.joinToString()}"
+                if (refusal == lastRefusal) return@collect
+                lastRefusal = refusal
+                emit(
+                    context.getString(
+                        R.string.glyph_registration_refused,
+                        verdict.model,
+                        verdict.offeredIds.joinToString(),
+                    ),
+                )
+            }
+        }
     }
 
     /**
@@ -169,7 +205,113 @@ class HomeViewModel @Inject constructor(
                 },
             )
         }
+        refreshRules()
     }
+
+    // region Rules
+
+    /**
+     * The installed `.servicelua` scripts, for the permissions screen. The
+     * repository's own flow — one source of truth, so an import anywhere
+     * shows up everywhere. The constructor holds the same flow itself now
+     * that it is its own Activity, against its own holder.
+     */
+    val serviceScripts: StateFlow<List<ServiceScript>> get() = serviceScriptRepository.scripts
+
+    /**
+     * Reloads the user's rule list from the repository.
+     *
+     * Projections included, except for the features that still have a card in
+     * [HOME_CARD_FEATURES] — those two would otherwise be switched from two
+     * places on one screen, and one of the two switches would be the feature's
+     * card, the other its rule, over one preference. `HomeRuleVisibilityTest`
+     * fails if that set and the cards on the screen ever disagree, because both
+     * mistakes of it are bad in opposite directions: listed twice the user sees
+     * two switches for one thing, listed nowhere they cannot reach the feature
+     * at all.
+     */
+    fun refreshRules() {
+        val rules = ruleRepository.getAll()
+            .map { it.toRuleUiState(context, serviceScriptRepository) }
+        _uiState.update { it.copy(rules = rules) }
+    }
+
+    /**
+     * Enables or disables one rule and re-syncs the host to match.
+     *
+     * A feature's rule goes through the feature's own switch instead. That
+     * preference is what the projection is derived from and what its rule is
+     * re-derived from, so writing the rule alone would leave the two
+     * disagreeing until the next sync — which is when the switch would jump
+     * back on its own.
+     */
+    fun setRuleEnabled(id: String, enabled: Boolean) {
+        ruleRepository.setEnabled(id, enabled)
+        serviceController.syncRuleHost()
+        tileStateBus.notifyChanged()
+        refreshRules()
+    }
+
+    /**
+     * Removes a rule and re-syncs the host so its trigger is detached.
+     *
+     * A feature's rule is not removed: it comes back on the next sync, because
+     * it is re-derived from the feature's settings. Its row does not offer
+     * Delete for the same reason, and this refuses the one path that does not
+     * go through a row.
+     */
+    fun deleteRule(id: String) {
+        ruleRepository.delete(id)
+        serviceController.syncRuleHost()
+        tileStateBus.notifyChanged()
+        refreshRules()
+    }
+
+    /**
+     * Plays a rule's animation once, without waiting for its trigger.
+     *
+     * The same entry the host uses for a real firing — [GlyphAnimationManager.playAnimationById]
+     * — rather than the per-feature "Test" methods this screen used to call
+     * from the feature cards. One path means a test shows what a fire will show:
+     * the rule's own animation and the rule's own duration, with the locked
+     * battery indicators resolved by the id they carry. Those per-feature
+     * methods read the settings directly, so a test could differ from the fire
+     * the moment the rule and the settings disagreed — which, before
+     * [FeatureSpec.applyRule] existed, they could.
+     */
+    fun testRule(id: String) {
+        val rule = ruleRepository.getById(id) ?: return
+        emit(context.getString(R.string.toast_testing_generic, rule.name))
+        viewModelScope.launch {
+            glyphAnimationManager.get()
+                .playAnimationById(rule.animationId, rule.durationMs)
+        }
+    }
+
+    /** Every script's current grants, for the Settings permissions screen. */
+    fun scriptGrants(): Map<String, Set<ScriptCapability>> = scriptPermissionStore.grantsByScript()
+
+    /**
+     * One toggle on the permissions screen.
+     *
+     * The host is re-synced immediately: revocation would otherwise wait for
+     * the next reload to mean anything, and a switch that lies until reboot
+     * is the kind of gap the whole permission model exists to close.
+     */
+    fun setScriptCapability(scriptId: String, capability: ScriptCapability, granted: Boolean) {
+        if (granted) {
+            scriptPermissionStore.grant(scriptId, setOf(capability))
+        } else {
+            scriptPermissionStore.revoke(scriptId, setOf(capability))
+        }
+        serviceController.syncRuleHost()
+    }
+
+    // The row shape and its description live in RuleDescriptions.kt: the
+    // constructor's own list renders the same rows and has to say the same
+    // words about them.
+
+    // endregion
 
     /** The Activity reports the real session state here; the SDK is the truth. */
     fun onSessionStateChanged(isActive: Boolean) {
@@ -207,23 +349,18 @@ class HomeViewModel @Inject constructor(
     /**
      * Persists a feature toggle and starts or stops its service.
      *
-     * NFC is special-cased: the hardware check needs no Activity, but the
-     * foreground dispatch that follows does, so the Activity registers
-     * [setNfcDispatchHook] and is told when to enable or disable it.
+     * Every refusal lives in [FeatureServiceController.setFeatureEnabled] —
+     * the master switch being off, and NFC's hardware — because a rule row in
+     * either list reaches a feature's switch too, and a guard that only the
+     * card knew about would be a switch that lies on one screen and not the
+     * other. What is left here is the card's own bookkeeping: the state its
+     * switch draws, and the tile.
      */
     fun setFeatureEnabled(feature: GlyphFeature, enabled: Boolean) {
-        if ((feature == GlyphFeature.NFC) && (enabled && !canUseNfc())) return
-
-        // A feature cannot run without the master Glyph service: its service
-        // shuts itself down on start and never registers its trigger. Refusing
-        // here is what keeps the card honest — otherwise it sits there saying
-        // "on" and nothing ever happens.
-        if (enabled && !settingsRepository.getGlyphServiceEnabled()) {
-            reject(context.getString(serviceOffMessageOf(feature)))
+        serviceController.setFeatureEnabled(feature, enabled)?.let { refusal ->
+            emit(refusal)
             return
         }
-
-        serviceController.apply(feature, enabled)
         // The shade mirrors these switches, and nothing else would tell a tile
         // sitting in it that the one it draws has moved.
         tileStateBus.notifyChanged()
@@ -233,26 +370,6 @@ class HomeViewModel @Inject constructor(
                     state.stateOf(feature).copy(isEnabled = enabled)),
             )
         }
-
-        if (feature == GlyphFeature.NFC) nfcDispatchHook?.invoke(enabled)
-    }
-
-    /**
-     * The toast each feature already shows when its dialog is opened while the
-     * Glyph service is off. It lives in [FeatureSpecs] beside the rest of a
-     * feature's wiring, because it is the same kind of fact — one per feature,
-     * and a feature added without it has no message to show.
-     */
-    private fun serviceOffMessageOf(feature: GlyphFeature): Int =
-        FeatureSpecs.of(feature).serviceOffMessage
-
-    private fun canUseNfc(): Boolean {
-        val adapter = NfcAdapter.getDefaultAdapter(context)
-            ?: return reject(context.getString(R.string.nfc_not_available))
-        if (!adapter.isEnabled) {
-            return reject(context.getString(R.string.nfc_enable_in_settings))
-        }
-        return true
     }
 
     private fun reject(message: String): Boolean {
@@ -261,11 +378,21 @@ class HomeViewModel @Inject constructor(
     }
 
     /**
-     * The toast the Test button shows, before the animation is asked for.
+     * Plays the visualiser's animation once, to show what it will look like.
      *
-     * Resolved through [TOAST_BY_FEATURE] so the wording follows the device
-     * language. A feature with no entry of its own falls back to the generic
-     * form with its enum name — a last resort, not the normal wording.
+     * The last caller of what used to cover eight features. Each of the others
+     * is a rule now, tested by the ▶ on its rule row through
+     * [RuleConstructorViewModel.testRule] — and that path is the better one
+     * anyway: it plays the rule as the host will, with the rule's own duration
+     * and arcs, which a per-feature entry reading settings could not promise
+     * once the rule became editable. What is left here is the one thing a rule
+     * cannot be: a feature whose start is driven by an Activity.
+     *
+     * The toast is resolved through [TOAST_BY_FEATURE] so the wording follows
+     * the device language. One entry, because one feature can reach here; a
+     * second card would add its own line rather than fall through to the
+     * generic form below, which names the feature by its enum name and is
+     * there so nothing has no message at all.
      */
     fun testFeature(feature: GlyphFeature) {
         val toast = TOAST_BY_FEATURE[feature]
@@ -275,23 +402,15 @@ class HomeViewModel @Inject constructor(
         )
         viewModelScope.launch {
             when (feature) {
-                GlyphFeature.POWER_PEEK ->
-                    glyphAnimationManager.playPowerPeekAnimation(context) {}
-                GlyphFeature.CHARGING_ANIMATION ->
-                    glyphAnimationManager.playChargingAnimationAnimation(context) {}
-                GlyphFeature.PULSE_LOCK -> glyphAnimationManager.playPulseLockAnimation()
-                GlyphFeature.SCREEN_OFF -> glyphAnimationManager.playScreenOffAnimation()
-                GlyphFeature.NFC -> glyphAnimationManager.playNfcAnimation()
-                GlyphFeature.LOW_BATTERY -> glyphAnimationManager.playLowBatteryAnimation()
-                GlyphFeature.VPN_CONNECTED -> glyphAnimationManager.playVpnConnectedAnimation()
                 GlyphFeature.MUSIC_VISUALIZER ->
-                    glyphAnimationManager.playMusicVisualizerAnimation()
+                    glyphAnimationManager.get().playMusicVisualizerAnimation()
 
-                // Not reachable: `PREVIEW` is a strip participant, not a
-                // feature — it has no card, no preference and no Test button,
-                // and its toast is absent from `TOAST_BY_FEATURE` too. Named
-                // rather than `else` so that adding a real feature cannot land
-                // in the wrong branch by default.
+                // Not reachable: neither `RULE_HOST` nor `PREVIEW` is a single
+                // feature — they are strip participants with no card, no
+                // preference and no Test button, and neither's toast is in
+                // `TOAST_BY_FEATURE`. Named rather than `else` so that adding a
+                // real feature cannot land in the wrong branch by default.
+                GlyphFeature.RULE_HOST -> Unit
                 GlyphFeature.PREVIEW -> Unit
             }
         }
@@ -339,13 +458,6 @@ class HomeViewModel @Inject constructor(
          * resource ids so it can be resolved against the device language.
          */
         val TOAST_BY_FEATURE = mapOf(
-            GlyphFeature.POWER_PEEK to R.string.toast_testing_power_peek,
-            GlyphFeature.CHARGING_ANIMATION to R.string.toast_testing_charging_animation,
-            GlyphFeature.PULSE_LOCK to R.string.toast_testing_pulse_lock,
-            GlyphFeature.SCREEN_OFF to R.string.toast_testing_screen_off,
-            GlyphFeature.NFC to R.string.toast_testing_nfc,
-            GlyphFeature.LOW_BATTERY to R.string.toast_testing_low_battery_alert,
-            GlyphFeature.VPN_CONNECTED to R.string.toast_testing_vpn_connected,
             GlyphFeature.MUSIC_VISUALIZER to R.string.toast_testing_music_visualizer,
         )
     }

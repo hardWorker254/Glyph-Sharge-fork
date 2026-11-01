@@ -11,7 +11,7 @@ import javax.inject.Singleton
  *
  * The real settings now live in [ThemeSettings], [FontSettings],
  * [GlyphServiceSettings], [FeatureSettings],
- * [LanguageSettings] and [UserPresenceSettings], each owning its own keys. This
+ * [LanguageSettings], each owning its own keys. This
  * class owns none of them: every method below is a one-line forward, and there
  * is not a single preference key, default or `SharedPreferences` call left
  * here.
@@ -43,7 +43,6 @@ class SettingsRepository @Inject constructor(
     private val glyphService: GlyphServiceSettings,
     private val features: FeatureSettings,
     private val language: LanguageSettings,
-    private val userPresence: UserPresenceSettings,
     @Suppress("unused") private val migrations: SettingsMigrations,
     private val diagnostics: SettingsDiagnostics,
 ) {
@@ -81,119 +80,18 @@ class SettingsRepository @Inject constructor(
 
     fun getGlyphServiceEnabled(): Boolean = glyphService.getGlyphServiceEnabled()
 
-    // Glow Gate: what "unlocked" looks like on this phone
-
-    fun isUserPresentExpected(): Boolean = userPresence.isUserPresentExpected()
-
-    fun markUserPresentSeen() = userPresence.markUserPresentSeen()
-
-    fun markUserPresentMissing() = userPresence.markUserPresentMissing()
-
-    // Power Peek
-
-    fun savePowerPeekEnabled(enabled: Boolean) = features.savePowerPeekEnabled(enabled)
-
-    fun isPowerPeekEnabled(): Boolean = features.isPowerPeekEnabled()
-
-    fun savePowerPeekThreshold(threshold: Float) = features.savePowerPeekThreshold(threshold)
-
-    fun getPowerPeekThreshold(): Float = features.getPowerPeekThreshold()
-
-    fun getShakeIntensityLevel(threshold: Float): Int =
-        glyphService.getShakeIntensityLevel(threshold)
-
-    fun savePowerPeekDuration(duration: Long) = features.savePowerPeekDuration(duration)
-
-    fun getPowerPeekDuration(): Long = features.getPowerPeekDuration()
-
     fun getVibrationIntensity(): Float = glyphService.getVibrationIntensity()
 
-    // Glow Gate (Pulse Lock)
-
-    fun savePulseLockEnabled(enabled: Boolean) = features.savePulseLockEnabled(enabled)
-
-    fun isPulseLockEnabled(): Boolean = features.isPulseLockEnabled()
-
-    fun savePulseLockAnimationId(id: String) = features.savePulseLockAnimationId(id)
-
-    fun getPulseLockAnimationId(): String = features.getPulseLockAnimationId()
-
-    fun savePulseLockDuration(durationMs: Long) = features.savePulseLockDuration(durationMs)
-
-    fun getPulseLockDuration(): Long = features.getPulseLockDuration()
-
-    // Low-Battery
-
-    fun saveLowBatteryEnabled(enabled: Boolean) = features.saveLowBatteryEnabled(enabled)
-
-    fun isLowBatteryEnabled(): Boolean = features.isLowBatteryEnabled()
-
-    fun saveLowBatteryThreshold(pct: Int) = features.saveLowBatteryThreshold(pct)
-
-    fun getLowBatteryThreshold(): Int = features.getLowBatteryThreshold()
-
-    fun saveLowBatteryAnimationId(id: String) = features.saveLowBatteryAnimationId(id)
-
-    fun getLowBatteryAnimationId(): String = features.getLowBatteryAnimationId()
-
-    fun saveLowBatteryDuration(durationMs: Long) = features.saveLowBatteryDuration(durationMs)
-
-    fun getLowBatteryDuration(): Long = features.getLowBatteryDuration()
-
-    // Screen Off
-
-    fun saveScreenOffFeatureEnabled(enabled: Boolean) =
-        features.saveScreenOffFeatureEnabled(enabled)
-
-    fun isScreenOffFeatureEnabled(): Boolean = features.isScreenOffFeatureEnabled()
-
-    fun saveScreenOffAnimationId(id: String) = features.saveScreenOffAnimationId(id)
-
-    fun getScreenOffAnimationId(): String = features.getScreenOffAnimationId()
-
-    fun saveScreenOffDuration(durationMs: Long) = features.saveScreenOffDuration(durationMs)
-
-    fun getScreenOffDuration(): Long = features.getScreenOffDuration()
-
-    // NFC
-
-    fun saveNfcFeatureEnabled(enabled: Boolean) = features.saveNfcFeatureEnabled(enabled)
-
-    fun isNfcFeatureEnabled(): Boolean = features.isNfcFeatureEnabled()
-
-    fun saveNfcAnimationId(id: String) = features.saveNfcAnimationId(id)
-
-    fun getNfcAnimationId(): String = features.getNfcAnimationId()
-
-    fun saveNfcAnimationDuration(durationMs: Long) = features.saveNfcAnimationDuration(durationMs)
-
-    fun getNfcAnimationDuration(): Long = features.getNfcAnimationDuration()
-
-    // Charging animation
-
-    fun saveChargingAnimationEnabled(enabled: Boolean) =
-        features.saveChargingAnimationEnabled(enabled)
-
-    fun isChargingAnimationEnabled(): Boolean = features.isChargingAnimationEnabled()
-
-    fun saveChargingAnimationDuration(durationMs: Long) =
-        features.saveChargingAnimationDuration(durationMs)
-
-    fun getChargingAnimationDuration(): Long = features.getChargingAnimationDuration()
-
-    // VPN connected
-
-    fun saveVpnConnectedEnabled(enabled: Boolean) = features.saveVpnConnectedEnabled(enabled)
-
-    fun isVpnConnectedEnabled(): Boolean = features.isVpnConnectedEnabled()
-
-    fun saveVpnConnectedAnimationId(id: String) = features.saveVpnConnectedAnimationId(id)
-
-    fun getVpnConnectedAnimationId(): String = features.getVpnConnectedAnimationId()
-
-    fun saveVpnConnectedDuration(durationMs: Long) = features.saveVpnConnectedDuration(durationMs)
-
-    fun getVpnConnectedDuration(): Long = features.getVpnConnectedDuration()
+    /**
+     * The word for a shake threshold on the vibration scale.
+     *
+     * Kept because a *rule* can carry a shake threshold of its own, and the
+     * form shows the named step rather than a number: the detector is tuned
+     * around those steps, so a threshold it cannot tell from its neighbour
+     * would be a control that lies.
+     */
+    fun getShakeIntensityLevel(threshold: Float): Int =
+        glyphService.getShakeIntensityLevel(threshold)
 
     // Music visualiser
 

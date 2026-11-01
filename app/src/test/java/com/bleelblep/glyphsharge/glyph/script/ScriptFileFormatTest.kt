@@ -24,14 +24,27 @@ class ScriptFileFormatTest {
     )
 
     @Test
-    fun `a round trip keeps every field`() {
+    fun `a round trip keeps every file field`() {
         val decoded = ScriptFileFormat.decode(ScriptFileFormat.encode(original))
 
         assertEquals(original.id, decoded.id)
         assertEquals(original.name, decoded.name)
         assertEquals(original.source, decoded.source)
-        assertEquals(original.createdAt, decoded.createdAt)
-        assertEquals(original.updatedAt, decoded.updatedAt)
+    }
+
+    @Test
+    fun `the exported file carries no timestamps`() {
+        val encoded = ScriptFileFormat.encode(original)
+
+        // `created`/`updated` are noise in a file a human reads, so they are not
+        // written; the in-app library keeps its own for sorting and display.
+        assertTrue("created" !in encoded)
+        assertTrue("updated" !in encoded)
+
+        // And, not being in the file, a round trip resets them to "now".
+        val decoded = ScriptFileFormat.decode(encoded)
+        assertNotEquals(original.createdAt, decoded.createdAt)
+        assertNotEquals(original.updatedAt, decoded.updatedAt)
     }
 
     @Test

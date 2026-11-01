@@ -62,7 +62,8 @@ fun ThemedValueBadge(
 
 /**
  * Standardized 3-button layout for feature confirmation dialogs.
- * Used in: PowerPeek, PulseLock, ScreenOff, NfcGlyph, LowBattery confirmation dialogs.
+ * Used in: the PowerPeek, ChargingAnimation and MusicVisualizer confirmation
+ * dialogs — the only three features that still have a card.
  */
 @Composable
 fun FeatureConfirmationButtons(
@@ -156,7 +157,8 @@ fun FeatureConfirmationButtons(
 
 /**
  * Standardized 3-button layout for feature settings/save dialogs.
- * Used in: PowerPeek, PulseLock, ScreenOff, NfcGlyph, LowBattery config dialogs.
+ * Used in: the PowerPeek, ChargingAnimation and MusicVisualizer config dialogs —
+ * the only three features that still have a card.
  *
  * There is no "saving" state. Every one of these dialogs saves a handful of
  * synchronous `SharedPreferences` values and closes, so a spinner had nothing

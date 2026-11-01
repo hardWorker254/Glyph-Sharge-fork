@@ -2,6 +2,7 @@ package com.bleelblep.glyphsharge.glyph
 
 import android.content.ComponentName
 import android.content.Context
+import android.os.Build
 import android.util.Log
 import com.bleelblep.glyphsharge.glyph.device.DeviceProfileFactory
 import com.bleelblep.glyphsharge.glyph.device.DeviceType
@@ -34,6 +35,11 @@ import javax.inject.Singleton
 @Singleton
 class GlyphManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
+    /**
+     * Where the registration verdict is published, so the home screen can say
+     * out loud what the log recorded — see [GlyphDeviceReport].
+     */
+    private val deviceReport: GlyphDeviceReport,
 ) {
     private companion object {
         const val TAG = "GlyphManager"
@@ -117,17 +123,52 @@ class GlyphManager @Inject constructor(
         }
     }
 
-    /** Tells the SDK which phone this is, so it knows the channel layout. */
+    /**
+     * Tells the SDK which phone this is, so it knows the channel layout.
+     *
+     * Tries every id the detected model offers and keeps the first the system
+     * service accepts, rather than assuming which one it wants: Phone (3a) Pro
+     * reports `A059P` and shares the (3a)'s layout, and the bundled SDK
+     * predates it, so either string could be the right one to offer. The device
+     * answers, which is the only answer worth having — a wrong guess registers
+     * and then draws channels the phone does not have, and that reads as broken
+     * hardware rather than as a mistake.
+     *
+     * Everything that service rejects is written to the in-app log with the
+     * model string, because a phone that is not recognised shows the user a
+     * feature that quietly does nothing and this device writes nothing to
+     * logcat.
+     */
     private fun registerDevice() {
         try {
-            val deviceType = DeviceType.detect() ?: throw GlyphException("Unsupported device type")
-            val registrationId = deviceType.registrationId
+            val model = deviceReport.currentModel()
+            val deviceType = DeviceType.detect()
+            if (deviceType == null) {
+                // Hardware the app does not claim. Nothing is published: there
+                // is no question to answer, and a screen full of warnings on a
+                // phone with no Glyph strip would be noise.
+                Log.d(TAG, "No Glyph phone (model=$model)")
+                return
+            }
 
-            mGM?.register(registrationId)
-            Log.d(TAG, "Registered device type: $registrationId")
+            val candidates = deviceType.registrationIds(model)
+            val accepted = candidates.firstOrNull { id -> mGM?.register(id) == true }
+            deviceReport.publish(model, deviceType, accepted, candidates)
+
+            if (accepted == null) {
+                LoggingManager.logSDKOperation(
+                    "DEVICE_REGISTRATION",
+                    "model=$model type=$deviceType: no id accepted out of " +
+                        candidates.joinToString(),
+                )
+                throw GlyphException("Registration refused for ${candidates.joinToString()}")
+            }
+
+            Log.d(TAG, "Registered device type: $accepted")
             LoggingManager.logSDKOperation(
                 "DEVICE_REGISTRATION",
-                "Successfully registered $registrationId",
+                "model=$model type=$deviceType registered as $accepted " +
+                    "(tried ${candidates.joinToString()})",
             )
         } catch (e: GlyphException) {
             Log.e(TAG, "Failed to register device: ${e.message}")
