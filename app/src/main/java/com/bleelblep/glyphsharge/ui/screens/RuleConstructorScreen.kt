@@ -71,6 +71,15 @@ private const val LOW_BATTERY_MIN_PERCENT = 5
 private const val LOW_BATTERY_MAX_PERCENT = 50
 
 /**
+ * The one animation a charging rule may play.
+ *
+ * A charger is not a generic trigger: plugging in should show the battery bar,
+ * not whichever sparkle was last selected. The picker stays on the other
+ * triggers, and this id is the built-in that reads the live battery level.
+ */
+private const val FIXED_CHARGING_ANIMATION_ID = "BATTERY"
+
+/**
  * The constructor: a name, a shape, and the facts that shape is made of.
  *
  * **A screen, not a dialog.** It used to be an `AlertDialog` opened from the
@@ -170,6 +179,13 @@ fun RuleConstructorScreen(
                 ?: animationOptions.first(),
         )
     }
+    val isChargingTrigger = trigger == TriggerType.POWER_CONNECTED ||
+        trigger == TriggerType.POWER_DISCONNECTED
+    val selectedAnimation = if (isChargingTrigger) {
+        animationOptions.firstOrNull { it.id == FIXED_CHARGING_ANIMATION_ID } ?: animation
+    } else {
+        animation
+    }
     var durationSeconds by remember(existing) {
         mutableFloatStateOf(((existing?.durationMs ?: 3000L) / 1000f).coerceIn(1f, 10f))
     }
@@ -233,7 +249,7 @@ fun RuleConstructorScreen(
             existing?.id,
             name.trim(),
             trigger.id,
-            animation.id,
+            selectedAnimation.id,
             (durationSeconds * 1000).toLong(),
             threshold,
             SHAKE_STEPS[shakeStep.toInt()],
@@ -270,8 +286,9 @@ fun RuleConstructorScreen(
     val advanced = isAdvanced
     val activeTrigger = trigger
     // Hoisted for the same reason as the two above: the branch that draws the
-    // duration slider is decided inside the list's content lambda.
-    val customAnimation = animation.isCustom
+    // duration slider is decided inside the list's content lambda. It reads the
+    // animation the rule will actually save, not the picker's stale selection.
+    val customAnimation = selectedAnimation.isCustom
 
     pendingCapabilities?.let { requested ->
         CapabilityPromptDialog(
@@ -449,27 +466,33 @@ fun RuleConstructorScreen(
             }
         }
 
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = stringResource(R.string.rules_animation_label),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    animationOptions.forEach { anim ->
-                        FilterChip(
-                            selected = anim == animation,
-                            onClick = { animation = anim },
-                            label = { Text(anim.displayName) },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            ),
-                        )
+        // Charging triggers always play the battery bar, so a picker here would
+        // be a control that changes nothing. The fixed id is what `performSave`
+        // writes, which is also why the duration slider below stays: the bar
+        // fills over that duration.
+        if (!isChargingTrigger) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = stringResource(R.string.rules_animation_label),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        animationOptions.forEach { anim ->
+                            FilterChip(
+                                selected = anim == selectedAnimation,
+                                onClick = { animation = anim },
+                                label = { Text(anim.displayName) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                ),
+                            )
+                        }
                     }
                 }
             }

@@ -20,7 +20,8 @@ enum class GlyphAnimationId(val id: String) {
     HEARTBEAT("HEARTBEAT"),
     MATRIX("MATRIX"),
     FIREWORKS("FIREWORKS"),
-    DNA("DNA");
+    DNA("DNA"),
+    BATTERY("BATTERY");
 
     companion object {
         /**

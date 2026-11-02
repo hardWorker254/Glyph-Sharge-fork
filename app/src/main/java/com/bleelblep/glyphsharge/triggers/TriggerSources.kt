@@ -110,12 +110,17 @@ object TriggerSources {
     }
 
     /**
-     * Every type this factory can currently build.
+     * Every type the simple constructor should offer today.
      *
-     * The palette a UI should offer *today* — the `create` result filtered of
-     * its `null`s, so a rule can only be built around a trigger that will
-     * actually fire.
+     * The `create` result filtered of its `null`s, so a rule can only be built
+     * around a trigger that will actually fire — and with [TriggerType.POWER_CHANGED]
+     * left out. The constructor exposes the two charger edges separately; a rule
+     * that wants both writes two rules, which keeps a charging rule's fixed
+     * animation tied to one event. The composite source still exists for scripts
+     * that subscribe to `power_changed` through [create].
      */
     fun available(context: Context): List<TriggerType> =
-        TriggerType.entries.filter { create(context, it) != null }
+        TriggerType.entries.filter {
+            it != TriggerType.POWER_CHANGED && create(context, it) != null
+        }
 }

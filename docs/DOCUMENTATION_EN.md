@@ -228,7 +228,8 @@ app/src/main/java/com/bleelblep/glyphsharge/
 │   │   └── GlyphRenderer.kt
 │   ├── animations/             # The animations themselves
 │   │   ├── AnimationRunner.kt  # anim { }: the guards and the renderer lifecycle
-│   │   ├── BuiltInAnimations.kt# The ten named sequences, one line each
+│   │   ├── BuiltInAnimations.kt# The named sequences, one line each
+│   │   ├── BatteryAnimations.kt # The battery-level bar and its accents
 │   │   ├── SequenceAnimations.kt
 │   │   ├── ParticleAnimations.kt
 │   │   └── AudioAnimations.kt  # The music visualiser's painter
@@ -263,8 +264,7 @@ app/src/main/java/com/bleelblep/glyphsharge/
 │   │   ├── SensorControl.kt    # What opens and closes the listener for one run
 │   │   └── SensorSource.kt     # The listener itself, and the threshold that counts a shake
 │   └── battery/                # Reading the battery for scripts (glyph.battery)
-│       ├── BatteryState.kt
-│       └── BatteryGlyphAnimator.kt
+│       └── BatteryState.kt
 ├── data/
 │   ├── SettingsRepository.kt   # Thin façade over the slices below
 │   ├── SettingsPrefs.kt        # reified get/put over SharedPreferences
@@ -438,7 +438,7 @@ may run, and how a caller bounds it:
 | Which channels exist on this phone | `glyph/device/DeviceProfileFactory` |
 | Frame building, error handling, cancellation | `glyph/engine/GlyphRenderer` |
 | The guards and the blank-strip-around-it lifecycle (`anim { }`) | `glyph/animations/AnimationRunner` |
-| The ten named sequences, one line each | `glyph/animations/BuiltInAnimations` |
+| The named sequences, one line each | `glyph/animations/BuiltInAnimations` |
 | What actually draws a sequence | `glyph/animations/SequenceAnimations`, `ParticleAnimations`, `AudioAnimations` |
 | The music visualiser and its preview | `glyph/audio/MusicVisualisation` |
 | Hosting a user-written Lua animation | `glyph/script/ScriptPlayback` |
@@ -542,13 +542,13 @@ or the service layer:
 | File | Contents |
 |------|----------|
 | `glyph/animations/AnimationRunner.kt` | `anim { }`: the three guards, the renderer lifecycle, the lazy `profile` |
-| `glyph/animations/BuiltInAnimations.kt` | the ten named sequences, one line each over the runner |
+| `glyph/animations/BuiltInAnimations.kt` | the named sequences, one line each over the runner |
+| `glyph/animations/BatteryAnimations.kt` | the battery-level bar and its charging/idle accents |
 | `glyph/animations/SequenceAnimations.kt` | wave, beedah, pulse, heartbeat, C1, lock, spiral |
 | `glyph/animations/ParticleAnimations.kt` | matrix rain, fireworks, DNA helix |
 | `glyph/animations/AudioAnimations.kt` | `runMusicVisualization` and `resolveStrip` |
 | `glyph/audio/MusicVisualisation.kt` | the visualiser's real run and its settings preview |
 | `glyph/audio/SyntheticTrack.kt` | the made-up spectrum the preview plays on |
-| `glyph/battery/BatteryGlyphAnimator.kt` | the charging / power-peek battery bar and its accents |
 | `glyph/battery/BatteryState.kt` | `BatteryState` + `BatteryStateReader` (sticky broadcast) |
 | `glyph/engine/GlyphRenderer.kt` | frame building, the run flag, error handling, `pulse` |
 | `glyph/device/DeviceProfileFactory.kt` | the per-model channel layouts and timings |
@@ -1770,7 +1770,7 @@ colors `purple_200/500/700`, `teal_200/700`.
 
 ## 14. Custom Animations (Lua)
 
-On top of the ten built-in animations, the user can write their own — in **Lua 5.2**,
+On top of the built-in animations, the user can write their own — in **Lua 5.2**,
 executed by the pure-JVM [LuaJ](https://github.com/luaj/luaj) 3.0.1 VM
 (`org.luaj:luaj-jse`). This is not a plugin: a script lives entirely in
 `filesDir/glyph_scripts`, runs in a sandbox, and can do nothing but light channels,
@@ -2231,7 +2231,7 @@ glyph.off()                          -- leave cleanly if the animation was stopp
 ### Scripts in the constructor
 
 A saved script is **not** bound to a particular feature. It shows up in the rule form's
-animation picker — right after the ten built-ins, with the shared custom icon and its own
+animation picker — right after the built-ins, with the shared custom icon and its own
 name, and its stored id looks like `custom:<12 hex>`.
 
 The one exception is `glyph.target = "music"`, which restricts a script to the music

@@ -48,6 +48,7 @@ object GlyphAnimations {
         GlyphAnim("MATRIX", "Matrix Rain", R.drawable._78),
         GlyphAnim("FIREWORKS", "Fireworks", R.drawable._44),
         GlyphAnim("DNA", "DNA Helix", R.drawable._23_24px),
+        GlyphAnim("BATTERY", "Battery Level", R.drawable._78),
     )
 
     /** Icon reused for every script: nothing in the app art matches "custom". */

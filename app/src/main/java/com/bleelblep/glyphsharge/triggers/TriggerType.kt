@@ -7,10 +7,11 @@ import com.bleelblep.glyphsharge.R
 /**
  * The vocabulary of things that can make a rule fire.
  *
- * This is the palette the constructor's "simple mode" offers and the set of
- * names a `.servicelua` script subscribes to, so its [id] is a contract: it is
- * written into a saved rule and into a script's `glyph.on("...")` call, and
- * must keep meaning the same event across releases.
+ * This is the set of names a `.servicelua` script subscribes to; the
+ * constructor's "simple mode" offers the subset [TriggerSources.available]
+ * returns. Its [id] is a contract: it is written into a saved rule and into a
+ * script's `glyph.on("...")` call, and must keep meaning the same event across
+ * releases.
  *
  * [labelRes] is the opposite kind of field — the *display* name, free to be
  * reworded or translated. The constructor chips and rule rows show it so the
@@ -44,7 +45,13 @@ enum class TriggerType(val id: String, @StringRes val labelRes: Int) {
     /** A charger was unplugged. */
     POWER_DISCONNECTED("power_disconnected", R.string.trigger_power_disconnected),
 
-    /** Either edge of the charger — plugged *or* unplugged. */
+    /**
+     * Either edge of the charger — plugged *or* unplugged.
+     *
+     * Script-only: the simple constructor uses the two edges separately, so a
+     * charging rule has one event and one fixed animation. [TriggerSources.create]
+     * still builds this source for a `.servicelua` subscriber.
+     */
     POWER_CHANGED("power_changed", R.string.trigger_power_changed),
 
     /** Battery fell to or below a rule-supplied threshold while not charging. */

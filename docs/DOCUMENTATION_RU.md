@@ -226,7 +226,8 @@ app/src/main/java/com/bleelblep/glyphsharge/
 │   │   └── GlyphRenderer.kt
 │   ├── animations/             # Сами анимации
 │   │   ├── AnimationRunner.kt  # anim { }: проверки и жизненный цикл рендерера
-│   │   ├── BuiltInAnimations.kt# Десять именованных последовательностей, по одной строке
+│   │   ├── BuiltInAnimations.kt# Именованные последовательности, по одной строке
+│   │   ├── BatteryAnimations.kt # Полоса уровня заряда и её акценты
 │   │   ├── SequenceAnimations.kt
 │   │   ├── ParticleAnimations.kt
 │   │   └── AudioAnimations.kt  # рисовальщик музыкальной визуализации
@@ -433,10 +434,10 @@ fun cleanup()
 | Какие каналы есть на этом телефоне | `glyph/device/DeviceProfileFactory` |
 | Сборка кадров, обработка ошибок, отмена | `glyph/engine/GlyphRenderer` |
 | Проверки и жизненный цикл с гашением полосы (`anim { }`) | `glyph/animations/AnimationRunner` |
-| Десять именованных последовательностей, по одной строке | `glyph/animations/BuiltInAnimations` |
+| Именованные последовательности, по одной строке | `glyph/animations/BuiltInAnimations` |
 | Что именно рисует последовательность | `glyph/animations/SequenceAnimations`, `ParticleAnimations`, `AudioAnimations` |
 | Музыкальная визуализация и её превью | `glyph/audio/MusicVisualisation` |
-| Анимация зарядки и полоса батареи | `glyph/battery/BatteryGlyphAnimator` |
+| Анимация зарядки и полоса батареи | `glyph/animations/BatteryAnimations` |
 | Запуск пользовательской Lua-анимации | `glyph/script/ScriptPlayback` |
 | Исполнение самого Lua | `glyph/script/ScriptRunner` |
 
@@ -535,7 +536,8 @@ Power Peek, Low Battery, NFC, Charging, VPN) ушли вместе с их фи�
 | Файл | Содержимое |
 |------|------------|
 | `glyph/animations/AnimationRunner.kt` | `anim { }`: три проверки, жизненный цикл рендерера, ленивый `profile` |
-| `glyph/animations/BuiltInAnimations.kt` | десять именованных последовательностей, по одной строке над раннером |
+| `glyph/animations/BuiltInAnimations.kt` | именованные последовательности, по одной строке над раннером |
+| `glyph/animations/BatteryAnimations.kt` | полоса уровня заряда и акценты зарядки/простоя |
 | `glyph/animations/SequenceAnimations.kt` | волна, beedah, pulse, heartbeat, C1, lock, spiral |
 | `glyph/animations/ParticleAnimations.kt` | matrix rain, fireworks, DNA helix |
 | `glyph/animations/AudioAnimations.kt` | `runMusicVisualization` и `resolveStrip` |
@@ -1754,7 +1756,7 @@ testOptions {
 
 ## 14. Пользовательские анимации (Lua)
 
-Помимо десяти встроенных анимаций пользователь может написать свои — на **Lua 5.2**,
+Помимо встроенных анимаций пользователь может написать свои — на **Lua 5.2**,
 которую выполняет чисто-JVM движок [LuaJ](https://github.com/luaj/luaj) 3.0.1
 (`org.luaj:luaj-jse`). Это не плагин: скрипт целиком хранится в
 `filesDir/glyph_scripts`, выполняется в песочнице и умеет только зажигать каналы,
@@ -2216,7 +2218,7 @@ glyph.off()                          -- leave cleanly if the animation was stopp
 ### Скрипты в конструкторе
 
 Сохранённый скрипт **не связан** с конкретной фичей. Он появляется в ряд выбора анимации
-формы правила — сразу после десяти встроенных, с общей иконкой и своим именем, а сохранённый
+формы правила — сразу после встроенных, с общей иконкой и своим именем, а сохранённый
 id имеет вид `custom:<12 hex>`.
 
 Единственное исключение — `glyph.target = "music"`, который ограничивает скрипт пикером

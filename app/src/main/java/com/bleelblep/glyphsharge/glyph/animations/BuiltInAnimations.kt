@@ -38,5 +38,13 @@ class BuiltInAnimations @Inject constructor(
 
     suspend fun runDNAHelixAnimation() = runner.anim { runDNAHelixAnimation(it) }
 
+    suspend fun runBatteryAnimation(
+        batteryPercentage: Int,
+        isCharging: Boolean,
+        durationMs: Long,
+    ) = runner.anim {
+        runBatteryAnimation(it, batteryPercentage, isCharging, durationMs)
+    }
+
     suspend fun runPulseEffect(cycles: Int = 3) = runner.anim { pulseCycles(it.pulseSegments, cycles) }
 }

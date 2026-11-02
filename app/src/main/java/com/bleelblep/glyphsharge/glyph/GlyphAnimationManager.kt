@@ -6,6 +6,7 @@ import com.bleelblep.glyphsharge.glyph.animations.AnimationRunner
 import com.bleelblep.glyphsharge.glyph.animations.BuiltInAnimations
 import com.bleelblep.glyphsharge.glyph.audio.MusicVisualisation
 import com.bleelblep.glyphsharge.glyph.audio.MusicVisualizationMode
+import com.bleelblep.glyphsharge.glyph.battery.BatteryStateReader
 import com.bleelblep.glyphsharge.glyph.engine.GlyphRenderer
 import com.bleelblep.glyphsharge.glyph.script.ScriptAnimation
 import com.bleelblep.glyphsharge.glyph.script.ScriptCheckResult
@@ -39,7 +40,7 @@ import javax.inject.Singleton
  * | Wave / sweep / blink / particle sequences | [BuiltInAnimations] |
  * | Randomised particle effects | `glyph.animations.ParticleAnimations` |
  * | The music visualiser and its preview | [MusicVisualisation] |
- * | Charging and battery bar | `glyph.battery.BatteryGlyphAnimator` |
+ * | Charging and battery bar | `glyph.animations.BatteryAnimations` |
  * | Hosting a user-written Lua animation | [ScriptPlayback] |
  * | Executing the Lua itself | [ScriptRunner] |
  *
@@ -280,8 +281,9 @@ class GlyphAnimationManager @Inject constructor(
     /**
      * Plays the animation named by a settings id.
      *
-     * Only the `PULSE` fallback uses [durationMs]: the named animations have
-     * their own natural length and ignore the duration setting.
+     * `PULSE` turns [durationMs] into a cycle count, and `BATTERY` uses it as
+     * the fill time. The other named animations have their own natural length
+     * and ignore the duration setting.
      */
     private suspend fun playAnimation(id: String, durationMs: Long) {
         // A user script arrives before the built-in lookup: its id is namespaced
@@ -317,6 +319,16 @@ class GlyphAnimationManager @Inject constructor(
             GlyphAnimationId.MATRIX -> runMatrixRainAnimation()
             GlyphAnimationId.FIREWORKS -> runFireworksAnimation()
             GlyphAnimationId.DNA -> runDNAHelixAnimation()
+            GlyphAnimationId.BATTERY -> {
+                // Sample once, at the start: the bar is a snapshot of the
+                // charge when the rule fired, not a live gauge for its run.
+                val battery = BatteryStateReader.read(appContext)
+                builtIn.runBatteryAnimation(
+                    batteryPercentage = battery.percentage,
+                    isCharging = battery.isCharging,
+                    durationMs = durationMs,
+                )
+            }
             // PULSE, and anything unrecognised.
             GlyphAnimationId.PULSE, null -> runPulseEffect(cycles)
         }

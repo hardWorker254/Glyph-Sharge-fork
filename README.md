@@ -45,7 +45,7 @@ Whether you're checking charge levels or activating security features, Glyph Sha
   every rule in the list is yours
 - Triggers to build them from: unlock, screen on/off, charger plugged/unplugged, NFC tag
   or contactless payment, a VPN coming up, a shake, low battery
-- Any of the ten built-in animations, or your own Lua script
+- Any of the built-in animations, including Battery Level, or your own Lua script
 - Per-rule knobs where a trigger has them: the battery level that triggers a low-battery
   rule, the jolt that triggers a shake rule
 - A ▶ on every rule plays it once, through the very call the host makes when it fires
