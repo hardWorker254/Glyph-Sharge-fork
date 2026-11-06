@@ -14,4 +14,5 @@ object Routes {
     const val FONT_SETTINGS = "font_settings"
     const val LANGUAGE_SETTINGS = "language_settings"
     const val SCRIPT_PERMISSIONS = "script_permissions"
+    const val REFERENCE = "reference"
 }

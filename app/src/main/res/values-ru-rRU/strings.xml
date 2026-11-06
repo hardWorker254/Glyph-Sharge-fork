@@ -105,6 +105,20 @@
   <string name="studio_reference_title">Справочник по glyph API</string>
   <string name="studio_reference_modules_title">require — шесть модулей</string>
   <string name="studio_reference_example_title">Скрипт, отвечающий на время суток</string>
+
+  <!-- Settings → Reference -->
+  <string name="settings_card_reference">Справочник</string>
+  <string name="settings_card_reference_subtitle">Как написать сервис и анимацию</string>
+  <string name="reference_service_title">Создание сервиса</string>
+  <string name="reference_service_intro">Скрипт-сервис (.servicelua) отвечает за КОГДА: работает в фоне, подписывается на триггеры и запускает анимацию, выбранную для правила. Рисовать на полосе он не может — API рисования в него не входит.</string>
+  <string name="reference_service_where">Пишется в конструкторе правил: откройте правило и переключитесь на расширенный режим. При сохранении приложение покажет, к чему обращается скрипт, и спросит разрешение на каждое из требуемых; код хранится вместе с правилом в файле .servicelua.</string>
+  <string name="reference_service_api">Сервису доступны glyph.on(триггер, fn), glyph.playAnimation([мс]), glyph.log(текст), print(текст), glyph.device и glyph.elapsed(). С разрешением на состояние устройства он также читает glyph.battery и glyph.charging.</string>
+  <string name="reference_service_triggers">Триггеры, на которые можно подписаться</string>
+  <string name="reference_service_sandbox">Песочница — это и есть главная идея: без require, без доступа к файлам и без возможности дотянуться до полосы. Обработчик, крутящийся вечно, останавливает тот же сторож, что и любой другой скрипт.</string>
+  <string name="reference_starter_title">Стартовый скрипт</string>
+  <string name="reference_animation_title">Создание анимации</string>
+  <string name="reference_animation_intro">Скрипт-анимация (.glyphlua) — это весь файл: обычный Lua, который рисует на полосе и останавливается, когда код заканчивается. Он проигрывается один раз при каждом срабатывании и не может быть длиннее собственного кода.</string>
+  <string name="reference_animation_where">Пишется в разделе «Свои анимации» кнопкой «Создать» или импортируется из файла .glyphlua. После сохранения она появляется рядом со встроенными в списке анимаций каждого правила.</string>
   <string name="studio_msg_new_script">Новый скрипт. Нажмите «Проверить», затем «Глиф».</string>
   <string name="studio_msg_syntax_ok">Всё в порядке — ошибок синтаксиса нет.</string>
   <string name="studio_msg_syntax_error">Ошибка синтаксиса: %1$s</string>

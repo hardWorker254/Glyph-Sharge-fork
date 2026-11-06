@@ -72,6 +72,7 @@ fun SettingsScreen(
     onFontSettingsClick: () -> Unit = {},
     onLanguageSettingsClick: () -> Unit = {},
     onScriptPermissionsClick: () -> Unit = {},
+    onReferenceClick: () -> Unit = {},
 ) {
     val fontState = LocalFontState.current
     val themeState = LocalThemeState.current
@@ -140,6 +141,12 @@ fun SettingsScreen(
         item {
             ScriptPermissionsCard(
                 onNavigate = onScriptPermissionsClick,
+            )
+        }
+
+        item {
+            ReferenceCard(
+                onNavigate = onReferenceClick,
             )
         }
 
@@ -286,6 +293,31 @@ private fun ScriptPermissionsCard(
     DraggableSettingsCard(
         title = stringResource(id = R.string.settings_card_script_permissions),
         subtitle = stringResource(id = R.string.settings_card_script_permissions_subtitle),
+        onNavigate = onNavigate,
+        onClick = onNavigate,
+        trailing = {
+            SettingsTrailingIcon()
+        },
+    )
+}
+
+/**
+ * The docs, where a user goes looking for them rather than where they happen
+ * to be written.
+ *
+ * Two documents — how to write a `.servicelua`, how to write a `.glyphlua` —
+ * on one screen, because the question they answer ("what do I actually type?")
+ * is the same question asked about two files. The `glyph` cheat sheet moved
+ * here out of the studio editor: folded under the code it documents, it was a
+ * reference a first-time author never opened.
+ */
+@Composable
+private fun ReferenceCard(
+    onNavigate: () -> Unit,
+) {
+    DraggableSettingsCard(
+        title = stringResource(id = R.string.settings_card_reference),
+        subtitle = stringResource(id = R.string.settings_card_reference_subtitle),
         onNavigate = onNavigate,
         onClick = onNavigate,
         trailing = {

@@ -108,6 +108,20 @@
   <string name="studio_reference_modules_title">require — the six modules</string>
   <string name="studio_reference_example_title">A script that answers the time of day</string>
 
+  <!-- Settings → Reference -->
+  <string name="settings_card_reference">Reference</string>
+  <string name="settings_card_reference_subtitle">How to write a service and an animation</string>
+  <string name="reference_service_title">Creating a service</string>
+  <string name="reference_service_intro">A service script (.servicelua) answers WHEN: it runs in the background, subscribes to triggers, and fires the animation you picked for the rule. It cannot draw on the strip — the drawing API is not installed in it.</string>
+  <string name="reference_service_where">Write one in the rule constructor: open a rule and switch to Advanced. On save the app lists what the script reaches for and asks once per capability, and the code is stored with the rule as a .servicelua file.</string>
+  <string name="reference_service_api">A service can call glyph.on(trigger, fn), glyph.playAnimation([durationMs]), glyph.log(text), print(text), glyph.device and glyph.elapsed(). With the device-state permission it also reads glyph.battery and glyph.charging.</string>
+  <string name="reference_service_triggers">Triggers a handler can subscribe to</string>
+  <string name="reference_service_sandbox">The sandbox is the point: no require, no file access, no way to reach the strip. A handler that loops forever is stopped by the same watchdog every script gets.</string>
+  <string name="reference_starter_title">Starter script</string>
+  <string name="reference_animation_title">Creating an animation</string>
+  <string name="reference_animation_intro">An animation script (.glyphlua) is the whole file: plain Lua that draws on the strip and stops when the code runs out. It plays once per firing, and it cannot be longer than its own code.</string>
+  <string name="reference_animation_where">Write one in Custom Animations with the New button, or import a .glyphlua file. Once saved it appears next to the built-in ones in the animation list of every rule.</string>
+
   <!-- Studio: console, toasts and defaults -->
   <string name="studio_msg_new_script">New script. Press Check, then Glyph.</string>
   <string name="studio_msg_syntax_ok">Looks good — no syntax errors.</string>

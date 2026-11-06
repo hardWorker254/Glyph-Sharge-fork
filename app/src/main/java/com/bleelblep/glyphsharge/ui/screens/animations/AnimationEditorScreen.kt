@@ -1,9 +1,6 @@
 package com.bleelblep.glyphsharge.ui.screens.animations
 
-import android.util.Log
-import androidx.annotation.ArrayRes
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,8 +21,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Stop
@@ -43,23 +38,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.glyph.script.LogLevel
 import com.bleelblep.glyphsharge.glyph.script.ScriptTarget
@@ -256,8 +242,6 @@ fun AnimationEditorScreen(
                     // pushed the reference off the bottom in the first place.
                     .heightIn(min = 200.dp, max = 420.dp),
             )
-
-            ApiReference()
         }
     }
 }
@@ -293,142 +277,6 @@ private fun ConsoleLine.color(): Color = when (level) {
     LogLevel.ERROR -> MaterialTheme.colorScheme.error
 }
 
-/**
- * The `glyph` API, on screen.
- *
- * Worth more than a help page here: a script is a handful of lines, and the
- * only thing a first-time author needs is the list of calls and what they do.
- * The `require` modules are in the same card for the same reason — an author
- * who cannot find the module list has no way to discover that one exists.
- */
-@Composable
-private fun ApiReference(modifier: Modifier = Modifier) {
-    var expanded by remember { mutableStateOf(value = false) }
-    val cardColor = themeCardContainerColor()
-
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = cardColor),
-        onClick = { expanded = !expanded },
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = stringResource(R.string.studio_reference_title),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
-                Icon(
-                    imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
-                    contentDescription = null,
-                )
-            }
-
-            AnimatedVisibility(visible = expanded) {
-                Column(
-                    modifier = Modifier.padding(top = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    ReferenceRows(
-                        R.array.studio_api_calls,
-                        R.array.studio_api_descriptions,
-                    )
-                    Text(
-                        text = stringResource(R.string.studio_reference_modules_title),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                    ReferenceRows(
-                        R.array.studio_module_calls,
-                        R.array.studio_module_descriptions,
-                    )
-                    Text(
-                        text = stringResource(R.string.studio_reference_modules_note),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                    Text(
-                        text = stringResource(R.string.studio_reference_example_title),
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                    Text(
-                        text = MODULE_REFERENCE_EXAMPLE,
-                        style = TextStyle(
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 12.sp,
-                            lineHeight = 17.sp,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        ),
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * One line of the reference: the call on the left, what it does on the right.
- *
- * Extracted because the cheat sheet now has two sections and a reader must
- * not be able to tell them apart by accident.
- */
-@Composable
-private fun ReferenceRows(
-    @ArrayRes callsId: Int,
-    @ArrayRes descriptionsId: Int,
-) {
-    val calls = stringArrayResource(callsId)
-    val descriptions = stringArrayResource(descriptionsId)
-
-    // The two arrays are index-aligned, which means a row added to one and not
-    // the other would silently pair a call with the wrong description — and a
-    // *missing* translation row would shift every description below it by one.
-    // Truncating to the shorter pair fails as one absent row rather than as a
-    // screen where every explanation belongs to the call above it.
-    val rows = minOf(calls.size, descriptions.size)
-    if ((rows != calls.size) || (rows != descriptions.size)) {
-        Log.w(
-            "AnimationEditor",
-            "Reference arrays disagree: $rows of ${calls.size}/${descriptions.size}",
-        )
-    }
-
-    for (index in 0 until rows) {
-        val call: String = calls[index]
-        val description: String = descriptions[index]
-        ReferenceRow(call to description)
-    }
-}
-
-@Composable
-private fun ReferenceRow(entry: Pair<String, String>) {
-    Row {
-        Text(
-            text = entry.first,
-            style = TextStyle(
-                fontFamily = FontFamily.Monospace,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.primary,
-            ),
-            modifier = Modifier.width(170.dp),
-        )
-        Text(
-            text = entry.second,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
 /** A [RowScope] extension so the action buttons share the width evenly. */
 @Composable
 private fun RowScope.StudioButton(
@@ -455,40 +303,3 @@ private fun RowScope.StudioButton(
 
 /** How many console lines stay on screen. */
 private const val CONSOLE_VISIBLE_LINES = 4
-
-/**
- * The worked example, because six module names and a warning do not tell a
- * reader what `require` is *for*.
- *
- * The three-step day/night dimming is the shape most people reach a script
- * for: the feature woke it, and the script decides how loudly to answer. It
- * needs no new service and no permission — the same source runs unchanged on
- * every feature that can host a script, which is the point a list of module
- * names cannot make on its own.
- *
- * **Not a resource, on purpose.** This is code, not prose: it is meant to be
- * copied out of the app and pasted into the editor, and a translation inside it
- * would travel with that paste. An example whose comments changed language
- * halfway through would also be a second thing to keep in step — so it stays in
- * one place, in one language, byte-for-byte the same on every device. The
- * prose around it is translated; the code is not.
- *
- * Kept out of the module rows deliberately: those are one line per module in a
- * two-column layout, and this needs the lines it actually takes.
- */
-private val MODULE_REFERENCE_EXAMPLE = """
-        local time = require("glyph.time")
-
-        -- 22:00–06:00 the strip stays dark, 12:00–22:00 it dims,
-        -- 06:00–12:00 it runs at full brightness.
-        local level = time.DAY
-        if time.hour >= 12 then level = time.DUSK end
-        if time.isNight then level = time.NIGHT end
-
-        if level == 0 then
-          glyph.off()
-          return
-        end
-
-        glyph.setAll(level)
-    """.trimIndent()

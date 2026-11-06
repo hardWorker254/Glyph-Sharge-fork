@@ -9,6 +9,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.bleelblep.glyphsharge.ui.screens.FontSettingsScreen
 import com.bleelblep.glyphsharge.ui.screens.LanguageSettingsScreen
+import com.bleelblep.glyphsharge.ui.screens.ReferenceScreen
 import com.bleelblep.glyphsharge.ui.screens.ScriptPermissionsScreen
 import com.bleelblep.glyphsharge.ui.screens.SettingsScreen
 import com.bleelblep.glyphsharge.ui.screens.ThemeSettingsScreen
@@ -59,14 +60,15 @@ fun GlyphNavHost(
         }
 
         composable(Routes.SETTINGS) {
-            // All four named — no trailing lambda: it would bind to the *last*
-            // parameter (`onScriptPermissionsClick`), not the language one.
+            // Every destination named — no trailing lambda: it would bind to
+            // the *last* parameter (`onReferenceClick`), not the language one.
             SettingsScreen(
                 onBackClick = { navController.popBackStack() },
                 onThemeSettingsClick = { navController.navigate(Routes.THEME_SETTINGS) },
                 onFontSettingsClick = { navController.navigate(Routes.FONT_SETTINGS) },
                 onLanguageSettingsClick = { navController.navigate(Routes.LANGUAGE_SETTINGS) },
                 onScriptPermissionsClick = { navController.navigate(Routes.SCRIPT_PERMISSIONS) },
+                onReferenceClick = { navController.navigate(Routes.REFERENCE) },
             )
         }
 
@@ -77,6 +79,10 @@ fun GlyphNavHost(
                 onBackClick = { navController.popBackStack() },
                 viewModel = homeViewModel,
             )
+        }
+
+        composable(Routes.REFERENCE) {
+            ReferenceScreen(onBackClick = { navController.popBackStack() })
         }
 
         composable(Routes.THEME_SETTINGS) {
