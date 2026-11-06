@@ -196,6 +196,8 @@
     <item>Ложь, когда анимация остановлена</item>
     <item>Прошедшие миллисекунды и нарисованные кадры</item>
     <item>Старое имя для elapsed(); один WARN, потом тишина</item>
+    <item>Настенные часы, перечитываемые при каждом обращении</item>
+    <item>Уровни яркости: полный, приглушённый, выключен</item>
     <item>Случайность — зафиксируйте через seed(n)</item>
     <item>Один и тот же узор каждый запуск</item>
     <item>linear, in, out, inout, bounce, wave, pulse</item>
@@ -210,7 +212,7 @@
 
   <string-array name="studio_module_descriptions">
     <item>Как читается вызов require: привяжите к локальной переменной</item>
-    <item>Настенные часы, живые: час, минута, minuteOfDay, isNight</item>
+    <item>Настенные часы — они же плоско на glyph: час, минута, minuteOfDay, isNight</item>
     <item>Заряд, живой: проценты, зарядка, level() сегментов</item>
     <item>Сеть, живая: connected, wifi, metered, vpn</item>
     <item>Движение, живое: x, y, z, magnitude, shaken</item>

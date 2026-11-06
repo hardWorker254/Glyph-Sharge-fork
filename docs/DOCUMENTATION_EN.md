@@ -1903,6 +1903,14 @@ brackets is optional; "channels" means `{ 1, 2, 3 }`, a single number `3`, or a 
 > alias, because these scripts are saved to the user's storage and nothing is going to
 > re-save them; the first call in a run writes one WARN line to the console and no more.
 
+> [!NOTE]
+> **The wall clock needs no `require`.** `glyph.hour`, `glyph.minute`,
+> `glyph.minuteOfDay`, `glyph.isNight` and the constants `glyph.DAY` / `glyph.DUSK` /
+> `glyph.NIGHT` read straight off `glyph`, re-read on every access rather than snapshotted
+> at load. `require("glyph.time")` still resolves to the same values for the scripts that
+> already use it — and a service, where `require` is banned outright, can only reach the
+> clock this way.
+
 #### Randomness and maths
 
 | Call | Meaning |
@@ -2005,19 +2013,21 @@ either names a module this build ships, or the script gets an error that says wh
 it could have used.
 
 ```lua
-local time = require("glyph.time")   -- bind it to a local; that is the whole idiom
+local util = require("glyph.util")   -- bind it to a local; that is the whole idiom
 ```
 
 | `require` name | What it gives |
 |----------------|---------------|
-| `glyph.time` | The wall clock: `hour`, `minute`, `minuteOfDay`, `isNight`, and the constants `DAY` / `DUSK` / `NIGHT` |
+| `glyph.time` | The wall clock: `hour`, `minute`, `minuteOfDay`, `isNight`, and the constants `DAY` / `DUSK` / `NIGHT` — also flat on `glyph`, with no `require` |
 | `glyph.battery` | Charge: `percent`, `charging`, and `level()` / `bar(ms)` |
 | `glyph.net` | Network: `connected`, `wifi`, `metered`, `vpn` |
 | `glyph.sensor` | Movement: `x`, `y`, `z`, `magnitude`, `shaken` |
 | `glyph.log` | The console, with severities: `info`, `warn`, `error` |
 | `glyph.util` | Pure arithmetic: `clamp`, `lerp`, `mapRange`, `shuffle` |
 
-Each in full:
+Each in full. Every `glyph.time` row below also reads straight off `glyph` — `glyph.hour`
+instead of `time.hour` — so the clock is the one module in this list a script never has to
+ask for:
 
 | Module | Read | Kind | Meaning |
 |--------|------|------|---------|
@@ -2087,16 +2097,14 @@ script said it was night", and no new permission:
 | the other four | Nothing to declare — the data is already in the process |
 
 **A script that answers the time of day** — the shape most people reach a script for, and
-the one the editor's second cheat-sheet card shows:
+the one the reference's worked example shows:
 
 ```lua
-local time = require("glyph.time")
-
 -- 22:00–06:00 the strip stays dark, 12:00–22:00 it dims,
 -- 06:00–12:00 it runs at full brightness.
-local level = time.DAY
-if time.hour >= 12 then level = time.DUSK end
-if time.isNight then level = time.NIGHT end
+local level = glyph.DAY
+if glyph.hour >= 12 then level = glyph.DUSK end
+if glyph.isNight then level = glyph.NIGHT end
 
 if level == 0 then
   glyph.off()

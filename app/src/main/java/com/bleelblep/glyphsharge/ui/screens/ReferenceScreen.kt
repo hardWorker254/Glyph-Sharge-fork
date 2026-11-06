@@ -241,14 +241,14 @@ private fun ReferenceRow(entry: Pair<String, String>) {
 }
 
 /**
- * The worked example, because six module names and a warning do not tell a
- * reader what `require` is *for*.
+ * The worked example, because a list of names does not tell a reader what a
+ * script is *for*.
  *
  * The three-step day/night dimming is the shape most people reach a script
  * for: the feature woke it, and the script decides how loudly to answer. It
- * needs no new service and no permission — the same source runs unchanged on
- * every feature that can host a script, which is the point a list of module
- * names cannot make on its own.
+ * needs no permission and no `require` — the clock is read off `glyph` like
+ * every other value here, which is the point a list of names cannot make on
+ * its own.
  *
  * **Not a resource, on purpose.** This is code, not prose: it is meant to be
  * copied out of the app and pasted into the editor, and a translation inside it
@@ -261,13 +261,11 @@ private fun ReferenceRow(entry: Pair<String, String>) {
  * two-column layout, and this needs the lines it actually takes.
  */
 private val MODULE_REFERENCE_EXAMPLE = """
-        local time = require("glyph.time")
-
         -- 22:00–06:00 the strip stays dark, 12:00–22:00 it dims,
         -- 06:00–12:00 it runs at full brightness.
-        local level = time.DAY
-        if time.hour >= 12 then level = time.DUSK end
-        if time.isNight then level = time.NIGHT end
+        local level = glyph.DAY
+        if glyph.hour >= 12 then level = glyph.DUSK end
+        if glyph.isNight then level = glyph.NIGHT end
 
         if level == 0 then
           glyph.off()

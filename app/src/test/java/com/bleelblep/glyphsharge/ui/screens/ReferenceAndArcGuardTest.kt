@@ -103,6 +103,29 @@ class ReferenceAndArcGuardTest {
         )
     }
 
+    /**
+     * The worked example reads the clock off `glyph`, with no `require`.
+     *
+     * A `require` left here would teach a step the script does not need, and a
+     * service — where `require` is banned outright — could not run a line of
+     * it. The clock went flat for exactly that reason, so the example is the
+     * one place the change is visible to a reader.
+     */
+    @Test
+    fun `the worked example needs no require`() {
+        val source = codeOf("ReferenceScreen.kt")
+        val delimiter = "MODULE_REFERENCE_EXAMPLE = \"\"\""
+        assertTrue("the worked example is not where the test thinks", delimiter in source)
+
+        val example = source.substringAfter(delimiter).substringBefore("\"\"\"")
+
+        assertFalse("the example should not ask for a module", "require(" in example)
+        assertTrue(
+            "the example should read the clock off glyph",
+            ("glyph.hour" in example) && ("glyph.isNight" in example),
+        )
+    }
+
     @Test
     fun `a rule row says which arc it lights`() {
         // Two battery rules that differ only in strip would otherwise read

@@ -288,6 +288,33 @@ end)""",
     }
 
     /**
+     * The wall clock — the read a service could not make at all.
+     *
+     * `require` is on the banned globals list, so before the clock went flat
+     * on `glyph` a service had no road to the hour: the module existed and was
+     * unreachable from here. It takes no grant either, and the `granted = { false }`
+     * below is what pins that — with `battery` and `charging` already reading
+     * nil a few lines above, the clock still answers.
+     */
+    @Test
+    fun `the wall clock reads off glyph with no require and no grant`() {
+        val e = engine(granted = { false })
+
+        val result = e.load(
+            """
+            assert(glyph.hour >= 0 and glyph.hour <= 23, "hour")
+            assert(glyph.isNight == true or glyph.isNight == false, "isNight")
+            assert(glyph.NIGHT == 0, "NIGHT is off")
+            assert(glyph.DUSK > glyph.NIGHT and glyph.DUSK < glyph.DAY, "DUSK is in between")
+            glyph.on("screen_off", function() end)
+            """.trimIndent(),
+        )
+
+        assertTrue(result.message, result.isSuccess)
+        e.stop()
+    }
+
+    /**
      * The deny-by-default half of the capability contract.
      *
      * Without the grant the state reads are not *blocked*, they are absent —

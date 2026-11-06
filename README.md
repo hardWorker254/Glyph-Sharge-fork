@@ -60,9 +60,10 @@ Whether you're checking charge levels or activating security features, Glyph Sha
   up to Phone (3a)'s 20
 - Your own visuals in Lua — `glyph.target = "music"` makes a studio script show
   up only in the visualiser, and `glyph.audio.bass` / `bands()` feed it the spectrum
-- `require("glyph.time")`, `glyph.battery`, `glyph.net`, `glyph.sensor`, `glyph.log` and
-  `glyph.util` — a closed, sandboxed set of six modules, every field **live** rather than
-  a snapshot, and **no new service or permission** to use them
+- `glyph.hour` / `glyph.isNight` on `glyph` itself — the wall clock needs no `require` —
+  and `glyph.battery`, `glyph.net`, `glyph.sensor`, `glyph.log` and `glyph.util` through a
+  closed, sandboxed `require` of six names, every field **live** rather than a snapshot,
+  and **no new service or permission** to use them
 - Yields the Glyph to charging, lock and low-battery features instead of holding it
 - Custom font support with official Nothing fonts (NType Headline, NDot 57 Caps)
 - Scalable text sizes for accessibility

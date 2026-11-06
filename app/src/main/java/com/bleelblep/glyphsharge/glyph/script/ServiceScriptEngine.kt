@@ -2,6 +2,7 @@ package com.bleelblep.glyphsharge.glyph.script
 
 import android.util.Log
 import com.bleelblep.glyphsharge.glyph.device.DeviceProfile
+import com.bleelblep.glyphsharge.glyph.script.module.GlyphTimeModule
 import com.bleelblep.glyphsharge.triggers.TriggerEvent
 import com.bleelblep.glyphsharge.triggers.TriggerType
 import org.luaj.vm2.Globals
@@ -58,6 +59,13 @@ data class ServiceLoadResult(
  * | `glyph.log(msg)`, `print` | output |
  * | `glyph.device`, `glyph.elapsed()` | orientation |
  * | `glyph.battery`, `glyph.charging` | read-only, live via `__index`; **[ScriptCapability.DEVICE_STATE]** |
+ * | `glyph.hour`, `glyph.isNight`, `glyph.DAY` | the wall clock, read-only and live |
+ *
+ * The clock is the one piece of read-only context a service gets for free:
+ * it needs no capability, because `require` needed none either — and unlike
+ * `require`, a flat field is available here at all, since `require` is banned
+ * in this sandbox. A service that wanted the hour used to have no way to ask
+ * for it.
  *
  * Everything the animation API can *do to the strip* — `set`, `hold`, `sweep`,
  * `ch`, `group`, `audio`, sensor and net modules — is absent. The sandbox
@@ -335,19 +343,32 @@ class ServiceScriptEngine(
             LuaValue.NIL
         }
 
+        // The three levels of the day, same values an animation gets. Plain
+        // fields: they do not move, so nothing here has to consult the clock.
+        GlyphTimeModule.constants().forEach { (key, value) ->
+            glyph[key] = LuaValue.valueOf(value)
+        }
+
         // `battery` and `charging` are live, so they resolve through __index
         // rather than being frozen at load — and only when the user granted
         // DEVICE_STATE for this script: the branches are decided here, at
         // table-build time, so an ungranted key reads as nil with no check in
-        // the hot path to bypass. A key this does not know — `set`, `hold`,
-        // anything — falls through to nil, which is the whole point.
+        // the hot path to bypass.
+        //
+        // The wall clock shares this path because it moves too, but takes no
+        // grant: an hour is not the state the capability exists to guard, and
+        // `require("glyph.time")` never asked for one either. A key this does
+        // not know — `set`, `hold`, anything — falls through to nil, which is
+        // the whole point.
         val canReadState = granted(ScriptCapability.DEVICE_STATE)
+        val clock = GlyphTimeModule.liveFields(current)
         val metatable = LuaTable()
         metatable[LuaValue.INDEX] = GlyphLuaApi.luaFunction("__index") { args ->
-            when (args.getOrNull(1)?.tojstring()) {
+            val key = args.getOrNull(1)?.tojstring() ?: ""
+            when (key) {
                 "battery" -> if (canReadState) LuaValue.valueOf(current.batteryPercent()) else LuaValue.NIL
                 "charging" -> if (canReadState) LuaValue.valueOf(current.isCharging()) else LuaValue.NIL
-                else -> LuaValue.NIL
+                else -> clock[key]?.invoke() ?: LuaValue.NIL
             }
         }
         glyph.setmetatable(metatable)

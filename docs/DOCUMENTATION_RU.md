@@ -1888,6 +1888,14 @@ reference`: сначала вызовы таблицы `glyph`, а под ним
 > работать как алиас: эти скрипты лежат в хранилище пользователя, и пересохранивать их
 > никто не станет. Первый вызов за прогон пишет в консоль одну строку WARN, и всё.
 
+> [!NOTE]
+> **Стенные часы не нуждаются в `require`.** `glyph.hour`, `glyph.minute`,
+> `glyph.minuteOfDay`, `glyph.isNight` и константы `glyph.DAY` / `glyph.DUSK` /
+> `glyph.NIGHT` читаются прямо с `glyph` и перечитываются при каждом обращении, а не
+> запоминаются при загрузке. `require("glyph.time")` по-прежнему возвращает те же значения
+> для скриптов, которые его используют, — а сервис, где `require` запрещён целиком, может
+> добраться до часов только этим путём.
+
 #### Случайность и математика
 
 | Вызов | Значение |
@@ -1991,19 +1999,21 @@ end
 скрипт получает ошибку, перечисляющую те, которые он мог бы использовать.
 
 ```lua
-local time = require("glyph.time")   -- связать с local — вот и весь приём
+local util = require("glyph.util")   -- связать с local — вот и весь приём
 ```
 
 | Имя в `require` | Что даёт |
 |-----------------|----------|
-| `glyph.time` | Стенные часы: `hour`, `minute`, `minuteOfDay`, `isNight` и константы `DAY` / `DUSK` / `NIGHT` |
+| `glyph.time` | Стенные часы: `hour`, `minute`, `minuteOfDay`, `isNight` и константы `DAY` / `DUSK` / `NIGHT` — они же плоско на `glyph`, без `require` |
 | `glyph.battery` | Заряд: `percent`, `charging`, а также `level()` / `bar(ms)` |
 | `glyph.net` | Сеть: `connected`, `wifi`, `metered`, `vpn` |
 | `glyph.sensor` | Движение: `x`, `y`, `z`, `magnitude`, `shaken` |
 | `glyph.log` | Консоль с серьёзностями: `info`, `warn`, `error` |
 | `glyph.util` | Чистая арифметика: `clamp`, `lerp`, `mapRange`, `shuffle` |
 
-Каждый целиком:
+Каждый целиком. Строки `glyph.time` ниже читаются и прямо с `glyph` — `glyph.hour` вместо
+`time.hour`, — так что часы единственный модуль из этого списка, который скрипту не нужно
+просить:
 
 | Модуль | Чтение | Род | Значение |
 |--------|--------|-----|----------|
@@ -2074,16 +2084,14 @@ VPN, выключение экрана, низкий заряд, встряск�
 | остальные четыре | Объявлять нечего — данные уже в процессе |
 
 **Скрипт, отвечающий на время суток** — та форма, к которой тянутся чаще всего, и та,
-что показана на второй карточке памятки в редакторе:
+что показана в справочнике:
 
 ```lua
-local time = require("glyph.time")
-
 -- 22:00–06:00 полоса тёмная, 12:00–22:00 приглушена,
 -- 06:00–12:00 идёт на полной яркости.
-local level = time.DAY
-if time.hour >= 12 then level = time.DUSK end
-if time.isNight then level = time.NIGHT end
+local level = glyph.DAY
+if glyph.hour >= 12 then level = glyph.DUSK end
+if glyph.isNight then level = glyph.NIGHT end
 
 if level == 0 then
   glyph.off()

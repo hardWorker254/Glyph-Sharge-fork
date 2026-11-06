@@ -289,6 +289,8 @@
     <item>glyph.running</item>
     <item>glyph.elapsed() / glyph.frame()</item>
     <item>glyph.time()</item>
+    <item>glyph.hour / .minute / .minuteOfDay / .isNight</item>
+    <item>glyph.DAY / .DUSK / .NIGHT</item>
     <item>glyph.rnd(a, b) / .rndFloat()</item>
     <item>glyph.seed(n)</item>
     <item>glyph.ease(t, kind)</item>
@@ -323,6 +325,8 @@
     <item>False once the animation is stopped</item>
     <item>Milliseconds elapsed, frames drawn</item>
     <item>Old name for elapsed(); one WARN, then silent</item>
+    <item>The wall clock, re-read on every access</item>
+    <item>Brightness levels: full, dim, off</item>
     <item>Randomness — fix it with seed(n)</item>
     <item>Same pattern every run</item>
     <item>linear, in, out, inout, bounce, wave, pulse</item>
@@ -336,7 +340,7 @@
   </string-array>
 
   <string-array name="studio_module_calls">
-    <item>local time = require(\"glyph.time\")</item>
+    <item>local util = require(\"glyph.util\")</item>
     <item>glyph.time</item>
     <item>glyph.battery</item>
     <item>glyph.net</item>
@@ -347,7 +351,7 @@
 
   <string-array name="studio_module_descriptions">
     <item>How a require call reads: bind it to a local</item>
-    <item>The wall clock, live: hour, minute, minuteOfDay, isNight</item>
+    <item>The wall clock — also flat on glyph: hour, minute, minuteOfDay, isNight</item>
     <item>Charge, live: percent, charging, level() segments</item>
     <item>Network, live: connected, wifi, metered, vpn</item>
     <item>Movement, live: x, y, z, magnitude, shaken</item>

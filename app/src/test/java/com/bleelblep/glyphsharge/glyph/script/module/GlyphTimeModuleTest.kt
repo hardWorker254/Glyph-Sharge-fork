@@ -8,7 +8,12 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 /**
- * Tests for `require("glyph.time")`, against a pinned clock.
+ * The wall clock on both of its roads, against a pinned clock.
+ *
+ * `glyph.hour` reads flat off `glyph` with no `require`; `require("glyph.time")`
+ * is the road scripts written before that took. Both have to answer the same,
+ * because the reference's worked example reads the first way and a service —
+ * which cannot `require` anything at all — has no other way to ask.
  *
  * Every field is live, so the only question these can answer honestly is what
  * a script sees at a chosen instant. The clock is therefore injected — a test
@@ -87,6 +92,61 @@ class GlyphTimeModuleTest {
             local time = require("glyph.time")
             local first = time.minute
             local second = time.minute
+            assert(first ~= second, "each read must consult the clock again")
+            """.trimIndent(),
+        )
+
+        assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
+    }
+
+    /**
+     * The flat road: every field off `glyph`, with no `require` in front of it.
+     *
+     * This is what a new script is meant to write, so it is the one that has to
+     * be right — a `require` left in the reference would teach a step the
+     * example no longer needs, and a service has no `require` to teach at all.
+     */
+    @Test
+    fun `the clock reads off glyph without a require`() {
+        val result = engineAt(hour = 13, minute = 45).run(
+            """
+            assert(glyph.hour == 13, "hour")
+            assert(glyph.minute == 45, "minute")
+            assert(glyph.minuteOfDay == 825, "13:45")
+            assert(glyph.isNight == false, "13:45 is not night")
+            assert(glyph.DAY == glyph.MAX, "DAY is full brightness")
+            assert(glyph.NIGHT == 0, "NIGHT is off")
+            assert(glyph.DUSK > glyph.NIGHT and glyph.DUSK < glyph.DAY, "DUSK is in between")
+            """.trimIndent(),
+        )
+
+        assertEquals(result.message, ScriptStatus.COMPLETED, result.status)
+    }
+
+    /**
+     * Flat reads are live too.
+     *
+     * Same reason as the module's own version of this test: a snapshot would
+     * hand out one hour for the whole run, and the flat surface is now the one
+     * the reference demonstrates — a frozen copy here would ship as a day/night
+     * script that never notices the night arrive.
+     */
+    @Test
+    fun `the flat clock is read again on every access`() {
+        var reads = 0
+        val engine = LuaScriptEngine(
+            profile = testProfile(),
+            host = FakeHost(),
+            wallClock = {
+                reads++
+                ZonedDateTime.of(2024, 1, 15, 13, reads, 0, 0, ZoneId.systemDefault())
+            },
+        )
+
+        val result = engine.run(
+            """
+            local first = glyph.minute
+            local second = glyph.minute
             assert(first ~= second, "each read must consult the clock again")
             """.trimIndent(),
         )

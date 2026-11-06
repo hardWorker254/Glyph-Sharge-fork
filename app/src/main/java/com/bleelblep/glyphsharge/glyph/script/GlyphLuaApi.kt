@@ -1,6 +1,7 @@
 package com.bleelblep.glyphsharge.glyph.script
 
 import com.bleelblep.glyphsharge.glyph.engine.GLYPH_MAX_BRIGHTNESS
+import com.bleelblep.glyphsharge.glyph.script.module.GlyphTimeModule
 import org.luaj.vm2.Globals
 import org.luaj.vm2.LuaTable
 import org.luaj.vm2.LuaValue
@@ -49,6 +50,14 @@ internal object GlyphLuaApi {
         glyph["MAX"] = LuaValue.valueOf(GLYPH_MAX_BRIGHTNESS)
         glyph["device"] = LuaValue.valueOf(session.deviceName())
 
+        // The three levels of the day, next to MAX: `glyph.DAY`, `glyph.DUSK`
+        // and `glyph.NIGHT`. Plain fields rather than live ones, because a
+        // level does not move — it is what the moving hour gets compared
+        // against.
+        GlyphTimeModule.constants().forEach { (key, value) ->
+            glyph[key] = LuaValue.valueOf(value)
+        }
+
         // Channel groups
         val channels = LuaTable()
         session.groupNames().forEach { name ->
@@ -72,11 +81,19 @@ internal object GlyphLuaApi {
         // function, and nothing would read `live`, so every live value would
         // resolve to nil — `glyph.running` always falsy and `glyph.batteryBar()`
         // with no battery to draw.
+        //
+        // The wall clock, flat on `glyph`: `glyph.hour`, `glyph.isNight` and
+        // the rest, with no `require` in front of them. The getters are the
+        // `glyph.time` module's own, so the two roads answer the same — and a
+        // service, where `require` is banned outright, can read the hour at
+        // all only because it is here.
+        val clock = GlyphTimeModule.liveFields(session)
+
         fun liveValueOf(key: String): LuaValue = when (key) {
             "running" -> LuaValue.valueOf(session.isRunning())
             "battery" -> LuaValue.valueOf(session.batteryPercent())
             "charging" -> LuaValue.valueOf(session.isCharging())
-            else -> LuaValue.NIL
+            else -> clock[key]?.invoke() ?: LuaValue.NIL
         }
 
         // Audio
