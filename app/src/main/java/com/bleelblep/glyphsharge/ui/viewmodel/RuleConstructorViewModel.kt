@@ -224,7 +224,7 @@ class RuleConstructorViewModel @Inject constructor(
         emit(context.getString(R.string.toast_testing_generic, rule.name))
         viewModelScope.launch {
             glyphAnimationManager.get()
-                .playAnimationById(rule.animationId, rule.durationMs)
+                .playAnimationById(rule.animationId, rule.durationMs, rule.batteryArc)
         }
     }
 
@@ -253,6 +253,9 @@ class RuleConstructorViewModel @Inject constructor(
      * [accepted] is what the prompt allowed above this save, intersected with
      * what the buffer declares now — the same intersection, taken the same
      * way, as an import.
+     * [batteryArc] is which of the Phone (3a)'s three strips carries the
+     * charge bar; it lands on the rule the same way the thresholds do, and
+     * every animation except the battery bar ignores it.
      */
     fun saveRule(
         existingId: String?,
@@ -262,6 +265,7 @@ class RuleConstructorViewModel @Inject constructor(
         durationMs: Long,
         lowBatteryThreshold: Int,
         shakeThreshold: Float = GlyphRule.DEFAULT_SHAKE_THRESHOLD,
+        batteryArc: String = GlyphRule.DEFAULT_BATTERY_ARC,
         scriptId: String? = null,
         code: String? = null,
         accepted: Set<ScriptCapability> = emptySet(),
@@ -289,6 +293,7 @@ class RuleConstructorViewModel @Inject constructor(
                     durationMs = durationMs,
                     lowBatteryThreshold = lowBatteryThreshold,
                     shakeThreshold = shakeThreshold,
+                    batteryArc = batteryArc,
                     scriptId = effectiveScriptId,
                 )
             } else {
@@ -301,6 +306,7 @@ class RuleConstructorViewModel @Inject constructor(
                     durationMs = durationMs,
                     lowBatteryThreshold = lowBatteryThreshold,
                     shakeThreshold = shakeThreshold,
+                    batteryArc = batteryArc,
                     scriptId = effectiveScriptId,
                 )
             }

@@ -284,7 +284,7 @@ class HomeViewModel @Inject constructor(
         emit(context.getString(R.string.toast_testing_generic, rule.name))
         viewModelScope.launch {
             glyphAnimationManager.get()
-                .playAnimationById(rule.animationId, rule.durationMs)
+                .playAnimationById(rule.animationId, rule.durationMs, rule.batteryArc)
         }
     }
 

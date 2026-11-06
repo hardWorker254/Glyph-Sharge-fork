@@ -42,8 +42,9 @@ class BuiltInAnimations @Inject constructor(
         batteryPercentage: Int,
         isCharging: Boolean,
         durationMs: Long,
+        arc: String,
     ) = runner.anim {
-        runBatteryAnimation(it, batteryPercentage, isCharging, durationMs)
+        runBatteryAnimation(it, batteryPercentage, isCharging, durationMs, arc)
     }
 
     suspend fun runPulseEffect(cycles: Int = 3) = runner.anim { pulseCycles(it.pulseSegments, cycles) }

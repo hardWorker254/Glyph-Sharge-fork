@@ -218,6 +218,7 @@
   <string name="rules_trigger_label">When</string>
   <string name="rules_animation_label">Play</string>
   <string name="rules_duration_label">For</string>
+  <string name="rules_arc_label">Charge display arc</string>
   <string name="rules_save">Save</string>
   <string name="rules_fail_unknown_trigger">This rule waits for a trigger the build does not know.</string>
   <string name="rules_fail_trigger_unavailable">The trigger this rule waits for is not available on this phone.</string>

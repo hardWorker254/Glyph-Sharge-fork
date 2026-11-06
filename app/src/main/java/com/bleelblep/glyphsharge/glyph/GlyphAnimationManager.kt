@@ -117,20 +117,19 @@ class GlyphAnimationManager @Inject constructor(
      * is gone for all five, their Test is this same call with the animation their
      * own rule already carries, and keeping a second way to say the same thing
      * is how the two drifts apart — a rule edited to animation A while its old
-     * `playXxx` still plays B. The locked battery indicators are the exception
-     * and keep their own entries below: they draw live state and read arcs the
-     * rule does not carry.
+     * `playXxx` still plays B.
      *
-     * [batteryArcs] is the rule's own choice of arcs, used only by the locked
-     * indicators: every other id ignores it, which is why it is a parameter here
-     * rather than something the rule's animation had to be looked up for.
+     * [batteryArc] is the rule's own choice of which of the Phone (3a)'s three
+     * strips carries the charge bar. Only [GlyphAnimationId.BATTERY] reads it;
+     * every other id ignores it, which is why it rides along here rather than
+     * being looked up from the rule's animation by each caller.
      *
      * Same guard as every entry here: a run with the master Glyph service off
      * draws nothing.
      */
-    suspend fun playAnimationById(id: String, durationMs: Long) {
+    suspend fun playAnimationById(id: String, durationMs: Long, batteryArc: String) {
         if (!isGlyphServiceEnabled()) return
-        playAnimation(id, durationMs)
+        playAnimation(id, durationMs, batteryArc)
     }
 
     // endregion
@@ -285,7 +284,7 @@ class GlyphAnimationManager @Inject constructor(
      * the fill time. The other named animations have their own natural length
      * and ignore the duration setting.
      */
-    private suspend fun playAnimation(id: String, durationMs: Long) {
+    private suspend fun playAnimation(id: String, durationMs: Long, batteryArc: String) {
         // A user script arrives before the built-in lookup: its id is namespaced
         // precisely so the two cannot collide.
         if (ScriptAnimation.isCustomId(id)) {
@@ -327,6 +326,7 @@ class GlyphAnimationManager @Inject constructor(
                     batteryPercentage = battery.percentage,
                     isCharging = battery.isCharging,
                     durationMs = durationMs,
+                    arc = batteryArc,
                 )
             }
             // PULSE, and anything unrecognised.

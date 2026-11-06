@@ -389,6 +389,7 @@
     <string name="rules_trigger_label">Когда</string>
     <string name="rules_animation_label">Что проигрывать</string>
     <string name="rules_duration_label">Длительность</string>
+    <string name="rules_arc_label">Дуга показа заряда</string>
     <string name="rules_threshold_label">Срабатывать при заряде не выше</string>
 
     <!-- Battery indicator arcs (Phone 3a): which arcs carry the charge level -->

@@ -109,6 +109,48 @@ class GlyphRuleRepositoryTest {
         assertEquals(28.0f, decoded.shakeThreshold, 0.0f)
     }
 
+    /**
+     * The arc the charge bar is drawn on, for the Phone (3a)'s three strips.
+     *
+     * Per-rule rather than a global, so two battery rules on the same phone
+     * can light different arcs — which is exactly the choice this field exists
+     * to carry, and the reason a default silently flipping (or a save dropping
+     * the field) would be a change nobody would see until the bar drew on the
+     * wrong strip.
+     */
+    @Test
+    fun `the battery arc survives a json round trip`() {
+        val tuned = rule().copy(batteryArc = "B")
+        val decoded = GlyphRule.fromJson(tuned.toJson())!!
+
+        assertEquals("B", decoded.batteryArc)
+    }
+
+    /** A rule written before the arc existed still loads, on the long strip. */
+    @Test
+    fun `a rule with no arc defaults to C`() {
+        val json = rule().toJson()
+        json.remove("batteryArc")
+
+        assertEquals(GlyphRule.DEFAULT_BATTERY_ARC, GlyphRule.fromJson(json)!!.batteryArc)
+    }
+
+    /**
+     * An arc this phone does not have falls back rather than being kept.
+     *
+     * The field arrives from JSON, and a hand-edited or foreign file can name
+     * anything. Keeping it would hand the animation a channel group that may
+     * not exist; C is the strip the bar has always filled, so it is the honest
+     * fallback and the rule stays loadable.
+     */
+    @Test
+    fun `an unknown battery arc falls back to C`() {
+        val json = rule().toJson()
+        json.put("batteryArc", "Z")
+
+        assertEquals(GlyphRule.DEFAULT_BATTERY_ARC, GlyphRule.fromJson(json)!!.batteryArc)
+    }
+
     @Test
     fun `a rule missing the shake threshold keeps the shipped default`() {
         val json = rule().toJson()

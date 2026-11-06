@@ -3,6 +3,7 @@ package com.bleelblep.glyphsharge.ui.viewmodel
 import android.content.Context
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.ServiceScriptRepository
+import com.bleelblep.glyphsharge.glyph.GlyphAnimationId
 import com.bleelblep.glyphsharge.glyph.script.ScriptAnimation
 import com.bleelblep.glyphsharge.rules.GlyphRule
 import com.bleelblep.glyphsharge.triggers.TriggerType
@@ -75,5 +76,18 @@ private fun GlyphRule.describe(
         } else {
             animationId
         }
-    return "$triggerText → $animation"
+    // The arc is appended only when it is not the default, for the same
+    // reason the thresholds print their number: two battery rules that differ
+    // only in which strip they light would otherwise read the same. Only the
+    // default is left off because on every other phone the choice does not
+    // exist — a "(C)" there would describe a control the user was never
+    // offered.
+    val arcSuffix = if ((animationId == GlyphAnimationId.BATTERY.id) &&
+        (batteryArc != GlyphRule.DEFAULT_BATTERY_ARC)
+    ) {
+        " ($batteryArc)"
+    } else {
+        ""
+    }
+    return "$triggerText → $animation$arcSuffix"
 }

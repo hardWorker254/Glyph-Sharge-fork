@@ -373,7 +373,7 @@ class RuleHostService : FeatureService() {
             ),
             wakeLock = wakeLock,
         ) {
-            glyphAnimationManager.playAnimationById(rule.animationId, durationMs)
+            glyphAnimationManager.playAnimationById(rule.animationId, durationMs, rule.batteryArc)
         }
     }
 

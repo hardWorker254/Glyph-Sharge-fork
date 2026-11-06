@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.bleelblep.glyphsharge.R
 import com.bleelblep.glyphsharge.data.GlyphServiceSettings
+import com.bleelblep.glyphsharge.glyph.device.DeviceType
 import com.bleelblep.glyphsharge.glyph.script.ScriptCapability
 import com.bleelblep.glyphsharge.glyph.script.ServiceScript
 import com.bleelblep.glyphsharge.rules.GlyphRule
@@ -148,6 +149,7 @@ fun RuleConstructorScreen(
         durationMs: Long,
         lowBatteryThreshold: Int,
         shakeThreshold: Float,
+        batteryArc: String,
         scriptId: String?,
         code: String?,
         accepted: Set<ScriptCapability>,
@@ -209,6 +211,13 @@ fun RuleConstructorScreen(
         val nearest = SHAKE_STEPS.indexOfFirst { it <= stored }.let { if (it == -1) 0 else it }
         mutableFloatStateOf(nearest.toFloat())
     }
+    // Which of the Phone (3a)'s three arcs carries the charge bar. The choice
+    // only exists on that phone, but the value rides on the rule either way:
+    // a rule saved here and played on a different model falls back to C in
+    // the animation itself, so the field never has to be conditional.
+    var batteryArc by remember(existing) {
+        mutableStateOf(existing?.batteryArc ?: GlyphRule.DEFAULT_BATTERY_ARC)
+    }
     // The rule's own script — not a choice the form offers any more, since the
     // code field is the script and the row of chips that used to sit above it
     // was a second way to say the same thing with less context. What it is
@@ -253,6 +262,7 @@ fun RuleConstructorScreen(
             (durationSeconds * 1000).toLong(),
             threshold,
             SHAKE_STEPS[shakeStep.toInt()],
+            batteryArc,
             if (scripted) ownScriptId.takeIf { it.isNotBlank() } else null,
             source,
             accepted,
@@ -289,6 +299,14 @@ fun RuleConstructorScreen(
     // duration slider is decided inside the list's content lambda. It reads the
     // animation the rule will actually save, not the picker's stale selection.
     val customAnimation = selectedAnimation.isCustom
+    // The arc choice belongs to the battery bar, so it appears when the rule
+    // will play that bar — whether the picker offered it or a charging trigger
+    // pinned it — and only on the phone that has three arcs to pick from.
+    // Read here for the same reason as `customAnimation`: the list's content
+    // lambda is not a composable scope, so a branch decided there would not
+    // recompose when the animation changes.
+    val showArcPicker = selectedAnimation.id == FIXED_CHARGING_ANIMATION_ID &&
+        DeviceType.detect() == DeviceType.PHONE3A
 
     pendingCapabilities?.let { requested ->
         CapabilityPromptDialog(
@@ -487,6 +505,40 @@ fun RuleConstructorScreen(
                                 selected = anim == selectedAnimation,
                                 onClick = { animation = anim },
                                 label = { Text(anim.displayName) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                ),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // The Phone (3a)'s three arcs, offered only when the rule will play
+        // the charge bar and only on the phone that has the choice — a C, A
+        // and B elsewhere would be a control over a one-segment strip. It
+        // sits under the animation because that is what it belongs to: the
+        // bar is the animation, and this says which strip of the three it
+        // draws on.
+        if (showArcPicker) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = stringResource(R.string.rules_arc_label),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        GlyphRule.BATTERY_ARCS.forEach { arc ->
+                            FilterChip(
+                                selected = arc == batteryArc,
+                                onClick = { batteryArc = arc },
+                                label = { Text(arc) },
                                 colors = FilterChipDefaults.filterChipColors(
                                     selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
                                     selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,

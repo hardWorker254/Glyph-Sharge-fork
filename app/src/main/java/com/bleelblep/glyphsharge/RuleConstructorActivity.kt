@@ -184,7 +184,7 @@ class RuleConstructorActivity : ComponentActivity() {
                                 existing = existing,
                                 serviceScripts = serviceScripts,
                                 grantedFor = viewModel::grantedFor,
-                                onSave = { existingId, name, triggerId, animationId, durationMs, lowBatteryThreshold, shakeThreshold, scriptId, code, accepted ->
+                                onSave = { existingId, name, triggerId, animationId, durationMs, lowBatteryThreshold, shakeThreshold, batteryArc, scriptId, code, accepted ->
                                     viewModel.saveRule(
                                         existingId,
                                         name,
@@ -193,6 +193,7 @@ class RuleConstructorActivity : ComponentActivity() {
                                         durationMs,
                                         lowBatteryThreshold,
                                         shakeThreshold,
+                                        batteryArc,
                                         scriptId,
                                         code,
                                         accepted,

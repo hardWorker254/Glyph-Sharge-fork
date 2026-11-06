@@ -41,6 +41,13 @@ import org.json.JSONObject
  *   trigger, so one rule answers a hard knock and another a barely-there tap.
  *   The default mirrors `GlyphServiceSettings.SHAKE_MEDIUM`, the sensitivity
  *   Power Peek has shipped with.
+ * @param batteryArc which of the Phone (3a)'s three Glyph arcs carries the
+ *   charge bar when this rule plays [com.bleelblep.glyphsharge.glyph.GlyphAnimationId.BATTERY]:
+ *   `C`, `A` or `B`. Per-rule for the same reason as the thresholds — one
+ *   rule can light the long C strip and another the short B arc — and the
+ *   constructor only offers the choice on a 3a/3a Pro, because those are the
+ *   phones where the choice exists. Every other model, and every rule that
+ *   never said, plays the bar on C as it always did.
  * @param preempt how the rule meets a strip somebody else is holding. `true`
  *   (the default) interrupts — a user rule fires because of something the user
  *   chose to be interrupted for; `false` skips instead, which is how the
@@ -67,6 +74,7 @@ data class GlyphRule(
     val cooldownMs: Long = 0L,
     val lowBatteryThreshold: Int = DEFAULT_LOW_BATTERY_THRESHOLD,
     val shakeThreshold: Float = DEFAULT_SHAKE_THRESHOLD,
+    val batteryArc: String = DEFAULT_BATTERY_ARC,
     val preempt: Boolean = true,
     val applyScriptCapMs: Boolean = true,
     val acquireWakeLock: Boolean = false,
@@ -85,6 +93,7 @@ data class GlyphRule(
         put(KEY_COOLDOWN, cooldownMs)
         put(KEY_LOW_BATTERY_THRESHOLD, lowBatteryThreshold)
         put(KEY_SHAKE_THRESHOLD, shakeThreshold)
+        put(KEY_BATTERY_ARC, batteryArc)
         put(KEY_PREEMPT, preempt)
         put(KEY_APPLY_SCRIPT_CAP, applyScriptCapMs)
         put(KEY_ACQUIRE_WAKE_LOCK, acquireWakeLock)
@@ -101,6 +110,7 @@ data class GlyphRule(
         private const val KEY_COOLDOWN = "cooldownMs"
         private const val KEY_LOW_BATTERY_THRESHOLD = "lowBatteryThreshold"
         private const val KEY_SHAKE_THRESHOLD = "shakeThreshold"
+        private const val KEY_BATTERY_ARC = "batteryArc"
         private const val KEY_PREEMPT = "preempt"
         private const val KEY_APPLY_SCRIPT_CAP = "applyScriptCapMs"
         private const val KEY_ACQUIRE_WAKE_LOCK = "acquireWakeLock"
@@ -128,6 +138,12 @@ data class GlyphRule(
                 cooldownMs = json.optLong(KEY_COOLDOWN, 0L),
                 lowBatteryThreshold = json.optInt(KEY_LOW_BATTERY_THRESHOLD, DEFAULT_LOW_BATTERY_THRESHOLD),
                 shakeThreshold = json.optDouble(KEY_SHAKE_THRESHOLD, DEFAULT_SHAKE_THRESHOLD.toDouble()).toFloat(),
+                batteryArc = json.optString(KEY_BATTERY_ARC, DEFAULT_BATTERY_ARC).let { arc ->
+                    // A hand-edited file can name an arc this phone does not
+                    // have; falling back to C keeps the rule loadable instead
+                    // of drawing on a channel nobody chose.
+                    if (arc in BATTERY_ARCS) arc else DEFAULT_BATTERY_ARC
+                },
                 preempt = json.optBoolean(KEY_PREEMPT, true),
                 applyScriptCapMs = json.optBoolean(KEY_APPLY_SCRIPT_CAP, true),
                 acquireWakeLock = json.optBoolean(KEY_ACQUIRE_WAKE_LOCK, false),
@@ -142,6 +158,20 @@ data class GlyphRule(
 
         /** The battery percentage a low-battery rule with no explicit one uses. */
         const val DEFAULT_LOW_BATTERY_THRESHOLD = 20
+
+        /**
+         * The three Glyph arcs a Phone (3a) can carry its charge bar on.
+         *
+         * C is the long strip the bar has always filled, A and B the two
+         * shorter ones. Named here rather than in the animation because this
+         * is the layer that persists the choice: the constructor validates
+         * against this list, and [fromJson] falls back to [DEFAULT_BATTERY_ARC]
+         * for anything else so a hand-edited rule still loads.
+         */
+        val BATTERY_ARCS = listOf("C", "A", "B")
+
+        /** The arc a rule that never says plays its charge bar on. */
+        const val DEFAULT_BATTERY_ARC = "C"
 
         /**
          * The jolt a shake rule with no explicit threshold uses, in m/s².

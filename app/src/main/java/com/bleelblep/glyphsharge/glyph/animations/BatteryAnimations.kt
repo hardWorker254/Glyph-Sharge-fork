@@ -37,18 +37,31 @@ private const val TWINKLE_PERIOD = 20
 private const val END_BLINK_SEGMENTS = 1
 
 /**
- * Fills the C strip from empty to [batteryPercentage] over [durationMs].
+ * Fills the chosen arc from empty to [batteryPercentage] over [durationMs].
  *
  * The bar fills once and then holds while the accents animate, so the gesture
  * communicates both "how much is left" and "what the phone is doing".
+ *
+ * [arc] is the rule's own pick among the Phone (3a)'s three strips — `C`, `A`
+ * or `B` — and it only means anything there: on every other model the bar
+ * stays on C, because a one-segment A on a Phone (1) is not a level anyone can
+ * read. An unrecognised name is C too, so a rule from a build that named arcs
+ * differently still draws instead of drawing nothing.
  */
 internal suspend fun GlyphRenderer.runBatteryAnimation(
     profile: DeviceProfile,
     batteryPercentage: Int,
     isCharging: Boolean,
     durationMs: Long,
+    arc: String = "C",
 ) {
-    val bar = profile.c
+    val bar = if (profile.type == DeviceType.PHONE3A) when (arc) {
+        "A" -> profile.a
+        "B" -> profile.b
+        else -> profile.c
+    } else {
+        profile.c
+    }
     if ((durationMs <= 0) || bar.isEmpty()) return
 
     val total = bar.size
