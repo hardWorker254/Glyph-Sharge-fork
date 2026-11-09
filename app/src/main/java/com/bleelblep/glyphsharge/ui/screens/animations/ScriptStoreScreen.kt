@@ -7,6 +7,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
@@ -30,6 +33,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -60,6 +64,7 @@ import com.bleelblep.glyphsharge.ui.theme.themeCardContainerColor
 import com.bleelblep.glyphsharge.ui.theme.themePrimaryActionColor
 import com.bleelblep.glyphsharge.ui.utils.HapticUtils
 import com.bleelblep.glyphsharge.ui.viewmodel.StoreFilter
+import com.bleelblep.glyphsharge.ui.viewmodel.StoreKind
 
 /**
  * The animation store: a catalogue of scripts other people wrote.
@@ -136,10 +141,20 @@ fun ScriptStoreScreen(
     val accent = themePrimaryActionColor()
 
     // Derived here rather than in the ViewModel so that `items` stays the whole
-    // catalogue: switching to "Services" and back must not have to remember
-    // what it threw away, and the ordering rule above is the part worth
-    // guarding with a test.
-    val shown = items.filter { filter.matches(it) }
+    // catalogue: changing a filter must not have to remember what it threw away.
+    // The per-item answers (supported, installed, update-available) are the same
+    // ones the rows render, so filtering here cannot disagree with what a row
+    // shows about itself.
+    val shown = items.filter { item ->
+        val isService = item.kind == StoreItemKind.SERVICE
+        val onPhone = if (isService) installedServices else installed
+        filter.matches(
+            item = item,
+            supported = isSupported(item),
+            installed = item.matchKey in onPhone,
+            updateAvailable = item.id in outdated,
+        )
+    }
 
     SettingsScaffold(
         title = stringResource(R.string.store_title),
@@ -184,16 +199,13 @@ fun ScriptStoreScreen(
                 }
             }
 
-            // The catalogue has entries but none in this half — a real answer,
-            // and one that has to say so rather than draw nothing at all.
-            shown.isEmpty() -> {
-                item { FilterEmptyState() }
-            }
-
             else -> {
                 // Controls first: a filter belongs above the list it narrows,
-                // not buried under the last row of it.
-                item { FilterChips(filter = filter, onFilterChange = onFilterChange) }
+                // and above the "nothing matches" answer too — otherwise a user
+                // who narrows to nothing has no way back without leaving.
+                item {
+                    FilterControls(filter = filter, onFilterChange = onFilterChange)
+                }
 
                 // The offline note sits above the list rather than replacing
                 // it: a cached catalogue is worth showing, and the only thing
@@ -202,33 +214,37 @@ fun ScriptStoreScreen(
                     item { OfflineNote() }
                 }
 
-                // Keyed for the same reason as the animation list: a row holds
-                // its own UI state, and an unkeyed LazyColumn preserves that by
-                // index — so a catalogue that reorders or drops an entry moves
-                // one row's state onto another.
-                items(shown, key = { it.id }) { item ->
-                    val isService = item.kind == StoreItemKind.SERVICE
-                    // Which half of the phone the name has to match against.
-                    // Two different things can carry one name, and a badge
-                    // lit off the other half would hide the install button
-                    // that would actually fix it.
-                    val onPhone = if (isService) installedServices else installed
-                    StoreItemRow(
-                        item = item,
-                        supported = isSupported(item),
-                        installed = item.matchKey in onPhone,
-                        updateAvailable = item.id in outdated,
-                        cardColor = cardColor,
-                        busy = item.id in downloading,
-                        testing = testing == item.id,
-                        anyTesting = testing != null,
-                        onInstall = {
-                            HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
-                            onInstall(item)
-                        },
-                    ) {
-                        HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
-                        onTest(item)
+                if (shown.isEmpty()) {
+                    item { FilterEmptyState() }
+                } else {
+                    // Keyed for the same reason as the animation list: a row
+                    // holds its own UI state, and an unkeyed LazyColumn
+                    // preserves that by index — so a catalogue that reorders or
+                    // drops an entry moves one row's state onto another.
+                    items(shown, key = { it.id }) { item ->
+                        val isService = item.kind == StoreItemKind.SERVICE
+                        // Which half of the phone the name has to match
+                        // against. Two different things can carry one name, and
+                        // a badge lit off the other half would hide the install
+                        // button that would actually fix it.
+                        val onPhone = if (isService) installedServices else installed
+                        StoreItemRow(
+                            item = item,
+                            supported = isSupported(item),
+                            installed = item.matchKey in onPhone,
+                            updateAvailable = item.id in outdated,
+                            cardColor = cardColor,
+                            busy = item.id in downloading,
+                            testing = testing == item.id,
+                            anyTesting = testing != null,
+                            onInstall = {
+                                HapticUtils.triggerMediumFeedback(haptic, context, vibrationIntensity)
+                                onInstall(item)
+                            },
+                        ) {
+                            HapticUtils.triggerLightFeedback(haptic, context, vibrationIntensity)
+                            onTest(item)
+                        }
                     }
                 }
             }
@@ -566,56 +582,110 @@ private fun StoreEmptyState(
 }
 
 /**
- * All / Animations / Services — the two kinds the catalogue publishes.
+ * Search, kind, and the toggles that narrow the catalogue further.
  *
- * Chips rather than a menu because there are exactly three and they are the
- * first decision on this screen: what kind of thing is being looked for. A
- * menu would hide two of them behind a tap, and the third one's whole point is
- * that it is one.
+ * The kind row stays mutually exclusive — "animations and services" is [StoreKind.ALL],
+ * not two chips fighting — while the toggles below it are independent and ANDed,
+ * because "installed, for this phone, with an update" is a real question a
+ * single choice cannot ask. The search field is the open-ended version of the
+ * same filter: it matches name, description and author, folded to compare, so
+ * a catalogue that grows past a screenful stays navigable without a picker for
+ * every field.
  *
- * The selected chip uses the constructor's and the permissions screen's
- * selection colours so that "chosen" reads the same on every screen it appears
- * on.
+ * Rendered as its own item above the list (and above the "nothing matches"
+ * answer) so a user who narrows to nothing still has the controls that got
+ * them there.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun FilterChips(
+private fun FilterControls(
     filter: StoreFilter,
     onFilterChange: (StoreFilter) -> Unit,
 ) {
-    Row(
+    val chipColors = FilterChipDefaults.filterChipColors(
+        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+    )
+
+    Column(
         modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        StoreFilter.entries.forEach { option ->
+        OutlinedTextField(
+            value = filter.query,
+            onValueChange = { onFilterChange(filter.copy(query = it)) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            placeholder = { Text(stringResource(R.string.store_filter_search)) },
+            trailingIcon = {
+                if (filter.query.isNotEmpty()) {
+                    IconButton(onClick = { onFilterChange(filter.copy(query = "")) }) {
+                        Icon(
+                            imageVector = Icons.Filled.Clear,
+                            contentDescription = stringResource(R.string.store_filter_clear_search),
+                        )
+                    }
+                }
+            },
+        )
+
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            StoreKind.entries.forEach { option ->
+                FilterChip(
+                    selected = option == filter.kind,
+                    onClick = { onFilterChange(filter.copy(kind = option)) },
+                    label = {
+                        Text(
+                            text = stringResource(
+                                when (option) {
+                                    StoreKind.ALL -> R.string.store_filter_all
+                                    StoreKind.ANIMATION -> R.string.store_filter_animations
+                                    StoreKind.SERVICE -> R.string.store_filter_services
+                                },
+                            ),
+                        )
+                    },
+                    colors = chipColors,
+                )
+            }
+        }
+
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             FilterChip(
-                selected = option == filter,
-                onClick = { onFilterChange(option) },
-                label = {
-                    Text(
-                        text = stringResource(
-                            when (option) {
-                                StoreFilter.ALL -> R.string.store_filter_all
-                                StoreFilter.ANIMATION -> R.string.store_filter_animations
-                                StoreFilter.SERVICE -> R.string.store_filter_services
-                            },
-                        ),
-                    )
-                },
-                colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                ),
+                selected = filter.onlyCompatible,
+                onClick = { onFilterChange(filter.copy(onlyCompatible = !filter.onlyCompatible)) },
+                label = { Text(stringResource(R.string.store_filter_compatible)) },
+                colors = chipColors,
+            )
+            FilterChip(
+                selected = filter.onlyUpdates,
+                onClick = { onFilterChange(filter.copy(onlyUpdates = !filter.onlyUpdates)) },
+                label = { Text(stringResource(R.string.store_filter_updates)) },
+                colors = chipColors,
+            )
+            FilterChip(
+                selected = filter.onlyInstalled,
+                onClick = { onFilterChange(filter.copy(onlyInstalled = !filter.onlyInstalled)) },
+                label = { Text(stringResource(R.string.store_filter_installed)) },
+                colors = chipColors,
             )
         }
     }
 }
 
 /**
- * The catalogue has entries, but none in the half the chips are pointing at.
+ * The catalogue has entries, but none that pass what the user asked for.
  *
  * Its own line rather than the store's empty state, which says nothing has been
  * published at all — a statement this screen knows to be false, because the
- * list it just narrowed was full a moment ago.
+ * list it just narrowed was full a moment ago. The controls stay on screen
+ * above it, so getting back is a tap rather than a guess.
  */
 @Composable
 private fun FilterEmptyState() {

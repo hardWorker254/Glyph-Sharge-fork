@@ -379,14 +379,21 @@
   <string name="store_unsupported_devices">Works on %1$s</string>
   <string name="store_empty_title">The store is empty</string>
   <string name="store_empty_body">Nothing has been published to the catalogue yet. Check back later.</string>
-  <!-- The three chips across the top of the catalogue: two kinds, plus
-       everything. A menu would hide two of them behind a tap. -->
+  <!-- Kind chips across the top, then toggles and search below them. Chips for
+       the few fixed choices, a field for the open-ended one. -->
   <string name="store_filter_all">All</string>
   <string name="store_filter_animations">Animations</string>
   <string name="store_filter_services">Services</string>
-  <!-- Not the empty state above: the catalogue has entries, just not in the
-       half the chips are pointing at. -->
-  <string name="store_filter_empty">Nothing matches this filter.</string>
+  <string name="store_filter_compatible">For this phone</string>
+  <string name="store_filter_updates">Updates</string>
+  <string name="store_filter_installed">Installed</string>
+  <string name="store_filter_search">Search by name, author, or description</string>
+  <string name="store_filter_clear_search">Clear search</string>
+  <string name="store_kind_service">Service</string>
+  <string name="store_kind_animation">Animation</string>
+  <!-- Not the empty state above: the catalogue has entries, just none that
+       pass the current filters. -->
+  <string name="store_filter_empty">Nothing matches these filters.</string>
   <string name="store_loading">Loading the catalogue…</string>
   <string name="store_retry">Retry</string>
   <string name="store_offline_note">Showing a saved copy — the store could not be reached.</string>

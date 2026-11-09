@@ -240,14 +240,21 @@
   <string name="store_unsupported_devices">Работает на %1$s</string>
   <string name="store_empty_title">Магазин пуст</string>
   <string name="store_empty_body">В каталог пока ничего не опубликовано. Загляните позже.</string>
-  <!-- Три чипа сверху каталога: два вида и «всё». Меню спрятало бы два из
-       трёх за лишним нажатием. -->
+  <!-- Сверху чипы вида, ниже — переключатели и поиск. Чипы для нескольких
+       готовых вариантов, поле — для всего, что не помещается в варианты. -->
   <string name="store_filter_all">Все</string>
   <string name="store_filter_animations">Анимации</string>
   <string name="store_filter_services">Сервисы</string>
-  <!-- Не то же самое, что «Магазин пуст»: каталог наполнен, просто в той
-       половине, на которую смотрят чипы, пусто. -->
-  <string name="store_filter_empty">По этому фильтру ничего нет.</string>
+  <string name="store_filter_compatible">Для этого телефона</string>
+  <string name="store_filter_updates">С обновлением</string>
+  <string name="store_filter_installed">Установленные</string>
+  <string name="store_filter_search">Поиск по названию, автору или описанию</string>
+  <string name="store_filter_clear_search">Очистить поиск</string>
+  <string name="store_kind_service">Сервис</string>
+  <string name="store_kind_animation">Анимация</string>
+  <!-- Не то же самое, что «Магазин пуст»: каталог наполнен, но под текущие
+       фильтры ничего не подходит. -->
+  <string name="store_filter_empty">По этим фильтрам ничего нет.</string>
   <string name="store_loading">Загружаем каталог…</string>
   <string name="store_retry">Повторить</string>
   <string name="store_offline_note">Показана сохранённая копия — магазин недоступен.</string>

@@ -90,16 +90,17 @@ internal fun outdatedItems(
 }
 
 /**
- * Which part of the catalogue the screen shows.
+ * Narrows the catalogue by kind — the mutually exclusive row of chips.
  *
- * Here rather than in the composable because it is a choice the user makes and
- * then navigates away from: a chip selection that resets when the screen
- * redraws is a control that appears not to work. Applied by the screen, not by
- * [ScriptStoreViewModel.derived] — the ordering rule below is the part with
- * consequences, and a filter that silently narrowed `items` would leave a
- * second, hidden input behind a derivation documented as having three.
+ * Applied by the screen, not by [ScriptStoreViewModel.derived]: the ordering
+ * rule in [derived] is the part with consequences, and a filter that silently
+ * narrowed `items` would leave a second, hidden input behind a derivation
+ * documented as having the sources it actually has. Kept here rather than in
+ * the composable because it is a choice the user makes and then navigates away
+ * from: a chip selection that resets when the screen redraws is a control that
+ * appears not to work.
  */
-enum class StoreFilter {
+enum class StoreKind {
     /** Every entry the catalogue published. */
     ALL,
 
@@ -114,6 +115,45 @@ enum class StoreFilter {
         ALL -> true
         ANIMATION -> item.kind == StoreItemKind.ANIMATION
         SERVICE -> item.kind == StoreItemKind.SERVICE
+    }
+}
+
+/**
+ * The full filter the user has set. Every active constraint is ANDed.
+ *
+ * A data class rather than one growing enum because these axes are
+ * independent: "services, for this phone, with an update" is a real question,
+ * and mutually exclusive chips cannot ask it. [query] is the free-text part of
+ * the same filter — folded to compare, and matched against name, description
+ * and author so a catalogue that grows past a screenful stays navigable
+ * without a separate author picker.
+ */
+data class StoreFilter(
+    val kind: StoreKind = StoreKind.ALL,
+    val onlyCompatible: Boolean = false,
+    val onlyUpdates: Boolean = false,
+    val onlyInstalled: Boolean = false,
+    val query: String = "",
+) {
+    fun matches(
+        item: StoreItem,
+        supported: Boolean,
+        installed: Boolean,
+        updateAvailable: Boolean,
+    ): Boolean {
+        if (!kind.matches(item)) return false
+        if (onlyCompatible && !supported) return false
+        if (onlyUpdates && !updateAvailable) return false
+        if (onlyInstalled && !installed) return false
+
+        val q = query.trim()
+        if (q.isNotEmpty()) {
+            val needle = q.lowercase(Locale.getDefault())
+            val hay = "${item.name}\n${item.description}\n${item.author}"
+                .lowercase(Locale.getDefault())
+            if (needle !in hay) return false
+        }
+        return true
     }
 }
 
@@ -168,7 +208,7 @@ data class ScriptStoreUiState(
      * and `items` stays the whole catalogue so switching chips back does not
      * have to remember what it removed.
      */
-    val filter: StoreFilter = StoreFilter.ALL,
+    val filter: StoreFilter = StoreFilter(),
 
     /**
      * A service script waiting on the capability prompt, or `null`.
