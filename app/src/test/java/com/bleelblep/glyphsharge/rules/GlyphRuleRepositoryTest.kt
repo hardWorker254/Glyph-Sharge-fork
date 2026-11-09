@@ -179,15 +179,30 @@ class GlyphRuleRepositoryTest {
         assertFalse(decoded.acquireWakeLock)
     }
 
+    /**
+     * A blank animation is not corruption — it is the state a store-installed
+     * service lands in before the user picks what to play.
+     *
+     * Dropping the rule would make "installed" mean "gone", which is the bug
+     * this state exists to avoid. The rule loads as incomplete
+     * ([GlyphRule.needsAnimation]) instead, and playback/UI treat the missing
+     * animation as a visible gap rather than as an arbitrary fallback.
+     */
     @Test
-    fun `a rule with no animation is dropped rather than defaulted`() {
+    fun `a rule with no animation loads as incomplete rather than dropped`() {
         val json = JSONObject().apply {
             put("id", "x")
             put("trigger", "screen_off")
+            put("scriptId", "service:abc")
             // no "animation"
         }
 
-        assertNull(GlyphRule.fromJson(json))
+        val decoded = GlyphRule.fromJson(json)
+
+        assertNotNull(decoded)
+        assertTrue(decoded!!.needsAnimation)
+        assertEquals("", decoded.animationId)
+        assertTrue(decoded.isScripted)
     }
 
     @Test

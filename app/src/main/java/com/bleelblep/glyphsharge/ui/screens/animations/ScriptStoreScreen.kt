@@ -323,12 +323,10 @@ private fun StoreItemRow(
     }
 
     // What the menu would hold, decided before it is drawn: an item with
-    // nothing to act on is not a menu but a dead end. A service already on
-    // the phone with no update behind it has only the ✓, and an unsupported
-    // card has no valid action at all.
-    val hasActions = supported && (
-        (item.kind == StoreItemKind.ANIMATION) || !installed || updateAvailable
-        )
+    // nothing to act on is not a menu but a dead end. Animations always offer
+    // Test; services always offer Install, which is idempotent and heals the
+    // case where the script is in the library but no rule was created for it.
+    val hasActions = supported
 
     Card(
         modifier = Modifier
@@ -443,9 +441,28 @@ private fun StoreItemRow(
                                     )
                                 }
 
-                                // Installed and current: nothing left to
-                                // press — the ✓ on the row already said so.
-                                installed -> Unit
+                                // Installed and current. An animation already
+                                // has Test above and nothing else to do; a service
+                                // keeps Install so a library script with no rule
+                                // on the home screen can be healed.
+                                installed && item.kind == StoreItemKind.ANIMATION -> Unit
+
+                                installed -> {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                stringResource(
+                                                    if (busy) R.string.store_loading else R.string.store_action_install,
+                                                ),
+                                            )
+                                        },
+                                        enabled = !busy && !testing,
+                                        onClick = {
+                                            menuOpen = false
+                                            onInstall()
+                                        },
+                                    )
+                                }
 
                                 else -> {
                                     DropdownMenuItem(

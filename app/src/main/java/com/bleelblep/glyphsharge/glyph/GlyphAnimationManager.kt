@@ -285,6 +285,15 @@ class GlyphAnimationManager @Inject constructor(
      * and ignore the duration setting.
      */
     private suspend fun playAnimation(id: String, durationMs: Long, batteryArc: String) {
+        // A rule with no animation bound is a service that was installed but not
+        // configured yet. It is not an error and not a request for the fallback
+        // pulse — it is an explicit "nothing to play", so the strip stays dark.
+        if (id.isBlank()) {
+            Log.d(TAG, "No animation bound; skipping")
+            runTrace.record("rule", "", "skipped: no animation bound")
+            return
+        }
+
         // A user script arrives before the built-in lookup: its id is namespaced
         // precisely so the two cannot collide.
         if (ScriptAnimation.isCustomId(id)) {

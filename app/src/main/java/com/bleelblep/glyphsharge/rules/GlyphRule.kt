@@ -82,6 +82,17 @@ data class GlyphRule(
     /** Whether this is an advanced rule driven by a `.servicelua` script. */
     val isScripted: Boolean get() = scriptId != null
 
+    /**
+     * A rule that can fire but has nothing to light up yet.
+     *
+     * A service installed from the store arrives as a ready script with no
+     * animation bound — the animation is the user's choice, made after install.
+     * The rule still exists (so it appears immediately) and the host can still
+     * attach it, but a fire is a no-op until an animation is picked, and the
+     * UI marks it so the gap is visible rather than silent.
+     */
+    val needsAnimation: Boolean get() = animationId.isBlank()
+
     fun toJson(): JSONObject = JSONObject().apply {
         put(KEY_ID, id)
         put(KEY_NAME, name)
@@ -118,15 +129,16 @@ data class GlyphRule(
         /**
          * Reads a rule written by [toJson].
          *
-         * A rule missing its animation is dropped by the caller rather than
-         * defaulted here: a rule that would light up an arbitrary animation is
-         * worse than a rule that does not exist. Everything else has a
-         * defensible default so a hand-edited or partially-written file still
-         * loads.
+         * A rule with no [animationId] is still loaded: a store-installed
+         * service arrives as a script with nothing bound to play yet, and
+         * dropping it would make "installed" mean "gone". The rule is
+         * incomplete ([GlyphRule.needsAnimation]) rather than corrupt, and the
+         * host/UI treat a blank animation as a no-op. Everything else keeps a
+         * defensible default so a hand-edited file still loads.
          */
         fun fromJson(json: JSONObject): GlyphRule? {
             val id = json.optString(KEY_ID).takeIf { it.isNotBlank() } ?: return null
-            val animationId = json.optString(KEY_ANIMATION).takeIf { it.isNotBlank() } ?: return null
+            val animationId = json.optString(KEY_ANIMATION).trim()
             return GlyphRule(
                 id = id,
                 name = json.optString(KEY_NAME, id),

@@ -222,10 +222,10 @@
 
   <string name="studio_reference_modules_note">require разрешает ровно эти шесть имён и больше ничего. Нет require(\"os\") и нет способа прочитать файл — это песочница, и сделана она намеренно. Все три уровня лежат в модуле: сам по себе glyph.log — обычная функция.</string>
 
-  <!-- Магазин анимаций. Надпись о неподдерживаемой анимации заменяет обе
+  <!-- Магазин скриптов. Надпись о неподдерживаемой записи заменяет обе
        кнопки, а не гасит их: серая кнопка на приглушённой карточке читается
        как «нажми, вдруг включится», а нажимать тут нечего. -->
-  <string name="store_title">Магазин анимаций</string>
+  <string name="store_title">Магазин</string>
   <string name="store_action_install">Установить</string>
   <!-- Уже не кнопка: анимация лежит на телефоне, нажимать нечего. Зелёная
        потому, что это ответ, а не приглашение. Но если каталог опубликовал
@@ -264,6 +264,7 @@
   <string name="store_msg_tested">«%1$s» проиграна</string>
   <string name="store_msg_failed">Не удалось установить анимацию</string>
   <string name="store_msg_update_failed">Не удалось обновить анимацию</string>
+  <string name="store_msg_install_declined">Ничего не установлено.</string>
 
 
   <!-- Имена каналов уведомлений: их нельзя поменять после создания канала,
@@ -391,6 +392,7 @@
     <!-- Rule constructor -->
     <string name="rules_empty">Правил пока нет. Нажмите ＋, чтобы создать: триггер, анимация — и полоса оживёт.</string>
     <string name="rules_add">Добавить правило</string>
+    <string name="rules_needs_animation">Не добавлена анимация</string>
     <string name="rules_custom_script">Пользовательский скрипт</string>
     <string name="rules_delete">Удалить правило</string>
     <string name="rules_test">Проверить</string>

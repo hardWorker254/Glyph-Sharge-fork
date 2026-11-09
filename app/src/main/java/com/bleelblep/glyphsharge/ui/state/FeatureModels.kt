@@ -50,5 +50,14 @@ data class RuleUiState(
     val description: String,
     val isEnabled: Boolean,
     val canExportScript: Boolean = false,
+    /**
+     * The rule has no animation bound yet.
+     *
+     * A service installed from the store lands in this state: it is a real,
+     * enabled rule with a script, but nothing to play until the user picks an
+     * animation. The home card marks it so the gap is visible, and a tap opens
+     * the constructor to finish the setup.
+     */
+    val needsAnimation: Boolean = false,
 )
 

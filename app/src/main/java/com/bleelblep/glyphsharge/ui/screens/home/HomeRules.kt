@@ -135,7 +135,14 @@ private fun RuleCard(
                 Text(
                     text = rule.description,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    // A store-installed service lands with no animation bound: the
+                    // rule is real but cannot play until one is picked, and that
+                    // gap has to read as a problem rather than as a description.
+                    color = if (rule.needsAnimation) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

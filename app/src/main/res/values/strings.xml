@@ -169,6 +169,7 @@
        builds one. A rule is a trigger plus an animation, named by the user. -->
   <string name="rules_empty">No rules yet. Tap ＋ to build one: a trigger, an animation, and the strip lights up.</string>
   <string name="rules_add">Add rule</string>
+  <string name="rules_needs_animation">No animation added</string>
   <string name="rules_custom_script">Custom script</string>
   <string name="rules_delete">Delete rule</string>
   <string name="rules_test">Test</string>
@@ -364,7 +365,7 @@
   <!-- Animation store. The unsupported label replaces both action buttons
        rather than disabling them: a greyed-out button on a dimmed card reads
        as "press it, it might work", and there is nothing to press. -->
-  <string name="store_title">Animation Store</string>
+  <string name="store_title">Store</string>
   <string name="store_action_install">Install</string>
   <!-- Not a button any more: the animation is already on the phone, so
        there is nothing to press. Green because it is an answer — unless the
@@ -403,6 +404,7 @@
   <string name="store_msg_tested">“%1$s” finished playing</string>
   <string name="store_msg_failed">Could not install the animation</string>
   <string name="store_msg_update_failed">Could not update the animation</string>
+  <string name="store_msg_install_declined">Nothing was installed.</string>
 
   <!-- Notification for the Glow Gate service -->
 

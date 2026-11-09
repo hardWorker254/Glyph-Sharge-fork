@@ -15,6 +15,9 @@ import com.bleelblep.glyphsharge.data.StoreItemKind
 import com.bleelblep.glyphsharge.glyph.GlyphAnimationManager
 import com.bleelblep.glyphsharge.glyph.device.DeviceProfileFactory
 import com.bleelblep.glyphsharge.glyph.script.ScriptCapability
+import com.bleelblep.glyphsharge.glyph.script.ServiceScript
+import com.bleelblep.glyphsharge.rules.GlyphRule
+import com.bleelblep.glyphsharge.rules.GlyphRuleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.Channel
@@ -293,6 +296,7 @@ class ScriptStoreViewModel @Inject constructor(
     private val serviceScripts: ServiceScriptRepository,
     private val scriptPermissions: ScriptPermissionStore,
     private val glyphAnimationManager: GlyphAnimationManager,
+    private val ruleRepository: GlyphRuleRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ScriptStoreUiState())
@@ -487,7 +491,9 @@ class ScriptStoreViewModel @Inject constructor(
 
     /** Declining installs nothing, and nothing has been written to undo. */
     fun declinePendingInstall() {
+        if (_uiState.value.pendingInstall == null) return
         _uiState.update { it.copy(pendingInstall = null) }
+        notify(context.getString(R.string.store_msg_install_declined))
     }
 
     /** Which part of the catalogue the screen is showing; see [StoreFilter]. */
@@ -515,9 +521,22 @@ class ScriptStoreViewModel @Inject constructor(
         val target = updateTarget(item)
         val result = runCatching {
             if (item.kind == StoreItemKind.SERVICE) {
-                val installed = serviceScripts.importFrom(source, item.name)
-                if (granted.isNotEmpty()) scriptPermissions.grant(installed.id, granted)
-                installed.name
+                // A service script may already be in the library (imported before
+                // store installs created rules, or installed by hand under the same
+                // name). Re-importing would mint a duplicate "(2)" entry; healing
+                // means ensuring the existing one has a rule on the home screen.
+                val key = matchKey(item.name)
+                val existing = serviceScripts.scripts.value.firstOrNull { matchKey(it.name) == key }
+                if (existing != null) {
+                    if (granted.isNotEmpty()) scriptPermissions.grant(existing.id, granted)
+                    ensureRuleFor(existing)
+                    existing.name
+                } else {
+                    val installed = serviceScripts.importFrom(source, item.name)
+                    if (granted.isNotEmpty()) scriptPermissions.grant(installed.id, granted)
+                    ensureRuleFor(installed)
+                    installed.name
+                }
             } else {
                 check(source)
                 val saved = if (target != null) {
@@ -618,6 +637,43 @@ class ScriptStoreViewModel @Inject constructor(
             throw StoreException(result.message ?: context.getString(R.string.store_msg_failed))
         }
     }
+
+    /**
+     * A store-installed service becomes a rule the moment it lands, so it shows
+     * up on the home screen right away instead of sitting invisible in the
+     * library. The rule is real but incomplete: it has the script and no
+     * animation, which the home card marks in red and a tap lets the user fix.
+     *
+     * No duplicate is created when a rule already drives a service of the same
+     * name — installing the same catalogue entry twice should not stack two
+     * cards that do the same thing.
+     */
+    private fun ensureRuleFor(script: ServiceScript) {
+        val key = matchKey(script.name)
+        val already = ruleRepository.rules.value.any { rule ->
+            rule.isScripted && serviceScriptRepositoryName(rule.scriptId) == key
+        }
+        if (already) return
+
+        ruleRepository.save(
+            GlyphRule(
+                id = GlyphRule.newId(),
+                name = script.name,
+                enabled = true,
+                triggerId = "",
+                animationId = "",
+                durationMs = GlyphRule.DEFAULT_DURATION_MS,
+                scriptId = script.runtimeId,
+            ),
+        )
+    }
+
+    /** The folded name of the service script a rule points at, or `null`. */
+    private fun serviceScriptRepositoryName(scriptId: String?): String? =
+        scriptId
+            ?.let { serviceScripts.getById(it) }
+            ?.name
+            ?.let(::matchKey)
 
     private fun failureMessage(error: Throwable): String = when (error) {
         is StoreException -> error.message ?: context.getString(R.string.store_msg_failed)

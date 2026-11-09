@@ -35,6 +35,7 @@ fun GlyphRule.toRuleUiState(
     // a scriptId, and the export that would fail is exactly the one a row
     // should not offer.
     canExportScript = scriptId?.let { serviceScriptRepository.getById(it) != null } ?: false,
+    needsAnimation = needsAnimation,
 )
 
 /**
@@ -70,12 +71,16 @@ private fun GlyphRule.describe(
             else -> trigger
         }
     }
-    val animation = GlyphAnimations.list.firstOrNull { it.id == animationId }?.displayName
-        ?: if (ScriptAnimation.isCustomId(animationId)) {
-            context.getString(R.string.rules_custom_script)
-        } else {
-            animationId
-        }
+    val animation = if (needsAnimation) {
+        context.getString(R.string.rules_needs_animation)
+    } else {
+        GlyphAnimations.list.firstOrNull { it.id == animationId }?.displayName
+            ?: if (ScriptAnimation.isCustomId(animationId)) {
+                context.getString(R.string.rules_custom_script)
+            } else {
+                animationId
+            }
+    }
     // The arc is appended only when it is not the default, for the same
     // reason the thresholds print their number: two battery rules that differ
     // only in which strip they light would otherwise read the same. Only the
